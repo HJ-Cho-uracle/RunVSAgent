@@ -15,25 +15,36 @@ import com.sina.weibo.agent.extensions.ui.buttons.ButtonType
 import com.sina.weibo.agent.extensions.ui.buttons.ButtonConfiguration
 
 /**
- * Costrict extension button provider.
- * Provides button configuration specific to Costrict extension.
+ * Costrict 확장 버튼 제공자입니다.
+ * Costrict 확장에 특화된 버튼 구성을 제공합니다.
  */
 class CostrictCodeButtonProvider : ExtensionButtonProvider {
     
+    // 확장의 고유 ID를 반환합니다.
     override fun getExtensionId(): String = "costrict"
     
+    // 확장의 표시 이름을 반환합니다.
     override fun getDisplayName(): String = "Costrict"
     
-    override fun getDescription(): String = "AI-powered code assistant with advanced capabilities"
+    // 확장에 대한 설명을 반환합니다.
+    override fun getDescription(): String = "고급 기능을 갖춘 AI 기반 코드 어시스턴트"
     
+    /**
+     * Costrict 확장이 사용 가능한지 여부를 확인합니다.
+     * @param project 현재 IntelliJ 프로젝트
+     * @return 확장이 사용 가능하면 true, 그렇지 않으면 false
+     */
     override fun isAvailable(project: Project): Boolean {
-        // Check if costrict extension is available
-        // This could include checking for extension files, dependencies, etc.
+        // TODO: Costrict 확장의 가용성 조건을 확인할 수 있습니다.
         return true
     }
     
+    /**
+     * Costrict 확장을 위한 버튼 목록을 생성하여 반환합니다.
+     * @param project 현재 IntelliJ 프로젝트 (향후 확장성을 위해 유지)
+     * @return `AnAction` 객체 리스트 형태의 버튼 목록
+     */
     override fun getButtons(project: Project): List<AnAction> {
-        // Note: project parameter kept for future extensibility
         return listOf(
             PlusButtonClickAction(),
             PromptsButtonClickAction(),
@@ -45,190 +56,199 @@ class CostrictCodeButtonProvider : ExtensionButtonProvider {
         )
     }
     
+    /**
+     * Costrict 확장을 위한 버튼 구성 정보를 반환합니다.
+     */
     override fun getButtonConfiguration(): ButtonConfiguration {
         return CostrictCodeButtonConfiguration()
     }
     
     /**
-     * Costrict button configuration - shows all buttons (full-featured).
+     * Costrict 버튼 구성 클래스입니다.
+     * 모든 버튼이 표시되도록 설정합니다. (모든 기능을 제공하는 확장)
      */
     private class CostrictCodeButtonConfiguration : ButtonConfiguration {
+        /**
+         * 특정 버튼 타입이 표시되어야 하는지 여부를 반환합니다.
+         * Costrict의 경우 모든 버튼이 표시됩니다.
+         */
         override fun isButtonVisible(buttonType: ButtonType): Boolean {
-            return true // All buttons are visible for Costrict
+            return true // 모든 버튼이 Costrict에서 표시됩니다.
         }
         
+        /**
+         * 표시될 버튼 타입 목록을 반환합니다.
+         * Costrict의 경우 모든 버튼 타입을 반환합니다.
+         */
         override fun getVisibleButtons(): List<ButtonType> {
             return ButtonType.values().toList()
         }
     }
 
     /**
-     * Action that handles clicks on the Plus button in the UI.
-     * Executes the corresponding VSCode command when triggered.
+     * UI의 "새 작업" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
      */
     class PlusButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(PlusButtonClickAction::class.java)
-        private val commandId: String = "zgsm.plusButtonClicked"
+        private val commandId: String = "zgsm.plusButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
-            templatePresentation.icon = AllIcons.General.Add
-            templatePresentation.text = "New Task"
-            templatePresentation.description = "New task"
+            templatePresentation.icon = AllIcons.General.Add // 아이콘 설정
+            templatePresentation.text = "새 작업" // 버튼 텍스트
+            templatePresentation.description = "새 작업" // 툴팁 설명
         }
 
         /**
-         * Performs the action when the Plus button is clicked.
-         *
-         * @param e The action event containing context information
+         * "새 작업" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("Plus button clicked")
-            executeCommand(commandId,e.project)
+            logger.info("새 작업 버튼 클릭됨")
+            executeCommand(commandId, e.project) // VSCode 명령 실행
         }
     }
 
     /**
-     * Action that handles clicks on the Prompts button in the UI.
-     * Executes the corresponding VSCode command when triggered.
+     * UI의 "프롬프트" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
      */
     class PromptsButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(PromptsButtonClickAction::class.java)
-        private val commandId: String = "zgsm.promptsButtonClicked"
+        private val commandId: String = "zgsm.promptsButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
             templatePresentation.icon = AllIcons.General.Information
-            templatePresentation.text = "Prompt"
-            templatePresentation.description = "Prompts"
+            templatePresentation.text = "프롬프트"
+            templatePresentation.description = "프롬프트"
         }
 
         /**
-         * Performs the action when the Prompts button is clicked.
-         *
-         * @param e The action event containing context information
+         * "프롬프트" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("Prompts button clicked")
+            logger.info("프롬프트 버튼 클릭됨")
             executeCommand(commandId, e.project)
         }
     }
 
+    /**
+     * UI의 "계정" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
+     */
     class AccountButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(AccountButtonClickAction::class.java)
-        private val commandId: String = "zgsm.cloudButtonClicked"
+        private val commandId: String = "zgsm.cloudButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
             templatePresentation.icon = AllIcons.General.User
-            templatePresentation.text = "Account"
-            templatePresentation.description = "Account"
+            templatePresentation.text = "계정"
+            templatePresentation.description = "계정"
         }
 
         /**
-         * Performs the action when the MCP button is clicked.
-         *
-         * @param e The action event containing context information
+         * "계정" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("Account clicked")
+            logger.info("계정 버튼 클릭됨")
             executeCommand(commandId, e.project)
         }
     }
 
     /**
-     * Action that handles clicks on the MCP button in the UI.
-     * Executes the corresponding VSCode command when triggered.
+     * UI의 "MCP 서버" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
      */
     class MCPButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(MCPButtonClickAction::class.java)
-        private val commandId: String = "zgsm.mcpButtonClicked"
+        private val commandId: String = "zgsm.mcpButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
             templatePresentation.icon = AllIcons.Webreferences.Server
-            templatePresentation.text = "MCP Server"
-            templatePresentation.description = "MCP server"
+            templatePresentation.text = "MCP 서버"
+            templatePresentation.description = "MCP 서버"
         }
 
         /**
-         * Performs the action when the MCP button is clicked.
-         *
-         * @param e The action event containing context information
+         * "MCP 서버" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("MCP button clicked")
+            logger.info("MCP 버튼 클릭됨")
             executeCommand(commandId, e.project)
         }
     }
 
     /**
-     * Action that handles clicks on the History button in the UI.
-     * Executes the corresponding VSCode command when triggered.
+     * UI의 "기록" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
      */
     class HistoryButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(HistoryButtonClickAction::class.java)
-        private val commandId: String = "zgsm.historyButtonClicked"
+        private val commandId: String = "zgsm.historyButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
             templatePresentation.icon = AllIcons.Vcs.History
-            templatePresentation.text = "History"
-            templatePresentation.description = "History"
+            templatePresentation.text = "기록"
+            templatePresentation.description = "기록"
         }
 
         /**
-         * Performs the action when the History button is clicked.
-         *
-         * @param e The action event containing context information
+         * "기록" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("History button clicked")
+            logger.info("기록 버튼 클릭됨")
             executeCommand(commandId, e.project)
         }
     }
 
     /**
-     * Action that handles clicks on the Settings button in the UI.
-     * Executes the corresponding VSCode command when triggered.
+     * UI의 "설정" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
      */
     class SettingsButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(SettingsButtonClickAction::class.java)
-        private val commandId: String = "zgsm.settingsButtonClicked"
+        private val commandId: String = "zgsm.settingsButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
             templatePresentation.icon = AllIcons.General.Settings
-            templatePresentation.text = "Settings"
-            templatePresentation.description = "Setting"
+            templatePresentation.text = "설정"
+            templatePresentation.description = "설정"
         }
 
         /**
-         * Performs the action when the Settings button is clicked.
-         *
-         * @param e The action event containing context information
+         * "설정" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("Settings button clicked")
+            logger.info("설정 버튼 클릭됨")
             executeCommand(commandId, e.project)
         }
     }
 
     /**
-     * Action that handles clicks on the Marketplace button in the UI.
-     * Executes the corresponding VSCode command when triggered.
+     * UI의 "마켓플레이스" 버튼 클릭을 처리하는 액션입니다.
+     * 트리거될 때 해당 VSCode 명령을 실행합니다.
      */
     class MarketplaceButtonClickAction : AnAction() {
         private val logger: Logger = Logger.getInstance(MarketplaceButtonClickAction::class.java)
-        private val commandId: String = "zgsm.marketplaceButtonClicked"
+        private val commandId: String = "zgsm.marketplaceButtonClicked" // 실행할 VSCode 명령 ID
 
         init {
             templatePresentation.icon = AllIcons.Actions.Install
-            templatePresentation.text = "MCP Marketplace"
-            templatePresentation.description = "Marketplace"
+            templatePresentation.text = "MCP 마켓플레이스"
+            templatePresentation.description = "마켓플레이스"
         }
 
         /**
-         * Performs the action when the Marketplace button is clicked.
-         *
-         * @param e The action event containing context information
+         * "마켓플레이스" 버튼이 클릭되었을 때 액션을 수행합니다.
+         * @param e 컨텍스트 정보를 포함하는 액션 이벤트
          */
         override fun actionPerformed(e: AnActionEvent) {
-            logger.info("Marketplace button clicked")
+            logger.info("마켓플레이스 버튼 클릭됨")
             executeCommand(commandId, e.project)
         }
     }

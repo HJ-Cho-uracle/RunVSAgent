@@ -27,6 +27,7 @@ import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.openapi.application.ApplicationInfo
+import com.intellij.openapi.startup.ProjectActivity
 import com.sina.weibo.agent.core.*
 import com.sina.weibo.agent.extensions.core.ExtensionConfigurationManager
 import com.sina.weibo.agent.extensions.core.ExtensionManager
@@ -36,23 +37,24 @@ import com.sina.weibo.agent.util.PluginResourceUtil
 import java.io.File
 
 /**
- * WeCode IDEA plugin entry class
- * Responsible for plugin initialization and lifecycle management
+ * WeCode IDEA 플러그인의 진입점 클래스입니다.
+ * 플러그인 초기화 및 생명주기 관리를 담당합니다.
+ * `ProjectActivity`와 `StartupActivity.DumbAware`를 구현하여 프로젝트 시작 시 실행됩니다.
  */
-class WecoderPlugin : StartupActivity.DumbAware {
+class WecoderPlugin : ProjectActivity, StartupActivity.DumbAware {
     companion object {
         private val LOG = Logger.getInstance(WecoderPlugin::class.java)
 
         /**
-         * Get plugin service instance
+         * 플러그인 서비스 인스턴스를 가져옵니다.
          */
         fun getInstance(project: Project): WecoderPluginService {
             return project.getService(WecoderPluginService::class.java)
-                ?: error("WecoderPluginService not found")
+                ?: error("WecoderPluginService 서비스를 찾을 수 없습니다.")
         }
 
         /**
-         * Get the basePath of the current project
+         * 현재 프로젝트의 기본 경로(basePath)를 가져옵니다.
          */
         @JvmStatic
         fun getProjectBasePath(project: Project): String? {
@@ -60,7 +62,13 @@ class WecoderPlugin : StartupActivity.DumbAware {
         }
     }
 
+    /**
+     * 프로젝트 시작 시 실행되는 메인 활동입니다.
+     * 플러그인의 모든 핵심 컴포넌트를 초기화하고 설정합니다.
+     * @param project 현재 IntelliJ 프로젝트
+     */
     override fun runActivity(project: Project) {
+        // IDE 및 플러그인 정보 로깅
         val appInfo = ApplicationInfo.getInstance()
         val plugin = PluginManagerCore.getPlugin(PluginId.getId(PluginConstants.PLUGIN_ID))
         val pluginVersion = plugin?.version ?: "unknown"
@@ -69,19 +77,19 @@ class WecoderPlugin : StartupActivity.DumbAware {
         val osArch = System.getProperty("os.arch")
         
         LOG.info(
-            "Initializing RunVSAgent plugin for project: ${project.name}, " +
+            "RunVSAgent 플러그인 초기화 중 (프로젝트: ${project.name}), " +
             "OS: $osName $osVersion ($osArch), " +
-            "IDE: ${appInfo.fullApplicationName} (build ${appInfo.build}), " +
-            "Plugin version: $pluginVersion, " +
-            "JCEF supported: ${JBCefApp.isSupported()}"
+            "IDE: ${appInfo.fullApplicationName} (빌드 ${appInfo.build}), " +
+            "플러그인 버전: $pluginVersion, " +
+            "JCEF 지원: ${JBCefApp.isSupported()}"
         )
 
         try {
-            // 1. First initialize configuration manager
+            // 1. ExtensionConfigurationManager 초기화
             val configManager = ExtensionConfigurationManager.getInstance(project)
             configManager.initialize()
             
-            // 2. Wait for configuration loading to complete
+            // 2. 설정 로딩 완료 대기
             var retryCount = 0
             val maxRetries = 10
             while (!configManager.isConfigurationLoaded() && retryCount < maxRetries) {
@@ -89,155 +97,167 @@ class WecoderPlugin : StartupActivity.DumbAware {
                 retryCount++
             }
             
-            // 3. Validate configuration validity
+            // 3. 설정 유효성 검사
             if (!canProceedWithInitialization(configManager)) {
-                // Check if auto-creation of default configuration is allowed (controlled by system property)
+                // 기본 설정 자동 생성 허용 여부 확인
                 val allowAutoCreate = System.getProperty("runvsagent.auto.create.config", "false").toBoolean()
                 if (allowAutoCreate) {
-                    LOG.info("Auto-creation of default configuration is enabled, attempting to create...")
+                    LOG.info("기본 설정 자동 생성이 활성화되어 있습니다. 생성 시도 중...")
                     configManager.createDefaultConfiguration()
                     
-                    // Validate configuration again
+                    // 다시 설정 유효성 검사
                     if (canProceedWithInitialization(configManager)) {
-                        LOG.info("Default configuration created successfully, continuing initialization")
+                        LOG.info("기본 설정 생성 성공, 초기화 계속 진행")
                     } else {
-                        LOG.warn("Failed to create valid configuration, plugin initialization paused")
-                        LOG.warn("Please manually create or fix ${PluginConstants.ConfigFiles.MAIN_CONFIG_FILE} file")
-                        LOG.warn("Then restart the IDE or reload the project to continue")
-                        return // Pause initialization
+                        LOG.warn("유효한 설정 생성 실패, 플러그인 초기화 일시 중지")
+                        LOG.warn("수동으로 ${PluginConstants.ConfigFiles.MAIN_CONFIG_FILE} 파일을 생성하거나 수정해주세요.")
+                        LOG.warn("그 후 IDE를 다시 시작하거나 프로젝트를 다시 로드하여 계속 진행하세요.")
+                        return // 초기화 일시 중지
                     }
                 } else {
-                    // Don't auto-create default configuration, truly pause initialization
-                    LOG.warn("Plugin initialization paused due to invalid configuration")
-                    LOG.warn("To enable auto-creation of default configuration, set system property: -Drunvsagent.auto.create.config=true")
-                    LOG.warn("Or manually create/fix ${PluginConstants.ConfigFiles.MAIN_CONFIG_FILE} file")
-                    LOG.warn("Then restart the IDE or reload the project to continue")
-                    return // Truly pause initialization
+                    LOG.warn("유효하지 않은 설정으로 인해 플러그인 초기화 일시 중지")
+                    LOG.warn("기본 설정 자동 생성을 활성화하려면 시스템 속성: -Drunvsagent.auto.create.config=true를 설정하세요.")
+                    LOG.warn("또는 수동으로 ${PluginConstants.ConfigFiles.MAIN_CONFIG_FILE} 파일을 생성/수정하세요.")
+                    LOG.warn("그 후 IDE를 다시 시작하거나 프로젝트를 다시 로드하여 계속 진행하세요.")
+                    return // 초기화 일시 중지
                 }
             }
             
-            // 4. Only initialize ExtensionManager when configuration is valid
+            // 4. 설정이 유효할 때만 ExtensionManager 초기화
             val configuredExtensionId = configManager.getCurrentExtensionId()
             if (configuredExtensionId != null) {
                 val extensionManager = ExtensionManager.getInstance(project)
-                extensionManager.initialize(configuredExtensionId) // Pass configured extensionId
+                extensionManager.initialize(configuredExtensionId) // 설정된 확장 ID 전달
                 
-                // Initialize current extension provider
+                // 현재 확장 제공자 초기화
                 extensionManager.initializeCurrentProvider()
                 
-                // 5. Continue with other initialization...
+                // 5. WecoderPluginService 초기화
                 val pluginService = getInstance(project)
                 pluginService.initialize(project)
                 
-                // Initialize WebViewManager and register to project Disposer
+                // WebViewManager 초기화 및 프로젝트 Disposer에 등록
                 val webViewManager = project.getService(WebViewManager::class.java)
                 Disposer.register(project, webViewManager)
                 
-                // Start configuration monitoring
+                // 설정 변경 모니터링 시작
                 startConfigurationMonitoring(project, configManager)
                 
-                // Register project-level resource cleanup
+                // 프로젝트 레벨 리소스 정리 등록
                 Disposer.register(project, Disposable {
-                    LOG.info("Disposing RunVSAgent plugin for project: ${project.name}")
+                    LOG.info("프로젝트 '${project.name}'에 대한 RunVSAgent 플러그인 해제 중")
                     pluginService.dispose()
                     extensionManager.dispose()
                     SystemObjectProvider.dispose()
                 })
                 
-                LOG.info("RunVSAgent plugin initialized successfully for project: ${project.name}")
+                LOG.info("프로젝트 '${project.name}'에 대한 RunVSAgent 플러그인 초기화 성공")
             } else {
-                LOG.error("Configuration is valid but no extension ID found, plugin initialization paused")
+                LOG.error("설정은 유효하지만 확장 ID를 찾을 수 없습니다. 플러그인 초기화 일시 중지")
                 return
             }
         } catch (e: Exception) {
-            LOG.error("Failed to initialize RunVSAgent plugin", e)
+            LOG.error("RunVSAgent 플러그인 초기화 실패", e)
         }
     }
     
     /**
-     * Check if plugin can proceed with initialization
+     * 플러그인 초기화를 계속 진행할 수 있는지 확인합니다.
+     * @param configManager 확장 설정 관리자
+     * @return 초기화를 진행할 수 있으면 true
      */
     private fun canProceedWithInitialization(configManager: ExtensionConfigurationManager): Boolean {
         if (!configManager.isConfigurationLoaded()) {
-            LOG.warn("Configuration not yet loaded, cannot proceed with initialization")
+            LOG.warn("설정이 아직 로드되지 않아 초기화를 진행할 수 없습니다.")
             return false
         }
         
         if (!configManager.isConfigurationValid()) {
-            LOG.warn("Configuration is invalid, cannot proceed with initialization")
+            LOG.warn("설정이 유효하지 않아 초기화를 진행할 수 없습니다.")
             return false
         }
         
         val extensionId = configManager.getCurrentExtensionId()
         if (extensionId.isNullOrBlank()) {
-            LOG.warn("No valid extension ID found in configuration")
+            LOG.warn("설정에서 유효한 확장 ID를 찾을 수 없습니다.")
             return false
         }
         
-        LOG.info("Configuration validation passed, extension ID: $extensionId")
+        LOG.info("설정 유효성 검사 통과, 확장 ID: $extensionId")
         return true
     }
     
     /**
-     * Start configuration monitoring to detect changes
+     * 설정 파일 변경을 감지하기 위한 모니터링을 시작합니다.
+     * @param project 현재 IntelliJ 프로젝트
+     * @param configManager 확장 설정 관리자
      */
     private fun startConfigurationMonitoring(project: Project, configManager: ExtensionConfigurationManager) {
-        // Start background monitoring thread
+        // 백그라운드 모니터링 스레드를 시작합니다.
         Thread {
             try {
                 while (!project.isDisposed) {
-                    Thread.sleep(5000) // Check every 5 seconds
+                    Thread.sleep(5000) // 5초마다 확인
                     
                     if (!project.isDisposed) {
-                        configManager.checkConfigurationChange()
+                        configManager.checkConfigurationChange() // 설정 변경 확인
                         
-                        // Log configuration status periodically
+                        // 설정이 유효하지 않으면 주기적으로 경고를 로깅합니다.
                         if (!configManager.isConfigurationValid()) {
-                            val errorMsg = configManager.getConfigurationError() ?: "Unknown configuration error"
-                            LOG.warn("Configuration still invalid: $errorMsg")
-                            LOG.warn("Configuration file: ${configManager.getConfigurationFilePath()}")
-                            LOG.warn("Plugin functionality is paused due to invalid configuration")
-                            LOG.warn("Please fix the configuration and restart the IDE to continue")
+                            val errorMsg = configManager.getConfigurationError() ?: "알 수 없는 설정 오류"
+                            LOG.warn("설정이 여전히 유효하지 않습니다: $errorMsg")
+                            LOG.warn("설정 파일: ${configManager.getConfigurationFilePath()}")
+                            LOG.warn("유효하지 않은 설정으로 인해 플러그인 기능이 일시 중지됩니다.")
+                            LOG.warn("설정을 수정하고 IDE를 다시 시작하여 계속 진행하세요.")
                         } else {
-                            // Log successful configuration status occasionally
-                            if (System.currentTimeMillis() % 60000 < 5000) { // Log every minute
-                                LOG.info("Configuration status: Valid (${configManager.getCurrentExtensionId()})")
+                            // 설정이 유효하면 가끔 성공 상태를 로깅합니다.
+                            if (System.currentTimeMillis() % 60000 < 5000) { // 1분마다 로깅
+                                LOG.info("설정 상태: 유효함 (${configManager.getCurrentExtensionId()})")
                             }
                         }
                     }
                 }
             } catch (e: InterruptedException) {
-                LOG.info("Configuration monitoring interrupted")
+                LOG.info("설정 모니터링 중단됨")
             } catch (e: Exception) {
-                LOG.error("Error in configuration monitoring", e)
+                LOG.error("설정 모니터링 중 오류 발생", e)
             }
         }.apply {
-            isDaemon = true
+            isDaemon = true // 데몬 스레드로 설정
             name = "RunVSAgent-ConfigMonitor"
             start()
         }
     }
+
+    /**
+     * `ProjectActivity` 인터페이스의 `execute` 메소드 구현입니다.
+     * `runActivity`를 호출하여 실제 초기화 로직을 수행합니다.
+     */
+    override suspend fun execute(project: Project) {
+        runActivity(project)
+    }
 }
 
 /**
- * Debug mode enum
+ * 디버그 모드 열거형입니다.
+ * 플러그인의 디버그 동작 방식을 제어합니다.
  */
 enum class DEBUG_MODE {
-    ALL,    // All debug modes
-    IDEA,   // Only IDEA plugin debug
-    NONE;   // Debug not enabled
+    ALL,    // 모든 디버그 모드 (Extension Host와 직접 연결)
+    IDEA,   // IDEA 플러그인 디버그만 (Extension Host는 별도로 실행)
+    NONE;   // 디버그 비활성화
     
     companion object {
         /**
-         * Parse debug mode from string
-         * @param value String value
-         * @return Corresponding debug mode
+         * 문자열 값으로부터 해당하는 `DEBUG_MODE`를 파싱합니다.
+         * @param value 문자열 값 (예: "all", "idea", "none", "true")
+         * @return 해당하는 `DEBUG_MODE`
          */
         fun fromString(value: String): DEBUG_MODE {
             return when (value.lowercase()) {
                 "all" -> ALL
                 "idea" -> IDEA
-                "true" -> ALL  // backward compatibility
+                "true" -> ALL  // 하위 호환성을 위해 "true"도 ALL로 처리
                 else -> NONE
             }
         }
@@ -245,70 +265,71 @@ enum class DEBUG_MODE {
 }
 
 /**
- * Plugin service class, provides global access point and core functionality
+ * 플러그인 서비스 클래스입니다.
+ * 플러그인의 전역 접근점과 핵심 기능을 제공합니다.
+ * `@Service(Service.Level.PROJECT)` 어노테이션을 통해 IntelliJ에 프로젝트 서비스로 등록됩니다.
  */
 @Service(Service.Level.PROJECT)
 class WecoderPluginService(private var currentProject: Project) : Disposable {
     private val LOG = Logger.getInstance(WecoderPluginService::class.java)
     
-    // Whether initialized
+    // 초기화 완료 여부 플래그
     @Volatile
     private var isInitialized = false
     
-    // Plugin initialization complete flag
+    // 플러그인 초기화 완료를 나타내는 CompletableFuture
     private val initializationComplete = CompletableFuture<Boolean>()
     
-    // Coroutine scope
+    // 코루틴 스코프
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // Service instances
+    // 핵심 서비스 인스턴스
     private val socketServer = ExtensionSocketServer()
     private val udsSocketServer = ExtensionUnixDomainSocketServer()
     private val processManager = ExtensionProcessManager()
     
     companion object {
-        // Debug mode switch
+        // 디버그 모드 스위치
         @Volatile
-        private var DEBUG_TYPE: DEBUG_MODE = com.sina.weibo.agent.plugin.DEBUG_MODE.NONE
+        private var DEBUG_TYPE: DEBUG_MODE = DEBUG_MODE.NONE
 
+        // 디버그 리소스 경로
         @Volatile
         private var DEBUG_RESOURCE: String? = null
         
-        // Debug mode connection address
+        // 디버그 모드 연결 주소
         private const val DEBUG_HOST = "127.0.0.1"
         
-        // Debug mode connection port
+        // 디버그 모드 연결 포트
         private const val DEBUG_PORT = 51234
 
-
-        // Initialize configuration at class load
+        // 클래스 로드 시 설정 초기화
         init {
             try {
-                // Read debug mode setting from config file
                 val properties = Properties()
+                // 설정 파일(plugin.properties)을 리소스에서 읽어옵니다.
                 val configStream: InputStream? = WecoderPluginService::class.java.getResourceAsStream("/com/sina/weibo/agent/plugin/config/plugin.properties")
                 
                 if (configStream != null) {
                     properties.load(configStream)
                     configStream.close()
                     
-                    // Read debug mode config
+                    // 디버그 모드 설정 읽기
                     val debugModeStr = properties.getProperty(PluginConstants.ConfigFiles.DEBUG_MODE_KEY, "none").lowercase()
                     DEBUG_TYPE = DEBUG_MODE.fromString(debugModeStr)
                     DEBUG_RESOURCE = properties.getProperty(PluginConstants.ConfigFiles.DEBUG_RESOURCE_KEY, null)
 
-                    Logger.getInstance(WecoderPluginService::class.java).info("Read debug mode from config file: $DEBUG_MODE")
+                    Logger.getInstance(WecoderPluginService::class.java).info("설정 파일에서 디버그 모드 읽음: $DEBUG_TYPE")
                 } else {
-                    Logger.getInstance(WecoderPluginService::class.java).warn("Cannot load config file, use default debug mode: $DEBUG_MODE")
+                    Logger.getInstance(WecoderPluginService::class.java).warn("설정 파일을 로드할 수 없습니다. 기본 디버그 모드 사용: $DEBUG_TYPE")
                 }
             } catch (e: Exception) {
-                Logger.getInstance(WecoderPluginService::class.java).warn("Error reading config file, use default debug mode: $DEBUG_MODE", e)
+                Logger.getInstance(WecoderPluginService::class.java).warn("설정 파일 읽기 오류, 기본 디버그 모드 사용: $DEBUG_TYPE", e)
             }
         }
 
         /**
-         * Get current debug mode
-         * @return Debug mode
+         * 현재 디버그 모드를 가져옵니다.
          */
         @JvmStatic
         fun getDebugMode(): DEBUG_MODE {
@@ -316,8 +337,7 @@ class WecoderPluginService(private var currentProject: Project) : Disposable {
         }
 
         /**
-         * Get debug resource path
-         * @return Debug resource path
+         * 디버그 리소스 경로를 가져옵니다.
          */
         @JvmStatic
         fun getDebugResource(): String? {
@@ -326,97 +346,93 @@ class WecoderPluginService(private var currentProject: Project) : Disposable {
     }
     
     /**
-     * Initialize plugin service
+     * 플러그인 서비스 초기화
+     * @param project 현재 IntelliJ 프로젝트
      */
     fun initialize(project: Project) {
-        // DEBUG_MODE is no longer set directly in code, now read from config file
         if (isInitialized) {
-            LOG.info("WecoderPluginService already initialized")
+            LOG.info("WecoderPluginService가 이미 초기화되었습니다.")
             return
         }
         
-        // Check if extension configuration is valid before proceeding
+        // 확장 설정의 유효성 검사
         val configManager = ExtensionConfigurationManager.getInstance(project)
         if (!configManager.isConfigurationValid()) {
-            LOG.warn("Plugin service initialization skipped: Invalid configuration")
+            LOG.warn("플러그인 서비스 초기화 건너뜀: 유효하지 않은 설정")
             initializationComplete.complete(false)
             return
         }
         
-        // Check if extension manager is properly initialized
+        // ExtensionManager 초기화 여부 확인
         val extensionManager = ExtensionManager.getInstance(project)
         if (!extensionManager.isProperlyInitialized()) {
-            LOG.warn("Plugin service initialization skipped: Extension manager not properly initialized")
+            LOG.warn("플러그인 서비스 초기화 건너뜀: ExtensionManager가 제대로 초기화되지 않았습니다.")
             initializationComplete.complete(false)
             return
         }
         
-        LOG.info("Initializing WecoderPluginService, debug mode: $DEBUG_TYPE")
-        // Initialize system object provider
+        LOG.info("WecoderPluginService 초기화 중, 디버그 모드: $DEBUG_TYPE")
+        // 시스템 객체 제공자 초기화
         SystemObjectProvider.initialize(project)
         this.currentProject = project
         socketServer.project = project
         udsSocketServer.project = project
         
-        // Register to system object provider
+        // 시스템 객체 제공자에 플러그인 서비스 등록
         SystemObjectProvider.register("pluginService", this)
         
-        // Start initialization in background thread
+        // 백그라운드 스레드에서 초기화 시작
         coroutineScope.launch {
             try {
-                initPlatformFiles()
-                // Get project path
+                initPlatformFiles() // 플랫폼 관련 파일 초기화
                 val projectPath = project.basePath ?: ""
 
-                // Initialize service registration
+                // 서비스 프록시 레지스트리 초기화
                 project.getService(ServiceProxyRegistry::class.java).initialize()
-//                ServiceProxyRegistry.getInstance().initialize()
                 
-                if (DEBUG_TYPE == com.sina.weibo.agent.plugin.DEBUG_MODE.ALL) {
-                    // Debug mode: directly connect to extension process in debug
-                    LOG.info("Running in debug mode: ${DEBUG_TYPE}, will directly connect to $DEBUG_HOST:$DEBUG_PORT")
+                if (DEBUG_TYPE == DEBUG_MODE.ALL) {
+                    // ALL 디버그 모드: 디버그 포트에 직접 연결
+                    LOG.info("디버그 모드 실행 중: $DEBUG_TYPE, $DEBUG_HOST:$DEBUG_PORT 에 직접 연결 시도")
                     
-                    // connet to debug port
                     socketServer.connectToDebugHost(DEBUG_HOST, DEBUG_PORT)
                     
-                    // Initialization successful
                     isInitialized = true
                     initializationComplete.complete(true)
-                    LOG.info("Debug mode connection successful, WecoderPluginService initialized")
+                    LOG.info("디버그 모드 연결 성공, WecoderPluginService 초기화 완료")
                 } else {
-                    // Normal mode: start Socket server and extension process
-                    // 1. Start Socket server according to system, use UDS except on Windows
+                    // 일반 모드: 소켓 서버 및 Extension Host 프로세스 시작
                     val server: ISocketServer = if (SystemInfo.isWindows) socketServer else udsSocketServer
                     val portOrPath = server.start(projectPath)
                     if (!ExtensionUtils.isValidPortOrPath(portOrPath)) {
-                        LOG.error("Failed to start socket server")
+                        LOG.error("소켓 서버 시작 실패")
                         initializationComplete.complete(false)
                         return@launch
                     }
 
-                    LOG.info("Socket server started on: $portOrPath")
-                    // 2. Start extension process
+                    LOG.info("소켓 서버 시작됨: $portOrPath")
                     if (!processManager.start(portOrPath)) {
-                        LOG.error("Failed to start extension process")
+                        LOG.error("Extension Host 프로세스 시작 실패")
                         server.stop()
                         initializationComplete.complete(false)
                         return@launch
                     }
-                    // Initialization successful
                     isInitialized = true
                     initializationComplete.complete(true)
-                    LOG.info("WecoderPluginService initialization completed")
+                    LOG.info("WecoderPluginService 초기화 완료")
                 }
             } catch (e: Exception) {
-                LOG.error("Error during WecoderPluginService initialization", e)
+                LOG.error("WecoderPluginService 초기화 중 오류 발생", e)
                 cleanup()
                 initializationComplete.complete(false)
             }
         }
     }
 
+    /**
+     * 플랫폼 관련 파일을 초기화합니다.
+     * (예: OS 아키텍처에 맞는 Node.js 바이너리 심볼릭 링크 생성 등)
+     */
     private fun initPlatformFiles() {
-        // Initialize platform related files
         val platformSuffix = when {
             SystemInfo.isWindows -> "windows-x64"
             SystemInfo.isMac -> when (System.getProperty("os.arch")) {
@@ -429,7 +445,7 @@ class WecoderPluginService(private var currentProject: Project) : Disposable {
         }
         if (platformSuffix.isNotEmpty()) {
             val pluginDir = PluginResourceUtil.getResourcePath(PluginConstants.PLUGIN_ID, "")
-                ?: throw IllegalStateException("Cannot get plugin directory")
+                ?: throw IllegalStateException("플러그인 디렉터리를 가져올 수 없습니다.")
 
             val platformFile = File(pluginDir, "platform.txt")
             if (platformFile.exists()) {
@@ -458,94 +474,91 @@ class WecoderPluginService(private var currentProject: Project) : Disposable {
     }
 
     /**
-     * Wait for initialization to complete
-     * @return Whether initialization was successful
+     * 초기화 완료를 기다립니다.
+     * @return 초기화 성공 여부
      */
     fun waitForInitialization(): Boolean {
         return initializationComplete.get()
     }
     
     /**
-     * Clean up resources
+     * 리소스를 정리합니다.
      */
     private fun cleanup() {
         try {
-            // Stop extension process, only needed in non-debug mode
-            if (DEBUG_TYPE == com.sina.weibo.agent.plugin.DEBUG_MODE.NONE) {
+            // 비디버그 모드에서만 Extension Host 프로세스를 중지합니다.
+            if (DEBUG_TYPE == DEBUG_MODE.NONE) {
                 processManager.stop()
             }
         } catch (e: Exception) {
-            LOG.error("Error stopping process manager", e)
+            LOG.error("프로세스 관리자 중지 중 오류 발생", e)
         }
         
         try {
-            // Stop Socket server
+            // 소켓 서버 중지
             socketServer.stop()
             udsSocketServer.stop()
         } catch (e: Exception) {
-            LOG.error("Error stopping socket server", e)
+            LOG.error("소켓 서버 중지 중 오류 발생", e)
         }
 
-        // Unregister workspace file change listener
+        // 워크스페이스 파일 변경 리스너 등록 해제
         currentProject.getService(WorkspaceFileChangeManager::class.java).dispose()
-//        WorkspaceFileChangeManager.disposeInstance()
         
         isInitialized = false
     }
     
     /**
-     * Get whether initialized
+     * 초기화 완료 여부를 가져옵니다.
      */
     fun isInitialized(): Boolean {
         return isInitialized
     }
     
     /**
-     * Get Socket server
+     * `ExtensionSocketServer` 인스턴스를 가져옵니다.
      */
     fun getSocketServer(): ExtensionSocketServer {
         return socketServer
     }
 
     /**
-    * Get UDS server
-    */
+     * `ExtensionUnixDomainSocketServer` 인스턴스를 가져옵니다.
+     */
     fun getUdsServer(): ExtensionUnixDomainSocketServer {
         return udsSocketServer
     }
     
     /**
-     * Get process manager
+     * `ExtensionProcessManager` 인스턴스를 가져옵니다.
      */
     fun getProcessManager(): ExtensionProcessManager {
         return processManager
     }
     
     /**
-     * Get current project
+     * 현재 프로젝트를 가져옵니다.
      */
     fun getCurrentProject(): Project? {
         return currentProject
     }
     
     /**
-     * Close service
+     * 서비스를 닫고 리소스를 해제합니다.
      */
     override fun dispose() {
         if (!isInitialized) {
             return
         }
         
-        LOG.info("Disposing WecoderPluginService")
+        LOG.info("WecoderPluginService 해제 중")
 
         currentProject.getService(WebViewManager::class.java)?.dispose()
         
-        // Cancel all coroutines
-        coroutineScope.cancel()
+        coroutineScope.cancel() // 모든 코루틴 취소
         
-        // Clean up resources
-        cleanup()
+        cleanup() // 리소스 정리
         
-        LOG.info("WecoderPluginService disposed")
+        LOG.info("WecoderPluginService 해제 완료")
     }
 }

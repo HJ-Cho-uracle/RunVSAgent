@@ -17,81 +17,86 @@ import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 
 
 /**
- * Registers commands related to terminal API operations
- * Currently registers the workbench.action.terminal.copySelection command for copying terminal output to clipboard
+ * 터미널 API 관련 명령들을 등록합니다.
+ * 현재는 터미널 출력을 클립보드에 복사하는 `workbench.action.terminal.copySelection` 명령을 등록합니다.
  *
- * @param project The current IntelliJ project
- * @param registry The command registry to register commands with
+ * @param project 현재 IntelliJ 프로젝트
+ * @param registry 명령을 등록할 `CommandRegistry` 인스턴스
  */
 fun registerTerminalAPICommands(project: Project, registry: CommandRegistry) {
     registry.registerCommand(
         object : ICommand {
             override fun getId(): String {
-                return "workbench.action.terminal.copySelection"
+                return "workbench.action.terminal.copySelection" // 커맨드의 고유 ID
             }
             override fun getMethod(): String {
-                return "workbench_action_terminal_copySelection"
+                return "workbench_action_terminal_copySelection" // 이 커맨드가 실행될 때 호출될 메소드 이름
             }
 
             override fun handler(): Any {
-                return TerminalAPICommands(project)
+                return TerminalAPICommands(project) // 커맨드 로직을 담고 있는 핸들러 객체
             }
 
             override fun returns(): String? {
-                return "void"
+                return "void" // 반환 타입
             }
         }
     )
 }
 
 /**
- * Handles terminal API commands for operations like copying terminal output to clipboard
+ * 터미널 API 명령(예: 터미널 출력 클립보드 복사)을 처리하는 클래스입니다.
  */
 class TerminalAPICommands(val project: Project) {
     private val logger = Logger.getInstance(TerminalAPICommands::class.java)
-    private val clipboard = MainThreadClipboard()
-    
+    private val clipboard = MainThreadClipboard() // 클립보드 접근을 위한 서비스
+
     /**
-     * Copies the last command output from the current terminal to clipboard
+     * 현재 터미널의 마지막 명령어 출력을 클립보드에 복사합니다.
+     * `workbench.action.terminal.copySelection` 커맨드가 호출될 때 실행되는 실제 로직입니다.
      *
-     * @return null after operation completes
+     * @return 작업 완료 후 null
      */
     suspend fun workbench_action_terminal_copySelection(): Any? {
-        logger.info("Copying terminal output to clipboard")
+        logger.info("터미널 출력을 클립보드에 복사 중")
         
         val textToCopy = try {
-            getTerminalText() ?: ""
+            getTerminalText() ?: "" // 터미널 텍스트 가져오기
         } catch (e: Exception) {
-            logger.error("Failed to copy terminal output to clipboard", e)
+            logger.error("터미널 출력을 클립보드에 복사 실패", e)
             ""
         }
         
-        clipboard.writeText(textToCopy)
+        clipboard.writeText(textToCopy) // 클립보드에 텍스트 쓰기
         if (textToCopy.isNotEmpty()) {
-            logger.info("Successfully copied terminal output to clipboard")
+            logger.info("터미널 출력을 클립보드에 성공적으로 복사했습니다.")
         } else {
-            logger.info("Copied empty terminal output to clipboard")
+            logger.info("빈 터미널 출력을 클립보드에 복사했습니다.")
         }
         
         return null
     }
     
     /**
-     * Get terminal text content
+     * 현재 활성화된 터미널의 텍스트 내용을 가져옵니다.
      *
-     * @return Terminal text content, returns null if failed to get
+     * @return 터미널 텍스트 내용, 가져오기 실패 시 null
      */
     private fun getTerminalText(): String? {
+        // "Terminal" 툴 윈도우를 가져옵니다.
         val window = ToolWindowManager.getInstance(project)
-            .getToolWindow("Terminal") // or TerminalToolWindowFactory.TOOL_WINDOW_ID
+            .getToolWindow("Terminal")
             ?: return null
             
+        // 현재 선택된 콘텐츠(터미널 탭)를 가져옵니다.
         val selected = window.getContentManager().getSelectedContent()
             ?: return null
             
+        // 선택된 콘텐츠로부터 터미널 위젯을 가져옵니다.
         val widget = TerminalToolWindowManager.getWidgetByContent(selected)
             ?: return null
             
+        // 위젯의 텍스트 내용을 반환합니다. 내용이 비어있지 않은 경우에만 반환합니다.
         return widget.text.takeIf { it.isNotEmpty() }
     }
     

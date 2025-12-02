@@ -12,133 +12,143 @@ import com.sina.weibo.agent.util.PluginResourceUtil
 import java.io.File
 
 /**
- * Extension manager factory for Roo Code
- * Creates and manages extension managers for different extension types
+ * 확장 관리자 팩토리 클래스입니다.
+ * Roo Code 플러그인을 위한 확장 관리자를 생성하고 관리합니다.
+ * `@Service(Service.Level.PROJECT)` 어노테이션을 통해 IntelliJ에 프로젝트 서비스로 등록됩니다.
  */
 @Service(Service.Level.PROJECT)
 class ExtensionManagerFactory(private val project: Project) {
     private val LOG = Logger.getInstance(ExtensionManagerFactory::class.java)
 
-    // Extension managers cache
+    // 확장 타입별 ExtensionManager 인스턴스를 캐시하는 맵
     private val extensionManagers = mutableMapOf<ExtensionType, ExtensionManager>()
 
     companion object {
         /**
-         * Get extension manager factory instance
+         * `ExtensionManagerFactory`의 싱글톤 인스턴스를 가져옵니다.
          */
         fun getInstance(project: Project): ExtensionManagerFactory {
             return project.getService(ExtensionManagerFactory::class.java)
-                ?: error("ExtensionManagerFactory not found")
+                ?: error("ExtensionManagerFactory 서비스를 찾을 수 없습니다.")
         }
     }
 
     /**
-     * Initialize extension manager factory
+     * 확장 관리자 팩토리를 초기화합니다.
+     * 모든 지원되는 확장 타입에 대해 `ExtensionManager`를 생성합니다.
      */
     fun initialize() {
-        LOG.info("Initializing extension manager factory")
+        LOG.info("확장 관리자 팩토리 초기화 중")
 
-        // Get extension configuration
-        val extensionConfig = ExtensionConfiguration.Companion.getInstance(project)
+        // 확장 설정 관리자 인스턴스를 가져옵니다.
+        val extensionConfig = ExtensionConfiguration.getInstance(project)
 
-        // Create extension managers for all supported types
-        ExtensionType.Companion.getAllTypes().forEach { extensionType ->
+        // 모든 지원되는 확장 타입에 대해 확장 관리자를 생성합니다.
+        ExtensionType.getAllTypes().forEach { extensionType ->
             createExtensionManager(extensionType, extensionConfig.getConfig(extensionType))
         }
 
-        LOG.info("Extension manager factory initialized")
+        LOG.info("확장 관리자 팩토리 초기화 완료")
     }
 
     /**
-     * Get extension manager for current extension type
+     * 현재 활성화된 확장 타입에 대한 `ExtensionManager`를 가져옵니다.
      */
     fun getCurrentExtensionManager(): ExtensionManager {
-        val extensionConfig = ExtensionConfiguration.Companion.getInstance(project)
+        val extensionConfig = ExtensionConfiguration.getInstance(project)
         val currentType = extensionConfig.getCurrentExtensionType()
         return getExtensionManager(currentType)
     }
 
     /**
-     * Get extension manager for specific extension type
+     * 특정 확장 타입에 대한 `ExtensionManager`를 가져옵니다.
+     * @param extensionType 확장 관리자를 가져올 확장 타입
+     * @return 해당 확장 타입의 `ExtensionManager` 인스턴스
+     * @throws IllegalStateException 해당 타입의 확장 관리자를 찾을 수 없을 경우
      */
     fun getExtensionManager(extensionType: ExtensionType): ExtensionManager {
         return extensionManagers[extensionType]
-            ?: throw IllegalStateException("Extension manager not found for type: ${extensionType.code}")
+            ?: throw IllegalStateException("타입 '${extensionType.code}'에 대한 확장 관리자를 찾을 수 없습니다.")
     }
 
     /**
-     * Create extension manager for specific extension type
+     * 특정 확장 타입에 대한 `ExtensionManager`를 생성합니다.
+     * @param extensionType 확장 관리자를 생성할 확장 타입
+     * @param config 해당 확장의 설정 정보
      */
     private fun createExtensionManager(extensionType: ExtensionType, config: ExtensionConfig) {
-        LOG.info("Creating extension manager for type: ${extensionType.code}")
+        LOG.info("타입 '${extensionType.code}'에 대한 확장 관리자 생성 중")
 
         val extensionManager = ExtensionManager()
 
-        // Try to register extension if it exists
+        // 확장이 존재하면 등록을 시도합니다.
         val extensionPath = getExtensionPath(config)
         if (extensionPath != null && File(extensionPath).exists()) {
             try {
                 extensionManager.registerExtension(extensionPath, config)
-                LOG.info("Extension registered for type: ${extensionType.code}")
+                LOG.info("타입 '${extensionType.code}'에 대한 확장 등록됨")
                 extensionManagers[extensionType] = extensionManager
             } catch (e: Exception) {
-                LOG.warn("Failed to register extension for type: ${extensionType.code}", e)
+                LOG.warn("타입 '${extensionType.code}'에 대한 확장 등록 실패", e)
             }
         } else {
-            LOG.info("Extension path not found for type: ${extensionType.code}: $extensionPath")
+            LOG.info("타입 '${extensionType.code}' (${config.codeDir})에 대한 확장 경로를 찾을 수 없습니다: $extensionPath")
         }
     }
 
     /**
-     * Get extension path for configuration
+     * 설정 정보를 바탕으로 확장의 실제 파일 경로를 가져옵니다.
+     * `PluginResourceUtil`을 사용하여 플러그인 리소스 내에서 경로를 찾습니다.
+     * @param config 확장의 설정 정보
+     * @return 확장의 절대 경로, 또는 찾지 못하면 null
      */
     private fun getExtensionPath(config: ExtensionConfig): String? {
-        // Use PluginResourceUtil to get extension path (this is the correct way)
         try {
             val extensionPath = PluginResourceUtil.getResourcePath(
                 PluginConstants.PLUGIN_ID,
                 config.codeDir
             )
             if (extensionPath != null && File(extensionPath).exists()) {
-                LOG.info("Found extension path via PluginResourceUtil: $extensionPath")
+                LOG.info("PluginResourceUtil을 통해 확장 경로 찾음: $extensionPath")
                 return extensionPath
             }
         } catch (e: Exception) {
-            LOG.warn("Failed to get extension path via PluginResourceUtil for: ${config.codeDir}", e)
+            LOG.warn("PluginResourceUtil을 통해 확장 경로 가져오기 실패: ${config.codeDir}", e)
         }
 
-        LOG.warn("Extension path not found for type: ${config.extensionType.code} (${config.codeDir})")
+        LOG.warn("타입 '${config.extensionType.code}' (${config.codeDir})에 대한 확장 경로를 찾을 수 없습니다.")
         return null
     }
 
     /**
-     * Switch to different extension type
+     * 다른 확장 타입으로 전환합니다.
+     * @param extensionType 전환할 확장 타입
      */
     fun switchExtensionType(extensionType: ExtensionType) {
-        LOG.info("Switching to extension type: ${extensionType.code}")
+        LOG.info("확장 타입 전환 중: ${extensionType.code}")
 
-        val extensionConfig = ExtensionConfiguration.Companion.getInstance(project)
+        val extensionConfig = ExtensionConfiguration.getInstance(project)
         extensionConfig.setCurrentExtensionType(extensionType)
 
-        // Re-initialize with new configuration
+        // 새로운 설정으로 다시 초기화합니다.
         val config = extensionConfig.getConfig(extensionType)
         createExtensionManager(extensionType, config)
 
-        LOG.info("Switched to extension type: ${extensionType.code}")
+        LOG.info("확장 타입 전환 완료: ${extensionType.code}")
     }
 
     /**
-     * Get all available extension types
+     * 사용 가능한 모든 확장 타입의 목록을 가져옵니다.
      */
     fun getAvailableExtensionTypes(): List<ExtensionType> {
         return extensionManagers.keys.toList()
     }
 
     /**
-     * Dispose all extension managers
+     * 모든 확장 관리자를 해제하고 리소스를 정리합니다.
      */
     fun dispose() {
-        LOG.info("Disposing extension manager factory")
+        LOG.info("확장 관리자 팩토리 해제 중")
         extensionManagers.values.forEach { it.dispose() }
         extensionManagers.clear()
     }

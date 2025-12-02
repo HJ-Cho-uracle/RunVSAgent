@@ -4,7 +4,7 @@
 
 import java.nio.file.*
 import java.security.MessageDigest
-
+import groovy.json.JsonSlurper
 
 tasks.register('genPlatform', Zip) {
     download(project)
@@ -12,6 +12,7 @@ tasks.register('genPlatform', Zip) {
     into("")
     destinationDirectory = project.projectDir
     archiveFileName = "platform.zip"
+    zip64 = true // 65535개 이상의 파일을 지원하기 위해 zip64 옵션을 활성화합니다.
 }
 def download(Project project){
 

@@ -17,8 +17,14 @@ import com.sina.weibo.agent.util.ProxyConfigUtil
 import kotlinx.coroutines.runBlocking
 
 /**
- * Responsible for managing RPC protocols, service registration and implementation, plugin lifecycle management
- * This class is based on VSCode's rpcManager.js implementation
+ * RPC(Remote Procedure Call) 통신을 관리하는 핵심 클래스입니다.
+ * Extension Host와 IntelliJ 플러그인 간의 서비스 등록, 구현, 플러그인 생명주기 관리를 담당합니다.
+ * VSCode의 `rpcManager.js` 구현을 기반으로 합니다.
+ *
+ * @param protocol Extension Host와의 메시지 전달 프로토콜 (IMessagePassingProtocol)
+ * @param extensionManager 확장을 관리하는 서비스
+ * @param uriTransformer URI 변환기 (선택 사항)
+ * @param project 현재 IntelliJ 프로젝트
  */
 class RPCManager(
     private val protocol: IMessagePassingProtocol,
@@ -27,9 +33,11 @@ class RPCManager(
     private val project: Project
 ) {
     private val logger = Logger.getInstance(RPCManager::class.java)
+    // 실제 RPC 통신을 처리하는 프로토콜 인스턴스
     private val rpcProtocol: IRPCProtocol = RPCProtocol(protocol, FileRPCProtocolLogger(), uriTransformer)
 
     init {
+        // 클래스 초기화 시 모든 필요한 프로토콜 핸들러를 설정합니다.
         setupDefaultProtocols()
         setupExtensionRequiredProtocols()
         setupWeCodeRequiredProtocols()
@@ -40,43 +48,43 @@ class RPCManager(
 
 
     /**
-     * Start initializing plugin environment
-     * Send configuration and workspace information to extension process
+     * 플러그인 환경 초기화를 시작합니다.
+     * Extension Host로 설정 및 워크스페이스 정보를 전송합니다.
      */
     fun startInitialize() {
         try {
-            logger.info("Starting to initialize plugin environment")
-            runBlocking {
-                // Get ExtHostConfiguration proxy
-                val extHostConfiguration =
-                    rpcProtocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostConfiguration)
+            logger.info("플러그인 환경 초기화 시작")
+            runBlocking { // 코루틴을 사용하여 비동기 작업을 동기적으로 실행합니다.
+                // --- 1. 설정 정보 전송 ---
+                // ExtHostConfiguration 프록시를 가져와 설정 정보를 전송합니다.
+                val extHostConfiguration = rpcProtocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostConfiguration)
 
-                // Send empty configuration model
-                logger.info("Sending configuration information to extension process")
-                val themeName =
-                    if (ThemeManager.getInstance().isDarkThemeForce()) "Visual Studio 2017 Dark - C++" else "Visual Studio 2017 Light - C++"
+                logger.info("확장 프로세스로 설정 정보 전송 중")
+                // 현재 IDE 테마에 따라 VSCode 테마 이름을 설정합니다.
+                val themeName = if (ThemeManager.getInstance().isDarkThemeForce()) "Visual Studio 2017 Dark - C++" else "Visual Studio 2017 Light - C++"
 
-                // Get proxy configuration
+                // 프록시 설정 정보를 가져옵니다.
                 val httpProxyConfig = ProxyConfigUtil.getHttpProxyConfigForInitialization()
 
-                // Build configuration contents
+                // 기본 설정 내용을 구성합니다.
                 val contentsBuilder = mutableMapOf<String, Any>(
                     "workbench.colorTheme" to themeName
                 )
 
-                // Add proxy configuration if available
+                // 프록시 설정이 있으면 추가합니다.
                 httpProxyConfig?.let {
                     contentsBuilder["http"] = it
-                    logger.info("Using proxy configuration for initialization: $it")
+                    logger.info("초기화에 프록시 설정 사용: $it")
                 }
 
-                // Create empty configuration model
+                // 빈 설정 모델을 생성합니다.
                 val emptyMap = mapOf(
                     "contents" to emptyMap<String, Any>(),
                     "keys" to emptyList<String>(),
                     "overrides" to emptyList<String>()
                 )
                 
+                // Extension Host에 전달할 전체 설정 모델을 구성합니다.
                 val emptyConfigModel = mapOf(
                     "defaults" to mapOf(
                         "contents" to contentsBuilder,
@@ -92,176 +100,118 @@ class RPCManager(
                     "configurationScopes" to emptyList<Any>()
                 )
 
-                // Directly call the interface method
+                // ExtHostConfiguration 서비스의 `initializeConfiguration` 메소드를 호출하여 설정 정보를 전달합니다.
                 extHostConfiguration.initializeConfiguration(emptyConfigModel)
 
-                // Get ExtHostWorkspace proxy
+                // --- 2. 워크스페이스 정보 전송 ---
+                // ExtHostWorkspace 프록시를 가져와 워크스페이스 정보를 전송합니다.
                 val extHostWorkspace = rpcProtocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostWorkspace)
 
-                // Get current workspace data
-                logger.info("Getting current workspace data")
+                logger.info("현재 워크스페이스 데이터 가져오는 중")
                 val workspaceData = project.getService(WorkspaceManager::class.java).getCurrentWorkspaceData()
 
-                // If workspace data is obtained, send it to extension process, otherwise send null
+                // 워크스페이스 데이터가 있으면 전송하고, 없으면 null을 전송합니다.
                 if (workspaceData != null) {
-                    logger.info("Sending workspace data to extension process: ${workspaceData.name}, folders: ${workspaceData.folders.size}")
+                    logger.info("확장 프로세스로 워크스페이스 데이터 전송: ${workspaceData.name}, 폴더: ${workspaceData.folders.size}")
                     extHostWorkspace.initializeWorkspace(workspaceData, true)
                 } else {
-                    logger.info("No available workspace data, sending null to extension process")
+                    logger.info("사용 가능한 워크스페이스 데이터가 없습니다. 확장 프로세스로 null 전송")
                     extHostWorkspace.initializeWorkspace(null, true)
                 }
 
-                // Initialize workspace
-                logger.info("Workspace initialization completed")
+                logger.info("워크스페이스 초기화 완료")
             }
         } catch (e: Exception) {
-            logger.error("Failed to initialize plugin environment: ${e.message}", e)
+            logger.error("플러그인 환경 초기화 실패: ${e.message}", e)
         }
     }
 
     /**
-     * Set up default protocol handlers
-     * These protocols are required for extHost process startup and initialization
+     * 기본 프로토콜 핸들러를 설정합니다.
+     * 이 프로토콜들은 Extension Host 프로세스 시작 및 초기화에 필수적입니다.
      */
     private fun setupDefaultProtocols() {
-        logger.info("Setting up default protocol handlers")
+        logger.info("기본 프로토콜 핸들러 설정 중")
+        // PluginContext에 RPC 프로토콜 인스턴스를 설정합니다.
         PluginContext.getInstance(project).setRPCProtocol(rpcProtocol)
 
-        // MainThreadErrors
+        // 각 MainThreadShape 구현체를 RPC 프로토콜에 등록합니다.
+        // Extension Host는 이들을 호출하여 IntelliJ 플러그인의 기능을 사용합니다.
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadErrors, MainThreadErrors())
-
-        // MainThreadConsole
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadConsole, MainThreadConsole())
-
-        // MainThreadLogger
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadLogger, MainThreadLogger())
-
-        // MainThreadCommands
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadCommands, MainThreadCommands(project))
-
-        // MainThreadDebugService
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadDebugService, MainThreadDebugService())
-
-        // MainThreadConfiguration
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadConfiguration, MainThreadConfiguration())
-
     }
 
     /**
-     * Set up protocol handlers required for plugin package general loading process
+     * 플러그인 패키지 일반 로딩 프로세스에 필요한 프로토콜 핸들러를 설정합니다.
      */
     private fun setupExtensionRequiredProtocols() {
-        logger.info("Setting up required protocol handlers for plugins")
+        logger.info("플러그인에 필요한 프로토콜 핸들러 설정 중")
 
-        // MainThreadExtensionService
-        val mainThreadExtensionService = MainThreadExtensionService(extensionManager, rpcProtocol)
-        rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadExtensionService, mainThreadExtensionService)
-
-        // MainThreadTelemetry
+        rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadExtensionService, MainThreadExtensionService(extensionManager, rpcProtocol))
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadTelemetry, MainThreadTelemetry())
-
-        // MainThreadTerminalShellIntegration - use new architecture, pass project parameter
-        rpcProtocol.set(
-            ServiceProxyRegistry.MainContext.MainThreadTerminalShellIntegration,
-            MainThreadTerminalShellIntegration(project)
-        )
-
-        // MainThreadTerminalService - use new architecture, pass project parameter
+        rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadTerminalShellIntegration, MainThreadTerminalShellIntegration(project))
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadTerminalService, MainThreadTerminalService(project))
-
-        // MainThreadTask
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadTask, MainThreadTask())
-
-        // MainThreadSearch
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadSearch, MainThreadSearch())
-
-        // MainThreadWindow
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadWindow, MainThreadWindow(project))
-
-        // MainThreadDiaglogs
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadDialogs, MainThreadDiaglogs())
-
-        // MainThreadLanguageModelTools
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadLanguageModelTools, MainThreadLanguageModelTools())
-
-        // MainThreadClipboard
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadClipboard, MainThreadClipboard())
-
-        //MainThreadBulkEdits
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadBulkEdits, MainThreadBulkEdits(project))
-
-        //MainThreadEditorTabs
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadEditorTabs, MainThreadEditorTabs(project))
-
-        //MainThreadDocuments
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadDocuments, MainThreadDocuments(project))
-
     }
 
     /**
-     * Set up protocol handlers required for WeCode plugin
+     * WeCode 플러그인에 필요한 프로토콜 핸들러를 설정합니다.
      */
     private fun setupWeCodeRequiredProtocols() {
-        logger.info("Setting up required protocol handlers for WeCode")
+        logger.info("WeCode에 필요한 프로토콜 핸들러 설정 중")
 
-        // MainThreadTextEditors
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadTextEditors, MainThreadTextEditors(project))
-
-        // MainThreadStorage
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadStorage, MainThreadStorage())
-
-        // MainThreadOutputService
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadOutputService, MainThreadOutputService())
-
-        // MainThreadWebviewViews
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadWebviewViews, MainThreadWebviewViews(project))
-
-        // MainThreadDocumentContentProviders
-        rpcProtocol.set(
-            ServiceProxyRegistry.MainContext.MainThreadDocumentContentProviders,
-            MainThreadDocumentContentProviders()
-        )
-
-        // MainThreadUrls
+        rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadDocumentContentProviders, MainThreadDocumentContentProviders())
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadUrls, MainThreadUrls())
-
-        // MainThreadLanguageFeatures
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadLanguageFeatures, MainThreadLanguageFeatures())
-
-        // MainThreadFileSystem
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadFileSystem, MainThreadFileSystem())
-
-        //MainThreadMessageServiceShape
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadMessageService, MainThreadMessageService())
     }
 
+    /**
+     * RooCode 특정 기능에 필요한 프로토콜 핸들러를 설정합니다.
+     */
     private fun setupRooCodeFuncitonProtocols() {
-        logger.info("Setting up protocol handlers required for RooCode specific functionality")
+        logger.info("RooCode 특정 기능에 필요한 프로토콜 핸들러 설정 중")
 
-        // MainThreadFileSystemEventService
-        rpcProtocol.set(
-            ServiceProxyRegistry.MainContext.MainThreadFileSystemEventService,
-            MainThreadFileSystemEventService()
-        )
-
-        // MainThreadSecretState
+        rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadFileSystemEventService, MainThreadFileSystemEventService())
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadSecretState, MainThreadSecretState())
     }
+
+    /**
+     * KiloCode 특정 기능에 필요한 프로토콜 핸들러를 설정합니다.
+     */
     private fun setupKiloCodeFunctionProtocols() {
-        // MainThreadStatusBar
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadStatusBar, MainThreadStatusBar())
     }
 
+    /**
+     * Webview 관련 프로토콜 핸들러를 설정합니다.
+     */
     private fun setupWebviewProtocols() {
-        logger.info("Setting up protocol handlers required for Webview")
-        // MainThreadWebviews
+        logger.info("Webview에 필요한 프로토콜 핸들러 설정 중")
         rpcProtocol.set(ServiceProxyRegistry.MainContext.MainThreadWebviews, MainThreadWebviews(project))
     }
 
     /**
-     * Get RPC protocol instance
+     * RPC 프로토콜 인스턴스를 가져옵니다.
      */
     fun getRPCProtocol(): IRPCProtocol {
         return rpcProtocol
     }
-} 
+}

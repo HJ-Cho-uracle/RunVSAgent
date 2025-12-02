@@ -10,48 +10,47 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Tab State Manager
- *
- * Manages the state of editor tabs and tab groups, handling operations like
- * creating, updating, moving, and removing tabs and tab groups.
+ * 탭 상태 관리자(Tab State Manager) 클래스입니다.
+ * 에디터 탭과 탭 그룹의 상태를 관리하며, 탭 및 탭 그룹의 생성, 업데이트, 이동, 제거와 같은 작업을 처리합니다.
  */
 class TabStateManager(var project: Project) {
     private val logger = Logger.getInstance(TabStateManager::class.java)
-    // MARK: - State storage
-    private var state = TabsState()
-    private val tabHandles = ConcurrentHashMap<String, TabHandle>()
-    private val groupHandles = ConcurrentHashMap<Int, TabGroupHandle>()
-    private val tabStateService :TabStateService
+    
+    // --- 상태 저장소 ---
+    private var state = TabsState() // 모든 탭 그룹의 상태를 담는 객체
+    private val tabHandles = ConcurrentHashMap<String, TabHandle>() // 탭 ID를 키로 하는 TabHandle 맵
+    private val groupHandles = ConcurrentHashMap<Int, TabGroupHandle>() // 그룹 ID를 키로 하는 TabGroupHandle 맵
+    private val tabStateService: TabStateService // 탭 상태 변경을 Extension Host에 알리는 서비스
+
     init {
         tabStateService = TabStateService(project)
     }
 
-    // MARK: - ID generation
-    private var nextGroupId = 1
+    // --- ID 생성 ---
+    private var nextGroupId = 1 // 다음 그룹 ID를 생성하기 위한 카운터
 
-    // MARK: - Public methods
+    // --- 공개 메소드 ---
 
     /**
-     * Creates a new tab group
+     * 새로운 탭 그룹을 생성합니다.
      *
-     * @param viewColumn The view column for the group
-     * @param isActive Whether this group should be the active group
-     * @return Handle to the created tab group
+     * @param viewColumn 그룹이 위치할 뷰 컬럼 (예: -1=active, -2=beside)
+     * @param isActive 이 그룹을 활성 그룹으로 설정할지 여부
+     * @return 생성된 탭 그룹에 대한 `TabGroupHandle`
      */
     fun createTabGroup(viewColumn: Int, isActive: Boolean = false): TabGroupHandle {
-        // Generate new group ID
-        val groupId = nextGroupId++
+        val groupId = nextGroupId++ // 새 그룹 ID 생성
 
-        // Create tab group
+        // `EditorTabGroupDto` 객체를 생성합니다.
         val group = EditorTabGroupDto(
             groupId = groupId,
             isActive = isActive,
             viewColumn = viewColumn,
             tabs = emptyList()
         )
-        state.groups[groupId] = group
+        state.groups[groupId] = group // 상태에 그룹 추가
 
-        // If this is the active group, update the state of other groups
+        // 이 그룹이 활성 그룹으로 설정되면, 다른 그룹들은 비활성화합니다.
         if (isActive) {
             state.groups.forEach { (id, otherGroup) ->
                 if (id != groupId) {
@@ -60,86 +59,82 @@ class TabStateManager(var project: Project) {
             }
         }
 
-        // Create tab group handle
-        val handle = TabGroupHandle(
-            groupId = groupId,
-            manager = this
-        )
+        // `TabGroupHandle`을 생성하고 저장합니다.
+        val handle = TabGroupHandle(groupId = groupId, manager = this)
         groupHandles[groupId] = handle
 
-        // Send update event for all groups
+        // 모든 그룹의 업데이트된 상태를 Extension Host에 알립니다.
         tabStateService.acceptEditorTabModel(state.groups.values.toList())
 
         return handle
     }
 
     /**
-     * Removes a tab group
+     * 탭 그룹을 제거합니다.
      *
-     * @param groupId ID of the group to remove
+     * @param groupId 제거할 그룹의 ID
      */
     fun removeGroup(groupId: Int) {
         state.groups.remove(groupId)
         groupHandles.remove(groupId)
 
-        // Remove handles for all tabs in this group
+        // 이 그룹에 속한 모든 탭 핸들을 제거합니다.
         tabHandles.entries.removeAll { it.value.groupId == groupId }
 
-        // Send update event for all groups
+        // 모든 그룹의 업데이트된 상태를 Extension Host에 알립니다. (현재 주석 처리됨)
 //        tabStateService.acceptEditorTabModel(state.groups.values.toList())
     }
 
     /**
-     * Gets a handle to a tab group
+     * 그룹 ID를 사용하여 `TabGroupHandle`을 가져옵니다.
      *
-     * @param groupId ID of the group
-     * @return Handle to the tab group, or null if not found
+     * @param groupId 그룹의 ID
+     * @return `TabGroupHandle` 또는 찾지 못하면 null
      */
     fun getTabGroupHandle(groupId: Int): TabGroupHandle? = groupHandles[groupId]
 
-    // MARK: - Internal methods
+    // --- 내부 메소드 ---
 
     /**
-     * Creates a new tab in a group
+     * 지정된 그룹에 새로운 탭을 생성합니다.
      *
-     * @param groupId ID of the group to create the tab in
-     * @param input Input for the tab content
-     * @param options Options for the tab
-     * @return Handle to the created tab
+     * @param groupId 탭을 생성할 그룹의 ID
+     * @param input 탭 콘텐츠를 위한 입력 데이터
+     * @param options 탭 생성 옵션
+     * @return 생성된 탭에 대한 `TabHandle`
      */
     internal suspend fun createTab(groupId: Int, input: TabInputBase, options: TabOptions): TabHandle {
-        if(input is EditorTabInput){
-            logger.info("create tab s" + input.uri?.path)
+        // 입력 타입에 따라 로깅
+        if (input is EditorTabInput) {
+            logger.info("탭 생성 (에디터): " + input.uri?.path)
         }
-        if(input is TextDiffTabInput){
-            logger.info("create tab d" + input.modified.path)
+        if (input is TextDiffTabInput) {
+            logger.info("탭 생성 (Diff): " + input.modified.path)
         }
-        val group = state.groups[groupId] ?: error("Group not found: $groupId")
-// Create tab
-val tab = EditorTabDto(
-    id = UUID.randomUUID().toString(),
-    label = "", // Compatibility with Roocode 0.61+: API request gets stuck without label field
-    input = input,
-    isActive = options.isActive,
-    isPinned = options.isPinned,
-    isPreview = !options.isPinned,
-    isDirty = false
-)
+        
+        val group = state.groups[groupId] ?: error("그룹을 찾을 수 없음: $groupId")
 
-// Add to group
-val newTabs = group.tabs + tab
-val newGroup = group.copy(tabs = newTabs)
-state.groups[groupId] = newGroup
+        // `EditorTabDto` 객체를 생성합니다.
+        val tab = EditorTabDto(
+            id = UUID.randomUUID().toString(),
+            label = "", // Roocode 0.61+ 호환성을 위해 label 필드 추가
+            input = input,
+            isActive = options.isActive,
+            isPinned = options.isPinned,
+            isPreview = !options.isPinned,
+            isDirty = false
+        )
 
-// Create tab handle
-val handle = TabHandle(
-    id = tab.id,
-    groupId = groupId,
-    manager = this
-)
-tabHandles[tab.id] = handle
+        // 그룹에 탭을 추가하고 새로운 그룹 상태를 업데이트합니다.
+        val newTabs = group.tabs + tab
+        val newGroup = group.copy(tabs = newTabs)
+        state.groups[groupId] = newGroup
 
-        // Send tab operation event and group update event
+        // `TabHandle`을 생성하고 저장합니다.
+        val handle = TabHandle(id = tab.id, groupId = groupId, manager = this)
+        tabHandles[tab.id] = handle
+
+        // 탭 작업 이벤트와 그룹 업데이트 이벤트를 Extension Host에 알립니다.
         tabStateService.acceptTabOperation(TabOperation(
             groupId = groupId,
             index = newTabs.size - 1,
@@ -152,34 +147,35 @@ tabHandles[tab.id] = handle
     }
 
     /**
-     * Removes a tab
+     * 탭을 제거합니다.
      *
-     * @param id ID of the tab to remove
-     * @return Handle to the removed tab, or null if not found
+     * @param id 제거할 탭의 ID
+     * @return 제거된 탭에 대한 `TabHandle` 또는 찾지 못하면 null
      */
-    internal fun removeTab(id: String) :TabHandle?{
+    internal fun removeTab(id: String): TabHandle? {
         val handle = tabHandles[id] ?: return null
         val group = state.groups[handle.groupId] ?: return null
 
-        // Find the index of the tab in the group
         val index = group.tabs.indexOfFirst { it.id == id }
         if (index != -1) {
             val tab = group.tabs[index]
 
-            if(tab.input is EditorTabInput){
-                logger.info("remove tab s" + tab.input.uri?.path)
+            // 입력 타입에 따라 로깅
+            if (tab.input is EditorTabInput) {
+                logger.info("탭 제거 (에디터): " + tab.input.uri?.path)
             }
-            if(tab.input is TextDiffTabInput){
-                logger.info("remove tab d" + tab.input.modified.path)
+            if (tab.input is TextDiffTabInput) {
+                logger.info("탭 제거 (Diff): " + tab.input.modified.path)
             }
 
+            // 그룹에서 탭을 제거하고 새로운 그룹 상태를 업데이트합니다.
             val newTabs = group.tabs.toMutableList().apply { removeAt(index) }
             val newGroup = group.copy(tabs = newTabs)
             state.groups[handle.groupId] = newGroup
-            state.groups[handle.groupId]?.isActive = false
+            state.groups[handle.groupId]?.isActive = false // 그룹의 활성 상태를 false로 설정 (추가 확인 필요)
             tabHandles.remove(id)
 
-            // Send tab operation event and group update event
+            // 탭 작업 이벤트와 그룹 업데이트 이벤트를 Extension Host에 알립니다.
             tabStateService.acceptTabOperation(TabOperation(
                 groupId = handle.groupId,
                 index = index,
@@ -189,27 +185,26 @@ tabHandles[tab.id] = handle
             ))
             tabStateService.acceptTabGroupUpdate(newGroup)
         }
-        return handle;
+        return handle
     }
 
     /**
-     * Updates a tab using the provided update function
+     * 제공된 업데이트 함수를 사용하여 탭을 업데이트합니다.
      *
-     * @param id ID of the tab to update
-     * @param update Function that takes the current tab and returns an updated tab
+     * @param id 업데이트할 탭의 ID
+     * @param update 현재 탭을 받아 업데이트된 탭을 반환하는 함수
      */
     internal suspend fun updateTab(id: String, update: (EditorTabDto) -> EditorTabDto) {
         val handle = tabHandles[id] ?: return
         val group = state.groups[handle.groupId] ?: return
 
-        // Find the index of the tab in the group
         val index = group.tabs.indexOfFirst { it.id == id }
         if (index != -1) {
             val tab = update(group.tabs[index])
             val newTabs = group.tabs.toMutableList().apply { this[index] = tab }
             state.groups[handle.groupId] = group.copy(tabs = newTabs)
 
-            // Send tab operation event and group update event
+            // 탭 작업 이벤트와 그룹 업데이트 이벤트를 Extension Host에 알립니다.
             tabStateService.acceptTabOperation(TabOperation(
                 groupId = handle.groupId,
                 index = index,
@@ -217,28 +212,27 @@ tabHandles[tab.id] = handle
                 kind = TabModelOperationKind.TAB_UPDATE.value,
                 oldIndex = null
             ))
-//            tabStateService.acceptEditorTabModel(state.groups.values.toList())
+//            tabStateService.acceptEditorTabModel(state.groups.values.toList()) // 현재 주석 처리됨
         }
     }
 
     /**
-     * Moves a tab to a new position, possibly in a different group
+     * 탭을 새로운 위치로 이동시킵니다. 다른 그룹으로 이동할 수도 있습니다.
      *
-     * @param id ID of the tab to move
-     * @param toGroupId ID of the destination group
-     * @param toIndex Index in the destination group
+     * @param id 이동할 탭의 ID
+     * @param toGroupId 대상 그룹의 ID
+     * @param toIndex 대상 그룹 내의 인덱스
      */
     internal suspend fun moveTab(id: String, toGroupId: Int, toIndex: Int) {
         val handle = tabHandles[id] ?: return
         val fromGroup = state.groups[handle.groupId] ?: return
         val toGroup = state.groups[toGroupId] ?: return
 
-        // Find the index of the tab in the source group
         val fromIndex = fromGroup.tabs.indexOfFirst { it.id == id }
         if (fromIndex != -1) {
             val tab = fromGroup.tabs[fromIndex]
 
-            // If moving within the same group
+            // 같은 그룹 내에서 이동하는 경우
             if (handle.groupId == toGroupId) {
                 val newTabs = fromGroup.tabs.toMutableList().apply {
                     removeAt(fromIndex)
@@ -246,7 +240,6 @@ tabHandles[tab.id] = handle
                 }
                 state.groups[handle.groupId] = fromGroup.copy(tabs = newTabs)
 
-                // Send tab operation event and group update event
                 tabStateService.acceptTabOperation(TabOperation(
                     groupId = handle.groupId,
                     index = toIndex,
@@ -254,18 +247,15 @@ tabHandles[tab.id] = handle
                     kind = TabModelOperationKind.TAB_MOVE.value,
                     oldIndex = fromIndex
                 ))
-//                tabStateService.acceptEditorTabModel(state.groups.values.toList())
             } else {
-                // Moving between groups
+                // 그룹 간 이동하는 경우
                 val newFromTabs = fromGroup.tabs.toMutableList().apply { removeAt(fromIndex) }
                 val newToTabs = toGroup.tabs.toMutableList().apply { add(toIndex, tab) }
                 state.groups[handle.groupId] = fromGroup.copy(tabs = newFromTabs)
                 state.groups[toGroupId] = toGroup.copy(tabs = newToTabs)
 
-                // Update the group ID in the tab handle
-                handle.groupId = toGroupId
+                handle.groupId = toGroupId // 탭 핸들의 그룹 ID 업데이트
 
-                // Send tab operation event and group update event
                 tabStateService.acceptTabOperation(TabOperation(
                     groupId = toGroupId,
                     index = toIndex,
@@ -273,18 +263,17 @@ tabHandles[tab.id] = handle
                     kind = TabModelOperationKind.TAB_MOVE.value,
                     oldIndex = fromIndex
                 ))
-//                tabStateService.acceptEditorTabModel(state.groups.values.toList())
             }
         }
     }
 
     /**
-     * Updates tab state properties
+     * 탭의 활성 상태, dirty 상태, 고정 상태 등을 업데이트합니다.
      *
-     * @param id ID of the tab to update
-     * @param isActive Whether the tab is active
-     * @param isDirty Whether the tab is dirty (has unsaved changes)
-     * @param isPinned Whether the tab is pinned
+     * @param id 업데이트할 탭의 ID
+     * @param isActive 활성 상태 여부 (선택 사항)
+     * @param isDirty dirty 상태 여부 (선택 사항)
+     * @param isPinned 고정 상태 여부 (선택 사항)
      */
     internal suspend fun updateTab(
         id: String,
@@ -303,44 +292,44 @@ tabHandles[tab.id] = handle
     }
 
     /**
-     * Sets the active group
+     * 지정된 그룹을 활성 그룹으로 설정합니다.
      *
-     * @param groupId ID of the group to set as active
+     * @param groupId 활성 그룹으로 설정할 그룹의 ID
      */
     fun setActiveGroup(groupId: Int) {
         state.groups.forEach { (id, group) ->
             state.groups[id] = group.copy(isActive = id == groupId)
         }
 
-        // Send update event for all groups
+        // 모든 그룹의 업데이트된 상태를 Extension Host에 알립니다.
         tabStateService.acceptEditorTabModel(state.groups.values.toList())
     }
 
     /**
-     * Gets a handle to a tab
+     * 탭 ID를 사용하여 `TabHandle`을 가져옵니다.
      *
-     * @param id ID of the tab
-     * @return Handle to the tab, or null if not found
+     * @param id 탭의 ID
+     * @return `TabHandle` 또는 찾지 못하면 null
      */
     fun getTabHandle(id: String): TabHandle? = tabHandles[id]
 
     /**
-     * Gets a tab group
+     * 그룹 ID를 사용하여 `EditorTabGroupDto`를 가져옵니다.
      *
-     * @param groupId ID of the group
-     * @return The tab group, or null if not found
+     * @param groupId 그룹의 ID
+     * @return `EditorTabGroupDto` 또는 찾지 못하면 null
      */
     internal fun getTabGroup(groupId: Int): EditorTabGroupDto? = state.groups[groupId]
 
     /**
-     * Gets all tab groups
+     * 모든 탭 그룹을 가져옵니다.
      *
-     * @return List of all tab groups
+     * @return 모든 탭 그룹의 리스트
      */
     fun getAllGroups(): List<EditorTabGroupDto> = state.groups.values.toList()
 
     /**
-     * Closes the manager and cleans up resources
+     * 관리자를 닫고 리소스를 정리합니다. (현재는 주석 처리됨)
      */
     suspend fun close() {
 //        tabOperationEvents.resetReplayCache()
@@ -350,89 +339,76 @@ tabHandles[tab.id] = handle
 }
 
 /**
- * Tab state container
- * Holds the state of all tab groups
+ * 모든 탭 그룹의 상태를 담는 데이터 클래스입니다.
  */
 data class TabsState(
     val groups: MutableMap<Int, EditorTabGroupDto> = ConcurrentHashMap()
 )
 
 /**
- * Tab options
- * Configuration options for creating tabs
+ * 탭 생성 옵션을 담는 데이터 클래스입니다.
  */
 data class TabOptions(
-    val isActive: Boolean = false,
-    val isPinned: Boolean = false,
-    val isPreview: Boolean = false
+    val isActive: Boolean = false,  // 탭이 활성화될지 여부
+    val isPinned: Boolean = false,  // 탭이 고정될지 여부
+    val isPreview: Boolean = false  // 탭이 미리보기 모드인지 여부
 ) {
     companion object {
-        val DEFAULT = TabOptions()
+        val DEFAULT = TabOptions() // 기본 옵션
     }
 }
+
 /**
- * Tab group handle
- * Provides operations for a specific tab group
- */
-/**
- * Provides operations for a specific tab group.
- * @property groupId The unique identifier for this tab group.
- * @property manager The TabStateManager instance managing this group.
+ * 특정 탭 그룹에 대한 작업을 제공하는 핸들 클래스입니다.
+ * @property groupId 이 탭 그룹의 고유 식별자
+ * @property manager 이 그룹을 관리하는 `TabStateManager` 인스턴스
  */
 class TabGroupHandle(
-    /**
-     * The unique identifier for this tab group.
-     */
     val groupId: Int,
-    /**
-     * The TabStateManager instance managing this group.
-     */
     private val manager: TabStateManager
 ) {
-
     /**
-     * Gets the tab group data.
+     * 이 그룹의 탭 그룹 데이터를 가져옵니다.
      */
     val group: EditorTabGroupDto?
         get() = manager.getTabGroup(groupId)
 
     /**
-     * Adds a tab to this group.
+     * 이 그룹에 탭을 추가합니다.
      *
-     * @param input Input for the tab content.
-     * @param options Options for the tab.
-     * @return Handle to the created tab.
+     * @param input 탭 콘텐츠를 위한 입력 데이터
+     * @param options 탭 옵션
+     * @return 생성된 탭에 대한 `TabHandle`
      */
     suspend fun addTab(input: TabInputBase, options: TabOptions = TabOptions.DEFAULT): TabHandle? =
         manager.createTab(groupId, input, options)
 
     /**
-     * Moves a tab to a specified position within this group.
+     * 이 그룹 내에서 탭을 지정된 위치로 이동시킵니다.
      *
-     * @param id ID of the tab to move.
-     * @param toIndex Destination index.
+     * @param id 이동할 탭의 ID
+     * @param toIndex 대상 인덱스
      */
     suspend fun moveTab(id: String, toIndex: Int) {
         manager.moveTab(id, groupId, toIndex)
     }
 
     /**
-     * Gets a handle to a tab in this group.
+     * 이 그룹 내에서 탭 ID를 사용하여 `TabHandle`을 가져옵니다.
      *
-     * @param id ID of the tab.
-     * @return Handle to the tab, or null if not found.
+     * @param id 탭의 ID
+     * @return `TabHandle` 또는 찾지 못하면 null
      */
     suspend fun getTabHandle(id: String): TabHandle? = manager.getTabHandle(id)
 
     /**
-     * Gets all tabs in this group.
+     * 이 그룹의 모든 탭을 가져옵니다.
      */
     val tabs: List<EditorTabDto>
         get() = group?.tabs ?: emptyList()
 
     /**
-     * Removes this tab group and all its tabs.
-     * Closes all tabs in the group and removes the group from the manager.
+     * 이 탭 그룹과 모든 탭을 제거합니다.
      */
     suspend fun remove() {
         group?.tabs?.forEach { tab ->
@@ -441,42 +417,30 @@ class TabGroupHandle(
         manager.removeGroup(groupId)
     }
 }
+
 /**
- * Tab handle
- * Provides operations for a specific tab
- */
-/**
- * Provides operations for a specific tab.
- * @property id The unique identifier for this tab.
- * @property groupId The group ID this tab belongs to.
- * @property manager The TabStateManager instance managing this tab.
+ * 특정 탭에 대한 작업을 제공하는 핸들 클래스입니다.
+ * @property id 이 탭의 고유 식별자
+ * @property groupId 이 탭이 속한 그룹의 ID
+ * @property manager 이 탭을 관리하는 `TabStateManager` 인스턴스
  */
 class TabHandle(
-    /**
-     * The unique identifier for this tab.
-     */
     val id: String,
-    /**
-     * The group ID this tab belongs to.
-     */
     var groupId: Int,
-    /**
-     * The TabStateManager instance managing this tab.
-     */
     private val manager: TabStateManager
 ) {
 
     /**
-     * Closes this tab by removing it from the manager.
+     * 이 탭을 닫습니다.
      */
     suspend fun close() {
         manager.removeTab(id)
     }
 
     /**
-     * Updates this tab using the provided update function.
+     * 제공된 업데이트 함수를 사용하여 이 탭을 업데이트합니다.
      *
-     * @param update Function that takes the current tab and returns an updated tab.
+     * @param update 현재 탭을 받아 업데이트된 탭을 반환하는 함수
      */
     suspend fun update(update: (EditorTabDto) -> EditorTabDto) {
         manager.updateTab(id, update)

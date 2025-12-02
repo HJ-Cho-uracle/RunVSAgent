@@ -1,98 +1,100 @@
 #!/bin/bash
 
-# Build script for RunVSAgent project
-# This script builds VSCode extension and IDEA plugin
+# RunVSAgent 프로젝트 빌드 스크립트
+# 이 스크립트는 VSCode 확장 및 IDEA 플러그인을 빌드합니다.
 
+# 오류 발생 시 즉시 종료, 정의되지 않은 변수 사용 시 오류, 파이프라인 오류 시 오류
 set -euo pipefail
 
-# Source common utilities
+# 공통 유틸리티 스크립트 로드
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 source "$SCRIPT_DIR/lib/build.sh"
 
-# Script configuration
+# --- 스크립트 설정 ---
 readonly SCRIPT_NAME="build.sh"
 readonly SCRIPT_VERSION="1.0.0"
 
-# Build targets
-readonly TARGET_ALL="all"
-readonly TARGET_VSCODE="vscode"
-readonly TARGET_BASE="base"
-readonly TARGET_IDEA="idea"
+# --- 빌드 대상 정의 ---
+readonly TARGET_ALL="all"       # 모든 컴포넌트 빌드
+readonly TARGET_VSCODE="vscode" # VSCode 확장만 빌드
+readonly TARGET_BASE="base"     # 기본 확장 런타임만 빌드
+readonly TARGET_IDEA="idea"     # IDEA 플러그인만 빌드
 
-# Build configuration
-BUILD_TARGET="$TARGET_ALL"
-CLEAN_BEFORE_BUILD=false
-SKIP_TESTS=false
-OUTPUT_DIR=""
+# --- 빌드 구성 변수 ---
+BUILD_TARGET="$TARGET_ALL"      # 기본 빌드 대상은 'all'
+CLEAN_BEFORE_BUILD=false        # 빌드 전에 정리할지 여부
+SKIP_TESTS=false                # 테스트 건너뛸지 여부
+OUTPUT_DIR=""                   # 빌드 결과물 출력 디렉터리
+# VSIX_FILE, SKIP_VSCODE_BUILD, SKIP_BASE_BUILD, SKIP_IDEA_BUILD는 lib/build.sh에서 정의됨
 
-# Show help for this script
+# --- 스크립트 도움말 표시 ---
 show_help() {
     cat << EOF
-$SCRIPT_NAME - Build RunVSAgent project components
+$SCRIPT_NAME - RunVSAgent 프로젝트 컴포넌트 빌드
 
-USAGE:
-    $SCRIPT_NAME [OPTIONS] [TARGET]
+사용법:
+    $SCRIPT_NAME [옵션] [대상]
 
-DESCRIPTION:
-    This script builds the RunVSAgent project components:
-    - VSCode extension (from submodule)
-    - Base extension runtime
-    - IDEA plugin
+설명:
+    이 스크립트는 RunVSAgent 프로젝트의 다음 컴포넌트를 빌드합니다:
+    - VSCode 확장 (서브모듈에서)
+    - 기본 확장 런타임
+    - IDEA 플러그인
 
-TARGETS:
-    all         Build all components (default)
-    vscode      Build only VSCode extension
-    base        Build only base extension
-    idea        Build only IDEA plugin
+대상:
+    all         모든 컴포넌트 빌드 (기본값)
+    vscode      VSCode 확장만 빌드
+    base        기본 확장만 빌드
+    idea        IDEA 플러그인만 빌드
 
-OPTIONS:
-    -m, --mode MODE       Build mode: release (default) or debug
-    -c, --clean           Clean before building
-    -o, --output DIR      Output directory for build artifacts
-    -t, --skip-tests      Skip running tests
-    --vsix FILE           Use existing VSIX file (skip VSCode build)
-    --skip-vscode         Skip VSCode extension build
-    --skip-base           Skip base extension build
-    --skip-idea           Skip IDEA plugin build
-    -v, --verbose         Enable verbose output
-    -n, --dry-run         Show what would be done without executing
-    -h, --help            Show this help message
+옵션:
+    -m, --mode MODE       빌드 모드: release (기본값) 또는 debug
+    -c, --clean           빌드 전에 정리
+    -o, --output DIR      빌드 결과물 출력 디렉터리
+    -t, --skip-tests      테스트 실행 건너뛰기
+    --vsix FILE           기존 VSIX 파일 사용 (VSCode 빌드 건너뛰기)
+    --skip-vscode         VSCode 확장 빌드 건너뛰기
+    --skip-base           기본 확장 빌드 건너뛰기
+    --skip-idea           IDEA 플러그인 빌드 건너뛰기
+    -v, --verbose         자세한 출력 활성화
+    -n, --dry-run         실행하지 않고 수행될 작업 표시
+    -h, --help            이 도움말 메시지 표시
 
-BUILD MODES:
-    release     Production build with optimizations (default)
-    debug       Development build with debug symbols and resources
+빌드 모드:
+    release     최적화된 프로덕션 빌드 (기본값)
+    debug       디버그 심볼 및 리소스가 포함된 개발 빌드
 
-EXAMPLES:
-    $SCRIPT_NAME                           # Build all components
-    $SCRIPT_NAME --mode debug              # Debug build
-    $SCRIPT_NAME --clean vscode            # Clean build VSCode only
-    $SCRIPT_NAME --vsix path/to/file.vsix  # Use existing VSIX
-    $SCRIPT_NAME --output ./dist           # Custom output directory
+예시:
+    $SCRIPT_NAME                           # 모든 컴포넌트 빌드
+    $SCRIPT_NAME --mode debug              # 디버그 빌드
+    $SCRIPT_NAME --clean vscode            # VSCode만 정리 후 빌드
+    $SCRIPT_NAME --vsix path/to/file.vsix  # 기존 VSIX 사용
+    $SCRIPT_NAME --output ./dist           # 사용자 정의 출력 디렉터리
 
-ENVIRONMENT:
-    BUILD_MODE          Override build mode (release/debug)
-    VSIX_FILE           Path to existing VSIX file
-    SKIP_VSCODE_BUILD   Skip VSCode build if set to 'true'
-    SKIP_BASE_BUILD     Skip base build if set to 'true'
-    SKIP_IDEA_BUILD     Skip IDEA build if set to 'true'
+환경 변수:
+    BUILD_MODE          빌드 모드 재정의 (release/debug)
+    VSIX_FILE           기존 VSIX 파일 경로
+    SKIP_VSCODE_BUILD   'true'로 설정하면 VSCode 빌드 건너뛰기
+    SKIP_BASE_BUILD     'true'로 설정하면 기본 빌드 건너뛰기
+    SKIP_IDEA_BUILD     'true'로 설정하면 IDEA 빌드 건너뛰기
 
-EXIT CODES:
-    0    Success
-    1    General error
-    2    Build failed
-    3    Invalid arguments
-    4    Missing dependencies
+종료 코드:
+    0    성공
+    1    일반 오류
+    2    빌드 실패
+    3    잘못된 인자
+    4    누락된 의존성
 
 EOF
 }
 
-# Parse command line arguments
+# --- 명령줄 인자 파싱 ---
 parse_build_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             -m|--mode)
                 if [[ -z "${2:-}" ]]; then
-                    log_error "Build mode requires a value"
+                    log_error "빌드 모드에 값이 필요합니다."
                     exit 3
                 fi
                 BUILD_MODE="$2"
@@ -104,7 +106,7 @@ parse_build_args() {
                 ;;
             -o|--output)
                 if [[ -z "${2:-}" ]]; then
-                    log_error "Output directory requires a value"
+                    log_error "출력 디렉터리에 값이 필요합니다."
                     exit 3
                 fi
                 OUTPUT_DIR="$2"
@@ -116,11 +118,11 @@ parse_build_args() {
                 ;;
             --vsix)
                 if [[ -z "${2:-}" ]]; then
-                    log_error "VSIX file path requires a value"
+                    log_error "VSIX 파일 경로에 값이 필요합니다."
                     exit 3
                 fi
                 VSIX_FILE="$2"
-                SKIP_VSCODE_BUILD=true
+                SKIP_VSCODE_BUILD=true # VSIX 파일을 사용하면 VSCode 빌드를 건너뜁니다.
                 shift 2
                 ;;
             --skip-vscode)
@@ -148,37 +150,37 @@ parse_build_args() {
                 exit 0
                 ;;
             -*)
-                log_error "Unknown option: $1"
-                log_info "Use --help for usage information"
+                log_error "알 수 없는 옵션: $1"
+                log_info "사용법 정보는 --help를 사용하세요."
                 exit 3
                 ;;
             *)
-                # Positional argument (target)
+                # 위치 인자 (대상)
                 BUILD_TARGET="$1"
                 shift
                 ;;
         esac
     done
     
-    # Validate build mode
+    # 빌드 모드 유효성 검사
     if [[ "$BUILD_MODE" != "$BUILD_MODE_RELEASE" && "$BUILD_MODE" != "$BUILD_MODE_DEBUG" ]]; then
-        log_error "Invalid build mode: $BUILD_MODE"
-        log_info "Valid modes: $BUILD_MODE_RELEASE, $BUILD_MODE_DEBUG"
+        log_error "유효하지 않은 빌드 모드: $BUILD_MODE"
+        log_info "유효한 모드: $BUILD_MODE_RELEASE, $BUILD_MODE_DEBUG"
         exit 3
     fi
     
-    # Validate build target
+    # 빌드 대상 유효성 검사
     case "$BUILD_TARGET" in
         "$TARGET_ALL"|"$TARGET_VSCODE"|"$TARGET_BASE"|"$TARGET_IDEA")
             ;;
         *)
-            log_error "Invalid build target: $BUILD_TARGET"
-            log_info "Valid targets: $TARGET_ALL, $TARGET_VSCODE, $TARGET_BASE, $TARGET_IDEA"
+            log_error "유효하지 않은 빌드 대상: $BUILD_TARGET"
+            log_info "유효한 대상: $TARGET_ALL, $TARGET_VSCODE, $TARGET_BASE, $TARGET_IDEA"
             exit 3
             ;;
     esac
     
-    # Set skip flags based on target
+    # 대상에 따라 건너뛰기 플래그 설정
     case "$BUILD_TARGET" in
         "$TARGET_VSCODE")
             SKIP_BASE_BUILD=true
@@ -194,198 +196,193 @@ parse_build_args() {
             ;;
     esac
     
-    # Override with environment variables
+    # 환경 변수로 재정의
     [[ "${SKIP_VSCODE_BUILD:-false}" == "true" ]] && SKIP_VSCODE_BUILD=true
     [[ "${SKIP_BASE_BUILD:-false}" == "true" ]] && SKIP_BASE_BUILD=true
     [[ "${SKIP_IDEA_BUILD:-false}" == "true" ]] && SKIP_IDEA_BUILD=true
     [[ -n "${VSIX_FILE:-}" ]] && VSIX_FILE="$VSIX_FILE"
     
-    # Ensure the function returns 0 on success, preventing `set -e` from exiting the script.
+    # 함수가 성공 시 0을 반환하도록 하여 `set -e`가 스크립트를 종료하지 않도록 합니다.
     true
 }
 
-# Check JDK version
+# --- JDK 버전 확인 ---
 check_jdk_version() {
-    log_step "Checking JDK version..."
+    log_step "JDK 버전 확인 중..."
     
-    # Check if java command exists
+    # java 명령어가 존재하는지 확인
     if ! command_exists "java"; then
-        log_error "Java not found. Please install JDK 17 or higher."
+        log_error "Java를 찾을 수 없습니다. JDK 17 이상을 설치해주세요."
         exit 4
     fi
     
-    # Get Java version
+    # Java 버전 가져오기
     local java_version_output
     java_version_output=$(java -version 2>&1 | head -n 1)
     
-    # Extract version number from output
+    # 출력에서 버전 번호 추출
     local java_version
     if [[ "$java_version_output" =~ \"([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-        # Java 8 and earlier format: "1.8.0_xxx"
+        # Java 8 이하 형식: "1.8.0_xxx"
         if [[ "${BASH_REMATCH[1]}" == "1" ]]; then
             java_version="${BASH_REMATCH[2]}"
         else
             java_version="${BASH_REMATCH[1]}"
         fi
     elif [[ "$java_version_output" =~ \"([0-9]+) ]]; then
-        # Java 9+ format: "17.0.1" or just "17"
+        # Java 9+ 형식: "17.0.1" 또는 "17"
         java_version="${BASH_REMATCH[1]}"
     else
-        log_error "Unable to parse Java version from: $java_version_output"
+        log_error "Java 버전 파싱 실패: $java_version_output"
         exit 4
     fi
     
-    log_debug "Detected Java version: $java_version"
+    log_debug "감지된 Java 버전: $java_version"
     
-    # Check if version is >= 17
+    # 버전이 17 이상인지 확인
     if [[ "$java_version" -lt 17 ]]; then
-        log_error "JDK version $java_version is too old. Required: JDK 17 or higher."
-        log_info "Current Java version output: $java_version_output"
+        log_error "JDK 버전 $java_version이 너무 오래되었습니다. 요구 사항: JDK 17 이상."
+        log_info "현재 Java 버전 출력: $java_version_output"
         exit 4
     fi
     
-    log_success "JDK version check passed (version: $java_version)"
+    log_success "JDK 버전 확인 통과 (버전: $java_version)"
 }
 
-# Validate build environment
+# --- 빌드 환경 유효성 검사 ---
 validate_build_environment() {
-    log_step "Validating build environment..."
+    log_step "빌드 환경 유효성 검사 중..."
     
-    # Check JDK version
+    # JDK 버전 확인
     check_jdk_version
     
-    # Check if setup has been run
+    # setup 스크립트가 실행되었는지 확인 (VSCode 서브모듈 초기화 여부)
     local vscode_dir="$PROJECT_ROOT/$VSCODE_SUBMODULE_PATH"
     if [[ ! -d "$vscode_dir" ]] || [[ ! "$(ls -A "$vscode_dir" 2>/dev/null)" ]]; then
-        log_error "VSCode submodule not initialized. Run './scripts/setup.sh' first."
+        log_error "VSCode 서브모듈이 초기화되지 않았습니다. 먼저 './scripts/setup.sh'를 실행하세요."
         exit 4
     fi
     
-    # Check for required build files
+    # 필요한 빌드 파일 확인
     if [[ "$SKIP_BASE_BUILD" != "true" ]]; then
         if [[ ! -f "$PROJECT_ROOT/$EXTENSION_HOST_DIR/package.json" ]]; then
-            log_error "Base package.json not found. Run './scripts/setup.sh' first."
+            log_error "기본 package.json을 찾을 수 없습니다. 먼저 './scripts/setup.sh'를 실행하세요."
             exit 4
         fi
     fi
     
     if [[ "$SKIP_IDEA_BUILD" != "true" ]]; then
         if [[ ! -f "$PROJECT_ROOT/$IDEA_DIR/build.gradle" && ! -f "$PROJECT_ROOT/$IDEA_DIR/build.gradle.kts" ]]; then
-            log_error "IDEA Gradle build file not found."
+            log_error "IDEA Gradle 빌드 파일을 찾을 수 없습니다."
             exit 4
         fi
     fi
     
-    # Validate VSIX file if provided
+    # VSIX 파일이 제공된 경우 유효성 검사
     if [[ -n "$VSIX_FILE" ]]; then
         if [[ ! -f "$VSIX_FILE" ]]; then
-            log_error "VSIX file not found: $VSIX_FILE"
+            log_error "VSIX 파일을 찾을 수 없습니다: $VSIX_FILE"
             exit 4
         fi
-        log_info "Using existing VSIX file: $VSIX_FILE"
+        log_info "기존 VSIX 파일 사용 중: $VSIX_FILE"
     fi
     
-    log_success "Build environment validated"
+    log_success "빌드 환경 유효성 검사 완료"
 }
 
-# Setup build output directory
+# --- 빌드 출력 디렉터리 설정 ---
 setup_output_directory() {
     if [[ -n "$OUTPUT_DIR" ]]; then
-        log_step "Setting up output directory..."
+        log_step "출력 디렉터리 설정 중..."
         
-        ensure_dir "$OUTPUT_DIR"
+        ensure_dir "$OUTPUT_DIR" # 디렉터리가 없으면 생성
         
-        # Make output directory absolute
+        # 출력 디렉터리 경로를 절대 경로로 만듭니다.
         OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
         
-        log_info "Build artifacts will be copied to: $OUTPUT_DIR"
+        log_info "빌드 결과물이 다음으로 복사됩니다: $OUTPUT_DIR"
     fi
 }
 
-# Clean build artifacts
+# --- 빌드 결과물 정리 ---
 clean_build_artifacts() {
     if [[ "$CLEAN_BEFORE_BUILD" != "true" ]]; then
         return 0
     fi
     
-    log_step "Cleaning build artifacts..."
-    clean_build
-    log_success "Build artifacts cleaned"
+    log_step "빌드 결과물 정리 중..."
+    clean_build # lib/build.sh에 정의된 clean_build 함수 호출
+    log_success "빌드 결과물 정리 완료"
 }
 
-# Build VSCode extension
+# --- VSCode 확장 컴포넌트 빌드 ---
 build_vscode_plugin_component() {
     if [[ "$SKIP_VSCODE_BUILD" == "true" ]]; then
-        log_info "Skipping VSCode extension build"
+        log_info "VSCode 확장 빌드 건너뛰기"
         return 0
     fi
     
-    log_step "Building VSCode extension..."
+    log_step "VSCode 확장 빌드 중..."
     
-
+    build_vscode_extension # lib/build.sh에 정의된 함수 호출
+    copy_vscode_extension # lib/build.sh에 정의된 함수 호출
     
-    # Build extension
-    build_vscode_extension
+    # 디버그 모드인 경우 디버그 리소스 복사
+    local debug_res_dir="$PROJECT_ROOT/debug-resources"
+    copy_debug_resources $debug_res_dir/${VSCODE_PLUGIN_NAME} # lib/build.sh에 정의된 함수 호출
     
-    # Copy extension files
-    copy_vscode_extension
-    
-    # Copy debug resources if in debug mode
-    copy_debug_resources
-      
-    
-    log_success "VSCode extension built"
+    log_success "VSCode 확장 빌드 완료"
 }
 
-# Build base extension
+# --- 기본 확장 런타임 컴포넌트 빌드 ---
 build_vscode_extension_host_component() {
     if [[ "$SKIP_BASE_BUILD" == "true" ]]; then
-        log_info "Skipping Extension host build"
+        log_info "Extension Host 빌드 건너뛰기"
         return 0
     fi
     
-    log_step "Building Extension host..."
+    log_step "Extension Host 빌드 중..."
     
-    build_extension_host
-    copy_base_debug_resources
+    build_extension_host # lib/build.sh에 정의된 함수 호출
+    copy_base_debug_resources # lib/build.sh에 정의된 함수 호출
     
-    log_success "Extension host built"
+    log_success "Extension Host 빌드 완료"
 }
 
-# Build IDEA plugin
+# --- IDEA 플러그인 컴포넌트 빌드 ---
 build_idea_component() {
     if [[ "$SKIP_IDEA_BUILD" == "true" ]]; then
-        log_info "Skipping IDEA plugin build"
+        log_info "IDEA 플러그인 빌드 건너뛰기"
         return 0
     fi
     
-    log_step "Building IDEA plugin..."
+    log_step "IDEA 플러그인 빌드 중..."
     
-    build_idea_plugin
+    build_idea_plugin # lib/build.sh에 정의된 함수 호출
     
-    log_success "IDEA plugin built"
+    log_success "IDEA 플러그인 빌드 완료"
 }
 
-# Run tests
+# --- 테스트 실행 ---
 run_tests() {
     if [[ "$SKIP_TESTS" == "true" ]]; then
-        log_info "Skipping tests"
+        log_info "테스트 건너뛰기"
         return 0
     fi
     
-    log_step "Running tests..."
+    log_step "테스트 실행 중..."
     
-    # Run base tests if available
+    # 기본 확장 테스트 실행 (사용 가능한 경우)
     if [[ "$SKIP_BASE_BUILD" != "true" && -f "$PROJECT_ROOT/$EXTENSION_HOST_DIR/package.json" ]]; then
         cd "$PROJECT_ROOT/$EXTENSION_HOST_DIR"
         if npm run test --if-present >/dev/null 2>&1; then
-            execute_cmd "npm test" "base extension tests"
+            execute_cmd "npm test" "기본 확장 테스트"
         else
-            log_debug "No tests found for base extension"
+            log_debug "기본 확장에 대한 테스트를 찾을 수 없습니다."
         fi
     fi
     
-    # Run VSCode extension tests if available
+    # VSCode 확장 테스트 실행 (사용 가능한 경우)
     if [[ "$SKIP_VSCODE_BUILD" != "true" && -d "$PROJECT_ROOT/$VSCODE_SUBMODULE_PATH" ]]; then
         cd "$PROJECT_ROOT/$VSCODE_SUBMODULE_PATH"
         local pkg_manager="npm"
@@ -394,125 +391,125 @@ run_tests() {
         fi
         
         if $pkg_manager run test --if-present >/dev/null 2>&1; then
-            execute_cmd "$pkg_manager test" "VSCode extension tests"
+            execute_cmd "$pkg_manager test" "VSCode 확장 테스트"
         else
-            log_debug "No tests found for VSCode extension"
+            log_debug "VSCode 확장에 대한 테스트를 찾을 수 없습니다."
         fi
     fi
     
-    log_success "Tests completed"
+    log_success "테스트 완료"
 }
 
-# Copy build artifacts to output directory
+# --- 빌드 결과물 출력 디렉터리로 복사 ---
 copy_build_artifacts() {
     if [[ -z "$OUTPUT_DIR" ]]; then
         return 0
     fi
     
-    log_step "Copying build artifacts to output directory..."
+    log_step "빌드 결과물을 출력 디렉터리로 복사 중..."
     
-    # Copy VSIX file
+    # VSIX 파일 복사
     if [[ -n "$VSIX_FILE" && -f "$VSIX_FILE" ]]; then
-        copy_files "$VSIX_FILE" "$OUTPUT_DIR/" "VSIX file"
+        copy_files "$VSIX_FILE" "$OUTPUT_DIR/" "VSIX 파일"
     fi
     
-    # Copy IDEA plugin
+    # IDEA 플러그인 복사
     if [[ -n "${IDEA_PLUGIN_FILE:-}" && -f "$IDEA_PLUGIN_FILE" ]]; then
-        copy_files "$IDEA_PLUGIN_FILE" "$OUTPUT_DIR/" "IDEA plugin"
+        copy_files "$IDEA_PLUGIN_FILE" "$OUTPUT_DIR/" "IDEA 플러그인"
     fi
     
-    # Copy debug resources if in debug mode
+    # 디버그 모드인 경우 디버그 리소스 복사
     if [[ "$BUILD_MODE" == "$BUILD_MODE_DEBUG" && -d "$PROJECT_ROOT/debug-resources" ]]; then
-        copy_files "$PROJECT_ROOT/debug-resources" "$OUTPUT_DIR/" "debug resources"
+        copy_files "$PROJECT_ROOT/debug-resources" "$OUTPUT_DIR/" "디버그 리소스"
     fi
     
-    log_success "Build artifacts copied to output directory"
+    log_success "빌드 결과물 출력 디렉터리로 복사 완료"
 }
 
-# Show build summary
+# --- 빌드 요약 표시 ---
 show_build_summary() {
-    log_step "Build Summary"
+    log_step "빌드 요약"
     
     echo ""
-    log_info "Build completed successfully!"
-    log_info "Build mode: $BUILD_MODE"
-    log_info "Build target: $BUILD_TARGET"
-    log_info "Platform: $(get_platform)"
+    log_info "빌드 성공적으로 완료되었습니다!"
+    log_info "빌드 모드: $BUILD_MODE"
+    log_info "빌드 대상: $BUILD_TARGET"
+    log_info "플랫폼: $(get_platform)"
     
     echo ""
-    log_info "Generated artifacts:"
+    log_info "생성된 결과물:"
     
-    # Show VSIX file
+    # VSIX 파일 표시
     if [[ -n "$VSIX_FILE" && -f "$VSIX_FILE" ]]; then
-        log_info "  VSCode Extension: $VSIX_FILE"
+        log_info "  VSCode 확장: $VSIX_FILE"
     fi
     
-    # Show IDEA plugin
+    # IDEA 플러그인 표시
     if [[ -n "${IDEA_PLUGIN_FILE:-}" && -f "$IDEA_PLUGIN_FILE" ]]; then
-        log_info "  IDEA Plugin: $IDEA_PLUGIN_FILE"
+        log_info "  IDEA 플러그인: $IDEA_PLUGIN_FILE"
     fi
     
-    # Show debug resources
+    # 디버그 리소스 표시
     if [[ "$BUILD_MODE" == "$BUILD_MODE_DEBUG" && -d "$PROJECT_ROOT/debug-resources" ]]; then
-        log_info "  Debug Resources: $PROJECT_ROOT/debug-resources"
+        log_info "  디버그 리소스: $PROJECT_ROOT/debug-resources"
     fi
     
-    # Show output directory
+    # 출력 디렉터리 표시
     if [[ -n "$OUTPUT_DIR" ]]; then
-        log_info "  Output Directory: $OUTPUT_DIR"
+        log_info "  출력 디렉터리: $OUTPUT_DIR"
     fi
     
     echo ""
-    log_info "Next steps:"
+    log_info "다음 단계:"
     if [[ "$BUILD_TARGET" == "$TARGET_ALL" || "$BUILD_TARGET" == "$TARGET_IDEA" ]]; then
-        log_info "  1. Install IDEA plugin from: ${IDEA_PLUGIN_FILE:-$IDEA_BUILD_DIR/build/distributions/}"
-        log_info "  2. Configure plugin settings in IDEA"
+        log_info "  1. IDEA 플러그인 설치: ${IDEA_PLUGIN_FILE:-$IDEA_BUILD_DIR/build/distributions/}"
+        log_info "  2. IDEA에서 플러그인 설정"
     fi
     
     echo ""
 }
 
-# Main build function
+# --- 메인 빌드 함수 ---
 main() {
-    log_info "Starting RunVSAgent build process..."
-    log_info "Script: $SCRIPT_NAME v$SCRIPT_VERSION"
-    log_info "Platform: $(get_platform)"
-    log_info "Project root: $PROJECT_ROOT"
+    log_info "RunVSAgent 빌드 프로세스 시작..."
+    log_info "스크립트: $SCRIPT_NAME v$SCRIPT_VERSION"
+    log_info "플랫폼: $(get_platform)"
+    log_info "프로젝트 루트: $PROJECT_ROOT"
     
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_warn "DRY RUN MODE - No changes will be made"
+        log_warn "DRY RUN 모드 - 변경 사항이 적용되지 않습니다."
     fi
     
-    # Parse arguments
+    # 인자 파싱
     parse_build_args "$@"
     
-    log_info "Build configuration:"
-    log_info "  Mode: $BUILD_MODE"
-    log_info "  Target: $BUILD_TARGET"
-    log_info "  Clean: $CLEAN_BEFORE_BUILD"
-    log_info "  Skip tests: $SKIP_TESTS"
-    [[ -n "$OUTPUT_DIR" ]] && log_info "  Output: $OUTPUT_DIR"
+    log_info "빌드 구성:"
+    log_info "  모드: $BUILD_MODE"
+    log_info "  대상: $BUILD_TARGET"
+    log_info "  정리: $CLEAN_BEFORE_BUILD"
+    log_info "  테스트 건너뛰기: $SKIP_TESTS"
+    [[ -n "$OUTPUT_DIR" ]] && log_info "  출력: $OUTPUT_DIR"
     
-    # Initialize build environment
+    # 빌드 환경 초기화
     init_build_env
     
-    # Run build steps
+    # 빌드 단계 실행
     validate_build_environment
     setup_output_directory
     clean_build_artifacts
     
-    # Build components
+    # 컴포넌트 빌드
     build_vscode_plugin_component
     build_vscode_extension_host_component
     build_idea_component
     
-    # Run tests and finalize
+    # 테스트 실행 및 마무리
     #run_tests
     copy_build_artifacts
     show_build_summary
     
-    log_success "Build process completed successfully!"
+    log_success "빌드 프로세스 성공적으로 완료되었습니다!"
 }
 
-# Run main function with all arguments
+# 모든 인자와 함께 메인 함수 실행
 main "$@"

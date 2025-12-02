@@ -1,177 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
 SPDX-FileCopyrightText: 2025 Weibo, Inc.
 
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<!-- 플러그인 설정 파일. 자세한 내용은 다음을 참조하세요: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <!-- 플러그인의 고유 식별자입니다. FQN(Fully Qualified Name)이어야 하며, 플러그인 버전 간에 변경할 수 없습니다. -->
     <id>RunVSAgent</id>
 
-    <!-- Public plugin name should be written in Title Case.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+    <!-- 플러그인의 표시 이름입니다. Title Case로 작성해야 합니다.
+         가이드라인: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
     <name>RunVSAgent</name>
 
-    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <!-- 플러그인 페이지 및 IDE 플러그인 관리자에 표시되는 공급업체 이름 또는 조직 ID입니다. -->
     <vendor url="https://weibo.com">WeCode-AI</vendor>
 
-    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
-         Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+    <!-- 플러그인 페이지 및 IDE 플러그인 관리자에 표시되는 플러그인 설명입니다.
+         <![CDATA[ ]]> 태그 내부에 간단한 HTML 요소(텍스트 서식, 단락, 목록)를 추가할 수 있습니다.
+         가이드라인: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
-        <h1>RunVSAgent - Run VSCode-based Coding Agents in JetBrains IDEs</h1>
-        <p>RunVSAgent is an innovative cross-platform development tool that enables developers to run VSCode-based coding agents and extensions within JetBrains IDEs (IntelliJ IDEA, WebStorm, PyCharm, etc.) or other IDE platforms.</p>
+        <h1>RunVSAgent - JetBrains IDE에서 VSCode 기반 코딩 에이전트 실행</h1>
+        <p>RunVSAgent는 JetBrains IDE(IntelliJ IDEA, WebStorm, PyCharm 등) 또는 다른 IDE 플랫폼 내에서 VSCode 기반 코딩 에이전트 및 확장을 실행할 수 있도록 하는 혁신적인 크로스 플랫폼 개발 도구입니다.</p>
         
-        <h2>Core Features</h2>
+        <h2>핵심 기능</h2>
         <ul>
-            <li><strong>VSCode Agent Compatibility</strong>: Seamlessly run VSCode-based coding agents in JetBrains IDEs</li>
-            <li><strong>Cross-IDE Development</strong>: Unified agent experience across different IDE platforms</li>
-            <li><strong>AI-Powered Assistance</strong>: Leverage advanced AI coding assistants for intelligent code generation</li>
+            <li><strong>VSCode 에이전트 호환성</strong>: JetBrains IDE에서 VSCode 기반 코딩 에이전트를 원활하게 실행</li>
+            <li><strong>크로스 IDE 개발</strong>: 다양한 IDE 플랫폼에서 통합된 에이전트 경험</li>
+            <li><strong>AI 기반 지원</strong>: 지능적인 코드 생성을 위한 고급 AI 코딩 어시스턴트 활용</li>
         </ul>
         
-        <h2>Supported IDEs</h2>
-        <p>RunVSAgent currently supports the following JetBrains IDE series:</p>
+        <h2>지원 IDE</h2>
+        <p>RunVSAgent는 현재 다음 JetBrains IDE 시리즈를 지원합니다:</p>
         <ul>
             <li><strong>IntelliJ IDEA</strong> (Ultimate & Community)</li>
-            <li><strong>WebStorm</strong> - JavaScript and TypeScript development</li>
-            <li><strong>PyCharm</strong> (Professional & Community) - Python development</li>
-            <li><strong>PhpStorm</strong> - PHP development</li>
-            <li><strong>RubyMine</strong> - Ruby development</li>
-            <li><strong>CLion</strong> - C/C++ development</li>
-            <li><strong>GoLand</strong> - Go development</li>
-            <li><strong>DataGrip</strong> - Database development</li>
-            <li><strong>Rider</strong> - .NET development</li>
-            <li><strong>Android Studio</strong> - Android development</li>
+            <li><strong>WebStorm</strong> - JavaScript 및 TypeScript 개발</li>
+            <li><strong>PyCharm</strong> (Professional & Community) - Python 개발</li>
+            <li><strong>PhpStorm</strong> - PHP 개발</li>
+            <li><strong>RubyMine</strong> - Ruby 개발</li>
+            <li><strong>CLion</strong> - C/C++ 개발</li>
+            <li><strong>GoLand</strong> - Go 개발</li>
+            <li><strong>DataGrip</strong> - 데이터베이스 개발</li>
+            <li><strong>Rider</strong> - .NET 개발</li>
+            <li><strong>Android Studio</strong> - Android 개발</li>
         </ul>
         
-        <h2>Supported Agents</h2>
+        <h2>지원 에이전트</h2>
         <ul>
-            <li><strong>Roo Code</strong>: Advanced AI-powered coding assistant with intelligent code generation and refactoring capabilities</li>
-            <li><strong>Custom Extensions</strong>: Support for custom AI coding assistants</li>
+            <li><strong>Roo Code</strong>: 지능적인 코드 생성 및 리팩토링 기능을 갖춘 고급 AI 기반 코딩 어시스턴트</li>
+            <li><strong>사용자 정의 확장</strong>: 사용자 정의 AI 코딩 어시스턴트 지원</li>
         </ul>
         
-        <h2>Requirements</h2>
+        <h2>요구 사항</h2>
         <ul>
-            <li>Requires <a href="https://nodejs.org/">Node.js</a> v18+ installed</li>
-            <li>Requires JetBrains IDE version 2023.1 or later for optimal compatibility</li>
+            <li><a href="https://nodejs.org/">Node.js</a> v18+ 설치 필요</li>
+            <li>최적의 호환성을 위해 JetBrains IDE 버전 2023.1 이상 필요</li>
         </ul>
         
-        <h2>Benefits</h2>
+        <h2>이점</h2>
         <ul>
-            <li><strong>Increased Productivity</strong>: Access powerful AI coding assistants without leaving your preferred IDE</li>
-            <li><strong>Unified Workflow</strong>: Maintain a consistent development experience across different platforms</li>
-            <li><strong>Extensible Architecture</strong>: Support for new agents and extensions as they become available</li>
+            <li><strong>생산성 향상</strong>: 선호하는 IDE를 떠나지 않고 강력한 AI 코딩 어시스턴트에 액세스</li>
+            <li><strong>통합된 워크플로우</strong>: 다양한 플랫폼에서 일관된 개발 경험 유지</li>
+            <li><strong>확장 가능한 아키텍처</strong>: 새로운 에이전트 및 확장이 출시되면 지원</li>
         </ul>
         
    ]]></description>
    
-   <!-- Change notes for the plugin -->
+   <!-- 플러그인에 대한 변경 사항 노트 -->
    <change-notes><![CDATA[
-       <h3>Version 0.2.5</h3>
+       <h3>버전 0.2.5</h3>
         <ul>
-            <li>fix incompatible error with IntelliJ IDEA Ultimate IU-253.27864.23</li>
+            <li>IntelliJ IDEA Ultimate IU-253.27864.23과의 호환성 오류 수정</li>
         </ul>
-        <h3>Version 0.2.4</h3>
+        <h3>버전 0.2.4</h3>
         <ul>
-            <li>Fix Cline theme</li>
+            <li>Cline 테마 수정</li>
         </ul>
-        <h3>Version 0.2.2</h3>
+        <h3>버전 0.2.2</h3>
         <ul>
-            <li>Support Kilo Code</li>
+            <li>Kilo Code 지원</li>
         </ul>
-        <h3>Version 0.2.1</h3>
+        <h3>버전 0.2.1</h3>
         <ul>
-            <li>Introduce specific context menus and operations for extension</li>
-            <li>Update roo-code version</li>
+            <li>확장별 특정 컨텍스트 메뉴 및 작업 도입</li>
+            <li>roo-code 버전 업데이트</li>
         </ul>
-        <h3>Version 0.2.0</h3>
+        <h3>버전 0.2.0</h3>
         <ul>
-            <li>Support the Cline plugin and allow switching between multiple plugins.</li>
-            <li>Important: The storage path has changed in the new version. Therefore, before upgrading, please use Roo Code’s Export Settings feature to back up your settings.</li>
+            <li>Cline 플러그인 지원 및 여러 플러그인 간 전환 허용.</li>
+            <li>중요: 새 버전에서 저장 경로가 변경되었습니다. 따라서 업그레이드하기 전에 Roo Code의 설정 내보내기 기능을 사용하여 설정을 백업하십시오.</li>
         </ul>
 
 
    ]]></change-notes>
 
-    <!-- Product and plugin compatibility requirements.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <!-- 제품 및 플러그인 호환성 요구 사항.
+         자세한 내용은 다음을 참조하세요: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.xdebugger</depends>
+    <depends>com.intellij.modules.java</depends>
     <depends>org.jetbrains.plugins.terminal</depends>
-    
-    <!-- Extension points defined by the plugin.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+
+    <!-- 플러그인에 의해 정의된 확장 포인트.
+         자세한 내용은 다음을 참조하세요: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <projectService serviceImplementation="com.sina.weibo.agent.plugin.WecoderPluginService"/>
-        <postStartupActivity implementation="com.sina.weibo.agent.plugin.WecoderPlugin"/>
+<!--        <projectService serviceImplementation="com.sina.weibo.agent.plugin.WecoderPluginService"/>-->
+        <!-- 에디터 팩토리 리스너 등록: 에디터 생성/해제 이벤트 감지 -->
         <editorFactoryListener implementation="com.sina.weibo.agent.editor.EditorListener"/>
+        <!-- 툴 윈도우 등록: RunVSAgent 툴 윈도우 생성 -->
         <toolWindow factoryClass="com.sina.weibo.agent.ui.RunVSAgentToolWindowFactory"
                     id="RunVSAgent"
                     secondary="true"
                     icon="/icons/wecoder-window.svg"
                     anchor="right" />
+        <!-- 알림 그룹 등록: 플러그인 알림 메시지 표시용 -->
         <notificationGroup id="RunVSAgent"
                            displayType="BALLOON"/>
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.plugins.terminal">
+        <!-- 로컬 터미널 사용자 정의기 등록: 터미널 동작 사용자 정의 -->
         <localTerminalCustomizer implementation="com.sina.weibo.agent.terminal.WeCoderTerminalCustomizer"/>
     </extensions>
 
     <actions>
+        <!-- 확장 전환 액션 등록 -->
         <action id="RunVSAgent.extensionSwitcher"
                 icon="AllIcons.Actions.Refresh"
                 class="com.sina.weibo.agent.extensions.ui.actions.ExtensionSwitcherAction"
-                text="Switch Extension Provider"
-                description="Switch to a different extension provider">
-            <override-text place="GoToAction" text="Switch Extension" />
+                text="확장 제공자 전환"
+                description="다른 확장 제공자로 전환">
+            <override-text place="GoToAction" text="확장 전환" />
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt S" />
         </action>
 
 
-        <!-- Dynamic toolbar group - buttons will be populated based on current extension -->
+        <!-- 동적 툴바 그룹 - 현재 확장 타입에 따라 버튼이 동적으로 채워집니다. -->
         <group id="WecoderToolbarGroup">
             <group id="RunVSAgent.DynamicExtensionActions"
                    class="com.sina.weibo.agent.extensions.ui.actions.DynamicExtensionActionsGroup"
-                   text="Extension Actions"
-                   description="Dynamic extension-specific actions" />
+                   text="확장 액션"
+                   description="동적 확장별 액션" />
             <reference ref="RunVSAgent.extensionSwitcher" />
             <action id="RunVSAgent.extensionStatusChecker"
                     icon="AllIcons.General.InspectionsOK"
                     class="com.sina.weibo.agent.extensions.ui.actions.ExtensionStatusChecker"
-                    text="Check Extension Status"
-                    description="Check extension status and diagnose issues" />
+                    text="확장 상태 확인"
+                    description="확장 상태를 확인하고 문제 진단" />
         </group>
 
-        <group id="RunVSAgent.RightClickMenu" text="RunVSAgent" description="RunVSAgent main menu"  icon="/icons/weibo_logo_13px.svg" popup="true">
+        <!-- 마우스 오른쪽 클릭 메뉴 - 메인 메뉴 -->
+        <group id="RunVSAgent.RightClickMenu" text="RunVSAgent" description="RunVSAgent 메인 메뉴"  icon="/icons/weibo_logo_13px.svg" popup="true">
             <group id="RunVSAgent.RightClick.Chat" class="com.sina.weibo.agent.extensions.ui.contextmenu.DynamicExtensionContextMenuGroup"
-                   text="Extension Actions" description="Dynamic extension-specific context menu actions"/>
+                   text="확장 액션" description="동적 확장별 컨텍스트 메뉴 액션"/>
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </group>
 
-        <!-- Right-click menu for extension switching -->
-        <group id="RunVSAgent.RightClick.Extensions" text="Extensions" description="Extension management">
+        <!-- 마우스 오른쪽 클릭 메뉴 - 확장 전환 -->
+        <group id="RunVSAgent.RightClick.Extensions" text="확장" description="확장 관리">
             <reference ref="RunVSAgent.extensionSwitcher" />
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </group>
 
-        <!-- Right-click menu for extension-specific actions -->
-        <group id="RunVSAgent.RightClick.ExtensionActions" text="Extension Actions" description="Extension-specific actions">
+        <!-- 마우스 오른쪽 클릭 메뉴 - 확장별 액션 (현재는 사용되지 않음) -->
+        <group id="RunVSAgent.RightClick.ExtensionActions" text="확장 액션" description="확장별 액션">
             <group id="RunVSAgent.RightClick.DynamicExtensionActions"
                    class="com.sina.weibo.agent.extensions.ui.actions.DynamicExtensionActionsGroup"
-                   text="Extension Actions"
-                   description="Dynamic extension-specific actions" />
+                   text="확장 액션"
+                   description="동적 확장별 액션" />
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </group>
 
-        <!-- Main menu integration -->
-        <group id="RunVSAgent.MainMenu" text="RunVSAgent" description="RunVSAgent main menu">
+        <!-- 메인 메뉴 통합 -->
+        <group id="RunVSAgent.MainMenu" text="RunVSAgent" description="RunVSAgent 메인 메뉴">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
             <reference ref="RunVSAgent.extensionSwitcher" />
             <group id="RunVSAgent.MainMenu.DynamicExtensionActions"
                    class="com.sina.weibo.agent.extensions.ui.actions.DynamicExtensionActionsGroup"
-                   text="Extension Actions"
-                   description="Dynamic extension-specific actions" />
+                   text="확장 액션"
+                   description="동적 확장별 액션" />
         </group>
     </actions>
 </idea-plugin>

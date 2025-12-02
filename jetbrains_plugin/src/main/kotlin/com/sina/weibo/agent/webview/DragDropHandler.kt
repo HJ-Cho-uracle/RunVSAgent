@@ -11,35 +11,39 @@ import java.io.File
 import javax.swing.JComponent
 
 /**
- * Handles file drag-and-drop to WebView.
- * Based on VSCode native drag-and-drop behavior.
+ * WebView로 파일 드래그 앤 드롭을 처리하는 핸들러입니다.
+ * VSCode의 네이티브 드래그 앤 드롭 동작을 기반으로 합니다.
  */
 class DragDropHandler(
-    private val webViewInstance: WebViewInstance,
-    private val targetComponent: JComponent
+    private val webViewInstance: WebViewInstance, // 드래그 앤 드롭 이벤트를 전달할 WebView 인스턴스
+    private val targetComponent: JComponent       // 드래그 앤 드롭 이벤트를 수신할 대상 Swing 컴포넌트
 ) {
     private val logger = Logger.getInstance(DragDropHandler::class.java)
     
     /**
-     * Setup drag and drop support
+     * 드래그 앤 드롭 지원을 설정합니다.
      */
     fun setupDragAndDrop() {
-        logger.info("Setting up drag and drop support for WebView (VSCode-compatible)")
+        logger.info("WebView에 드래그 앤 드롭 지원 설정 중 (VSCode 호환)")
         
+        // 대상 컴포넌트에 DropTarget을 설정하고 DropTargetAdapter를 구현합니다.
         val dropTarget = DropTarget(targetComponent, object : DropTargetAdapter() {
             
+            /** 드래그가 대상 영역으로 진입했을 때 호출됩니다. */
             override fun dragEnter(dtde: DropTargetDragEvent) {
-                logger.info("Drag enter detected")
+                logger.info("드래그 진입 감지됨")
+                // Shift 키가 눌려 있고 파일 목록이 포함되어 있으면 드래그를 수락합니다.
                 if (isShiftKeyPressed(dtde) && hasFileList(dtde)) {
-                    dtde.acceptDrag(DnDConstants.ACTION_COPY)
-                    notifyDragState(true)
-                    logger.info("Drag accepted - Shift key pressed and files detected")
+                    dtde.acceptDrag(DnDConstants.ACTION_COPY) // 복사 액션 수락
+                    notifyDragState(true) // WebView에 드래그 상태 변경 알림
+                    logger.info("드래그 수락됨 - Shift 키 눌림 및 파일 감지됨")
                 } else {
-                    dtde.rejectDrag()
-                    logger.info("Drag rejected - ${if (!isShiftKeyPressed(dtde)) "Shift key not pressed" else "no files detected"}")
+                    dtde.rejectDrag() // 드래그 거부
+                    logger.info("드래그 거부됨 - ${if (!isShiftKeyPressed(dtde)) "Shift 키가 눌리지 않음" else "파일이 감지되지 않음"}")
                 }
             }
             
+            /** 드래그가 대상 영역 위에서 이동할 때 호출됩니다. */
             override fun dragOver(dtde: DropTargetDragEvent) {
                 if (isShiftKeyPressed(dtde) && hasFileList(dtde)) {
                     dtde.acceptDrag(DnDConstants.ACTION_COPY)
@@ -48,41 +52,44 @@ class DragDropHandler(
                 }
             }
             
+            /** 드래그가 대상 영역을 벗어났을 때 호출됩니다. */
             override fun dragExit(dte: DropTargetEvent) {
-                logger.info("Drag exit detected")
-                notifyDragState(false)
+                logger.info("드래그 종료 감지됨")
+                notifyDragState(false) // WebView에 드래그 상태 변경 알림
             }
             
+            /** 드롭 이벤트가 발생했을 때 호출됩니다. */
             override fun drop(dtde: DropTargetDropEvent) {
-                logger.info("Drop event detected")
-                handleFileDrop(dtde)
+                logger.info("드롭 이벤트 감지됨")
+                handleFileDrop(dtde) // 파일 드롭 처리
             }
         })
         
-        logger.info("Drag and drop setup completed")
+        logger.info("드래그 앤 드롭 설정 완료")
     }
     
     /**
-     * Check if Shift key is pressed.
-     * Simulates VSCode native if (!e.shiftKey) check.
+     * Shift 키가 눌렸는지 확인합니다.
+     * VSCode의 네이티브 `if (!e.shiftKey)` 검사를 시뮬레이션합니다.
      *
-     * Note: In Java AWT, Shift key state detection may require a global key listener.
-     * For now, always return true for usability.
+     * 참고: Java AWT에서 Shift 키 상태 감지는 전역 키 리스너가 필요할 수 있습니다.
+     * 현재는 편의를 위해 항상 true를 반환합니다.
      */
     private fun isShiftKeyPressed(dtde: DropTargetDragEvent): Boolean {
-        // TODO: Implement real Shift key detection if needed.
+        // TODO: 필요하다면 실제 Shift 키 감지 로직 구현
         return true
     }
     
     /**
-     * Notify WebView drag state change.
-     * Simulates VSCode drag visual feedback (isDraggingOver state).
+     * WebView에 드래그 상태 변경을 알립니다.
+     * VSCode의 드래그 시각적 피드백(isDraggingOver 상태)을 시뮬레이션합니다.
      */
     private fun notifyDragState(isDragging: Boolean) {
         try {
+            // WebView 내의 JavaScript를 실행하여 UI를 업데이트합니다.
             val jsCode = """
                 (function() {
-                    console.log('Setting drag state:', $isDragging);
+                    console.log('드래그 상태 설정:', $isDragging);
                     const textareas = document.querySelectorAll('textarea, [contenteditable="true"]');
                     if ($isDragging) {
                         textareas.forEach(textarea => {
@@ -101,96 +108,94 @@ class DragDropHandler(
             """.trimIndent()
             webViewInstance.executeJavaScript(jsCode)
         } catch (e: Exception) {
-            logger.error("Failed to notify drag state", e)
+            logger.error("드래그 상태 알림 실패", e)
         }
     }
     
     /**
-     * Handle file drop event.
-     * Based on VSCode handleDrop function.
+     * 파일 드롭 이벤트를 처리합니다.
+     * VSCode의 `handleDrop` 함수를 기반으로 합니다.
      */
     private fun handleFileDrop(dtde: DropTargetDropEvent) {
         try {
-            logger.info("Processing drop event")
+            logger.info("드롭 이벤트 처리 중")
             
             if (!hasFileList(dtde)) {
-                logger.info("Drop rejected: No file list in transferable")
+                logger.info("드롭 거부됨: 전송 가능한 파일 목록 없음")
                 dtde.rejectDrop()
                 notifyDragState(false)
                 return
             }
             
-            dtde.acceptDrop(DnDConstants.ACTION_COPY)
+            dtde.acceptDrop(DnDConstants.ACTION_COPY) // 드롭 수락
             
             val transferable = dtde.transferable
             @Suppress("UNCHECKED_CAST")
-            val fileList = transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<File>
+            val fileList = transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<File> // 파일 목록 가져오기
             
-            logger.info("Files dropped: ${fileList.map { it.absolutePath }}")
+            logger.info("드롭된 파일: ${fileList.map { it.absolutePath }}")
             
             if (fileList.isNotEmpty()) {
-                insertFilePathsIntoTextarea(fileList)
-                dtde.dropComplete(true)
+                insertFilePathsIntoTextarea(fileList) // 파일 경로를 텍스트 영역에 삽입
+                dtde.dropComplete(true) // 드롭 완료
             } else {
-                logger.warn("No valid files found in drop event")
+                logger.warn("드롭 이벤트에서 유효한 파일을 찾을 수 없습니다.")
                 dtde.dropComplete(false)
             }
             
-            notifyDragState(false)
+            notifyDragState(false) // 드래그 상태 초기화
             
         } catch (e: Exception) {
-            logger.error("Error handling file drop", e)
+            logger.error("파일 드롭 처리 중 오류 발생", e)
             dtde.dropComplete(false)
             notifyDragState(false)
         }
     }
     
     /**
-     * Forward file paths to VSCode native handler.
-     * Simulate native drag event for VSCode extension.
+     * 파일 경로를 VSCode 네이티브 핸들러로 전달합니다.
+     * VSCode 확장을 위한 네이티브 드래그 이벤트를 시뮬레이션합니다.
      */
     private fun insertFilePathsIntoTextarea(files: List<File>) {
         try {
-            // Build file path list, use absolute path for VSCode native handler
-            val filePaths = files.map { file ->
-                file.absolutePath
-            }
+            // 파일 경로 목록 생성 (VSCode 네이티브 핸들러는 절대 경로를 사용)
+            val filePaths = files.map { it.absolutePath }
             
-            logger.info("Forwarding drag drop event to VSCode native handler: ${filePaths.size} files")
+            logger.info("VSCode 네이티브 핸들러로 드래그 드롭 이벤트 전달 중: ${filePaths.size}개 파일")
             
-            // Create a simulated native drag event for VSCode extension
+            // VSCode 확장을 위한 모의 네이티브 드래그 이벤트를 생성하는 JavaScript 코드
             val jsCode = """
                 (function() {
-                    console.log('Simulating native drag drop event for VSCode');
+                    console.log('VSCode를 위한 네이티브 드래그 드롭 이벤트 시뮬레이션 중');
                     
-                    // Find target textarea
+                    // 대상 텍스트 영역 찾기
                     const textareas = document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]');
-                    console.log('Found textareas:', textareas.length);
+                    console.log('텍스트 영역 찾음:', textareas.length);
                     
                     if (textareas.length === 0) {
-                        console.warn('No suitable textarea found');
+                        console.warn('적합한 텍스트 영역을 찾을 수 없습니다.');
                         return false;
                     }
                     
-                    // Select target textarea
+                    // 대상 텍스트 영역 선택 (활성화된 요소 또는 첫 번째 텍스트 영역)
                     let targetTextarea = document.activeElement;
                     if (!targetTextarea || !['TEXTAREA', 'INPUT'].includes(targetTextarea.tagName)) {
                         targetTextarea = textareas[0];
                     }
                     
                     if (!targetTextarea) {
-                        console.warn('No valid target textarea found');
+                        console.warn('유효한 대상 텍스트 영역을 찾을 수 없습니다.');
                         return false;
                     }
                     
-                    console.log('Target textarea found:', targetTextarea.tagName);
+                    console.log('대상 텍스트 영역 찾음:', targetTextarea.tagName);
                     
-                    // Build file path data
+                    // 파일 경로 데이터 구성
                     const filePaths = [${filePaths.joinToString(", ") { "\"$it\"" }}];
                     
-                    console.log('File paths to insert:', filePaths);
+                    console.log('삽입할 파일 경로:', filePaths);
                     
-                    // Create mock File objects
+                    // 모의 File 객체 생성
                     const mockFiles = filePaths.map(path => ({
                         name: path.split('/').pop() || path.split('\\\\').pop() || 'unknown',
                         path: path,
@@ -200,7 +205,7 @@ class DragDropHandler(
                         webkitRelativePath: ''
                     }));
                     
-                    // Create mock FileList object
+                    // 모의 FileList 객체 생성
                     const mockFileList = {
                         length: mockFiles.length,
                         item: function(index) {
@@ -213,12 +218,12 @@ class DragDropHandler(
                         }
                     };
                     
-                    // Add array index access to FileList
+                    // FileList에 배열 인덱스 접근 추가
                     mockFiles.forEach((file, index) => {
                         mockFileList[index] = file;
                     });
                     
-                    // Create mock DataTransferItem objects
+                    // 모의 DataTransferItem 객체 생성
                     const mockItems = mockFiles.map(file => ({
                         kind: 'file',
                         type: file.type,
@@ -230,7 +235,7 @@ class DragDropHandler(
                         }
                     }));
                     
-                    // Create mock DataTransferItemList object
+                    // 모의 DataTransferItemList 객체 생성
                     const mockItemList = {
                         length: mockItems.length,
                         item: function(index) {
@@ -243,21 +248,21 @@ class DragDropHandler(
                         }
                     };
                     
-                    // Add array index access to ItemList
+                    // ItemList에 배열 인덱스 접근 추가
                     mockItems.forEach((item, index) => {
                         mockItemList[index] = item;
                     });
                     
-                    console.log('Created mock FileList with', mockFileList.length, 'files');
-                    console.log('Created mock ItemList with', mockItemList.length, 'items');
+                    console.log('모의 FileList 생성됨, 파일 수:', mockFileList.length);
+                    console.log('모의 ItemList 생성됨, 항목 수:', mockItemList.length);
                     
-                    // Create complete DataTransfer object
+                    // 완전한 DataTransfer 객체 생성
                     const mockDataTransfer = {
                         files: mockFileList,
                         items: mockItemList,
                         types: ['Files', 'text/uri-list', 'text/plain'],
                         getData: function(format) {
-                            console.log('DataTransfer.getData called with format:', format);
+                            console.log('DataTransfer.getData 호출됨, 형식:', format);
                             if (format === 'text' || format === 'text/plain') {
                                 return filePaths.join('\n');
                             }
@@ -267,42 +272,42 @@ class DragDropHandler(
                             return '';
                         },
                         setData: function(format, data) {
-                            // Mock implementation
+                            // 모의 구현
                         },
                         clearData: function(format) {
-                            // Mock implementation
+                            // 모의 구현
                         },
                         effectAllowed: 'copy',
                         dropEffect: 'copy'
                     };
                     
-                    // Create mock drop event
+                    // 모의 drop 이벤트 생성
                     const mockDragEvent = new Event('drop', {
                         bubbles: true,
                         cancelable: true
                     });
                     
-                    // Add required properties
+                    // 필요한 속성 추가
                     Object.defineProperty(mockDragEvent, 'dataTransfer', {
                         value: mockDataTransfer,
                         writable: false
                     });
                     
-                    // Simulate Shift key pressed (required by VSCode)
+                    // Shift 키가 눌린 것을 시뮬레이션 (VSCode에서 필요)
                     Object.defineProperty(mockDragEvent, 'shiftKey', {
                         value: true,
                         writable: false
                     });
                     
-                    console.log('Dispatching mock drop event to textarea');
+                    console.log('모의 drop 이벤트를 텍스트 영역에 디스패치 중');
                     
-                    // Ensure textarea is focused
+                    // 텍스트 영역에 포커스 설정
                     targetTextarea.focus();
                     
-                    // Dispatch event to textarea for VSCode native handler
+                    // VSCode 네이티브 핸들러를 위해 텍스트 영역에 이벤트 디스패치
                     const result = targetTextarea.dispatchEvent(mockDragEvent);
                     
-                    console.log('Mock drop event dispatched, result:', result);
+                    console.log('모의 drop 이벤트 디스패치됨, 결과:', result);
                     
                     return true;
                 })();
@@ -311,19 +316,19 @@ class DragDropHandler(
             webViewInstance.executeJavaScript(jsCode)
             
         } catch (e: Exception) {
-            logger.error("Failed to forward drag drop event to VSCode", e)
+            logger.error("VSCode로 드래그 드롭 이벤트 전달 실패", e)
         }
     }
     
     /**
-     * Check if drag data contains file list.
+     * 드래그 데이터에 파일 목록이 포함되어 있는지 확인합니다.
      */
     private fun hasFileList(dtde: DropTargetDragEvent): Boolean {
         return dtde.transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
     }
     
     /**
-     * Check if drag data contains file list (Drop event version).
+     * 드롭 데이터에 파일 목록이 포함되어 있는지 확인합니다.
      */
     private fun hasFileList(dtde: DropTargetDropEvent): Boolean {
         return dtde.transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)

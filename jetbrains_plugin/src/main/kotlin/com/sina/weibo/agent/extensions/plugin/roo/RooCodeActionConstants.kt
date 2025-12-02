@@ -4,58 +4,56 @@
 
 package com.sina.weibo.agent.extensions.plugin.roo
 
-/** Type alias for prompt type identifiers */
+/** 프롬프트 타입 식별자를 위한 타입 별칭 */
 typealias RooCodeSupportPromptType = String
-/** Type alias for prompt parameters map */
+/** 프롬프트 파라미터 맵을 위한 타입 별칭 */
 typealias RooCodePromptParams = Map<String, Any?>
 
 /**
- * Data class representing a prompt configuration with a template string.
- * Templates contain placeholders that will be replaced with actual values.
+ * 프롬프트 템플릿 문자열을 포함하는 프롬프트 설정을 나타내는 데이터 클래스입니다.
+ * 템플릿은 동적 콘텐츠를 위한 플레이스홀더를 포함합니다.
  */
 data class RooCodeSupportPromptConfig(val template: String)
 
 /**
- * Collection of predefined prompt configurations for different use cases.
- * Each configuration contains a template with placeholders for dynamic content.
- * 
- * now organized under the Roo Code extension.
+ * Roo Code 확장에서 사용되는 미리 정의된 프롬프트 설정들의 모음입니다.
+ * 각 설정은 동적 콘텐츠를 위한 플레이스홀더를 포함하는 템플릿을 가집니다.
  */
 object RooCodeSupportPromptConfigs {
     /**
-     * Template for enhancing user prompts.
-     * Instructs the AI to generate an improved version of the user's input.
+     * 사용자 프롬프트를 개선하기 위한 템플릿입니다.
+     * AI에게 사용자 입력의 개선된 버전을 생성하도록 지시합니다.
      */
     val ENHANCE = RooCodeSupportPromptConfig(
-        """Generate an enhanced version of this prompt (reply with only the enhanced prompt - no conversation, explanations, lead-in, bullet points, placeholders, or surrounding quotes):
+        """이 프롬프트의 개선된 버전을 생성하세요 (개선된 프롬프트만 회신 - 대화, 설명, 서론, 글머리 기호, 플레이스홀더 또는 따옴표 없이):
 
 ${'$'}{userInput}"""
     )
 
     /**
-     * Template for explaining code.
-     * Provides structure for code explanation requests with file path and line information.
+     * 코드 설명을 위한 템플릿입니다.
+     * 파일 경로 및 라인 정보를 포함하여 코드 설명 요청을 위한 구조를 제공합니다.
      */
     val EXPLAIN = RooCodeSupportPromptConfig(
-        """Explain the following code from file path ${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}
+        """파일 경로 ${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}의 다음 코드를 설명하세요.
 ${'$'}{userInput}
 
 ```
 ${'$'}{selectedText}
 ```
 
-Please provide a clear and concise explanation of what this code does, including:
-1. The purpose and functionality
-2. Key components and their interactions
-3. Important patterns or techniques used"""
+이 코드가 무엇을 하는지에 대한 명확하고 간결한 설명을 제공하세요. 다음을 포함합니다:
+1. 목적 및 기능
+2. 주요 구성 요소 및 상호 작용
+3. 사용된 중요한 패턴 또는 기술"""
     )
 
     /**
-     * Template for fixing code issues.
-     * Includes diagnostic information and structured format for issue resolution.
+     * 코드 문제 수정을 위한 템플릿입니다.
+     * 진단 정보와 문제 해결을 위한 구조화된 형식을 포함합니다.
      */
     val FIX = RooCodeSupportPromptConfig(
-        """Fix any issues in the following code from file path ${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}
+        """파일 경로 ${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}의 다음 코드에서 문제를 수정하세요.
 ${'$'}{diagnosticText}
 ${'$'}{userInput}
 
@@ -63,37 +61,37 @@ ${'$'}{userInput}
 ${'$'}{selectedText}
 ```
 
-Please:
-1. Address all detected problems listed above (if any)
-2. Identify any other potential bugs or issues
-3. Provide corrected code
-4. Explain what was fixed and why"""
+다음 사항을 지켜주세요:
+1. 위에 나열된 모든 감지된 문제(있는 경우)를 해결하세요.
+2. 다른 잠재적인 버그나 문제를 식별하세요.
+3. 수정된 코드를 제공하세요.
+4. 무엇이 수정되었고 그 이유를 설명하세요."""
     )
 
     /**
-     * Template for improving code quality.
-     * Focuses on readability, performance, best practices, and error handling.
+     * 코드 품질 개선을 위한 템플릿입니다.
+     * 가독성, 성능, 모범 사례 및 오류 처리에 중점을 둡니다.
      */
     val IMPROVE = RooCodeSupportPromptConfig(
-        """Improve the following code from file path ${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}
+        """파일 경로 ${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}의 다음 코드를 개선하세요.
 ${'$'}{userInput}
 
 ```
 ${'$'}{selectedText}
 ```
 
-Please suggest improvements for:
-1. Code readability and maintainability
-2. Performance optimization
-3. Best practices and patterns
-4. Error handling and edge cases
+다음에 대한 개선 사항을 제안하세요:
+1. 코드 가독성 및 유지 보수성
+2. 성능 최적화
+3. 모범 사례 및 패턴
+4. 오류 처리 및 엣지 케이스
 
-Provide the improved code along with explanations for each enhancement."""
+각 개선 사항에 대한 설명과 함께 개선된 코드를 제공하세요."""
     )
 
     /**
-     * Template for adding code to context.
-     * Simple format that includes file path, line range, and selected code.
+     * 코드를 컨텍스트에 추가하기 위한 템플릿입니다.
+     * 파일 경로, 라인 범위 및 선택된 코드를 포함하는 간단한 형식입니다.
      */
     val ADD_TO_CONTEXT = RooCodeSupportPromptConfig(
         """${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}
@@ -103,62 +101,62 @@ ${'$'}{selectedText}
     )
 
     /**
-     * Template for adding terminal output to context.
-     * Includes user input and terminal content.
+     * 터미널 출력을 컨텍스트에 추가하기 위한 템플릿입니다.
+     * 사용자 입력 및 터미널 콘텐츠를 포함합니다.
      */
     val TERMINAL_ADD_TO_CONTEXT = RooCodeSupportPromptConfig(
         """${'$'}{userInput}
-Terminal output:
+터미널 출력:
 ```
 ${'$'}{terminalContent}
 ```"""
     )
 
     /**
-     * Template for fixing terminal commands.
-     * Structured format for identifying and resolving command issues.
+     * 터미널 명령 수정을 위한 템플릿입니다.
+     * 명령 문제 식별 및 해결을 위한 구조화된 형식입니다.
      */
     val TERMINAL_FIX = RooCodeSupportPromptConfig(
         """${'$'}{userInput}
-Fix this terminal command:
+이 터미널 명령을 수정하세요:
 ```
 ${'$'}{terminalContent}
 ```
 
-Please:
-1. Identify any issues in the command
-2. Provide the corrected command
-3. Explain what was fixed and why"""
+다음 사항을 지켜주세요:
+1. 명령의 문제를 식별하세요.
+2. 수정된 명령을 제공하세요.
+3. 무엇이 수정되었고 그 이유를 설명하세요."""
     )
 
     /**
-     * Template for explaining terminal commands.
-     * Provides structure for command explanation with focus on functionality and behavior.
+     * 터미널 명령 설명을 위한 템플릿입니다.
+     * 기능 및 동작에 중점을 둔 명령 설명을 위한 구조를 제공합니다.
      */
     val TERMINAL_EXPLAIN = RooCodeSupportPromptConfig(
         """${'$'}{userInput}
-Explain this terminal command:
+이 터미널 명령을 설명하세요:
 ```
 ${'$'}{terminalContent}
 ```
 
-Please provide:
-1. What the command does
-2. Explanation of each part/flag
-3. Expected output and behavior"""
+다음을 제공하세요:
+1. 명령이 하는 일
+2. 각 부분/플래그에 대한 설명
+3. 예상되는 출력 및 동작"""
     )
 
     /**
-     * Template for creating a new task.
-     * Simple format that passes through user input directly.
+     * 새 작업을 생성하기 위한 템플릿입니다.
+     * 사용자 입력을 직접 전달하는 간단한 형식입니다.
      */
     val NEW_TASK = RooCodeSupportPromptConfig(
         """${'$'}{userInput}"""
     )
 
     /**
-     * Map of all available prompt configurations indexed by their type identifiers.
-     * Used for lookup when creating prompts.
+     * 사용 가능한 모든 프롬프트 설정을 해당 타입 식별자로 인덱싱한 맵입니다.
+     * 프롬프트 생성 시 조회를 위해 사용됩니다.
      */
     val configs = mapOf(
         "ENHANCE" to ENHANCE,
@@ -174,22 +172,20 @@ Please provide:
 }
 
 /**
- * Utility object for working with Roo Code support prompts.
- * Provides methods for creating and customizing prompts based on templates.
- * 
- * now organized under the Roo Code extension.
+ * Roo Code 지원 프롬프트 작업을 위한 유틸리티 객체입니다.
+ * 템플릿을 기반으로 프롬프트를 생성하고 사용자 정의하는 메소드를 제공합니다.
  */
 object RooCodeSupportPrompt {
     /**
-     * Generates formatted diagnostic text from a list of diagnostic items.
+     * 진단 항목 목록으로부터 형식화된 진단 텍스트를 생성합니다.
      *
-     * @param diagnostics List of diagnostic items containing source, message, and code
-     * @return Formatted string of diagnostic messages or empty string if no diagnostics
+     * @param diagnostics 소스, 메시지, 코드 정보를 포함하는 진단 항목 목록
+     * @return 진단 메시지의 형식화된 문자열, 진단이 없으면 빈 문자열
      */
     private fun generateDiagnosticText(diagnostics: List<Map<String, Any?>>?): String {
         if (diagnostics.isNullOrEmpty()) return ""
-        return "\nCurrent problems detected:\n" + diagnostics.joinToString("\n") { d ->
-            val source = d["source"] as? String ?: "Error"
+        return "\n현재 감지된 문제:\n" + diagnostics.joinToString("\n") { d ->
+            val source = d["source"] as? String ?: "오류"
             val message = d["message"] as? String ?: ""
             val code = d["code"] as? String
             "- [$source] $message${code?.let { " ($it)" } ?: ""}"
@@ -197,53 +193,53 @@ object RooCodeSupportPrompt {
     }
 
     /**
-     * Creates a prompt by replacing placeholders in a template with actual values.
+     * 템플릿의 플레이스홀더를 실제 값으로 대체하여 프롬프트를 생성합니다.
      *
-     * @param template The prompt template with placeholders
-     * @param params Map of parameter values to replace placeholders
-     * @return The processed prompt with placeholders replaced by actual values
+     * @param template 플레이스홀더가 있는 프롬프트 템플릿
+     * @param params 플레이스홀더를 대체할 파라미터 값 맵
+     * @return 플레이스홀더가 실제 값으로 대체된 처리된 프롬프트
      */
     private fun createPrompt(template: String, params: RooCodePromptParams): String {
-        val pattern = Regex("""\$\{(.*?)}""")
+        val pattern = Regex("""\$\{(.*?)}""") // ${placeholder} 패턴을 찾습니다.
         return pattern.replace(template) { matchResult ->
-            val key = matchResult.groupValues[1]
+            val key = matchResult.groupValues[1] // 플레이스홀더 키 (예: "userInput")
             if (key == "diagnosticText") {
                 generateDiagnosticText(params["diagnostics"] as? List<Map<String, Any?>>)
             } else if (params.containsKey(key)) {
-                // Ensure the value is treated as a string for replacement
+                // 값을 문자열로 처리하여 대체합니다.
                 val value = params[key]
                 when (value) {
                     is String -> value
                     else -> {
-                        // Convert non-string values to string for replacement
+                        // 문자열이 아닌 값은 문자열로 변환하여 대체합니다.
                         value?.toString() ?: ""
                     }
                 }
             } else {
-                // If the placeholder key is not in params, replace with empty string
+                // 플레이스홀더 키가 파라미터에 없으면 빈 문자열로 대체합니다.
                 ""
             }
         }
     }
 
     /**
-     * Gets the template for a specific prompt type, with optional custom overrides.
+     * 특정 프롬프트 타입에 대한 템플릿을 가져옵니다. 사용자 정의 템플릿으로 재정의할 수 있습니다.
      *
-     * @param customSupportPrompts Optional map of custom prompt templates
-     * @param type The type of prompt to retrieve
-     * @return The template string for the specified prompt type
+     * @param customSupportPrompts 사용자 정의 프롬프트 템플릿 맵 (선택 사항)
+     * @param type 가져올 프롬프트의 타입
+     * @return 지정된 프롬프트 타입에 대한 템플릿 문자열
      */
     fun get(customSupportPrompts: Map<String, String>?, type: RooCodeSupportPromptType): String {
         return customSupportPrompts?.get(type) ?: RooCodeSupportPromptConfigs.configs[type]?.template ?: ""
     }
 
     /**
-     * Creates a complete prompt by getting the template and replacing placeholders.
+     * 템플릿을 가져오고 플레이스홀더를 대체하여 완전한 프롬프트를 생성합니다.
      *
-     * @param type The type of prompt to create
-     * @param params Parameters to substitute into the template
-     * @param customSupportPrompts Optional custom prompt templates
-     * @return The final prompt with all placeholders replaced
+     * @param type 생성할 프롬프트의 타입
+     * @param params 템플릿에 대체할 파라미터
+     * @param customSupportPrompts 사용자 정의 프롬프트 템플릿 (선택 사항)
+     * @return 모든 플레이스홀더가 대체된 최종 프롬프트
      */
     fun create(type: RooCodeSupportPromptType, params: RooCodePromptParams, customSupportPrompts: Map<String, String>? = null): String {
         val template = get(customSupportPrompts, type)

@@ -19,96 +19,82 @@ import kotlinx.coroutines.cancel
 
 
 /**
- * Main thread terminal service interface.
- * Corresponds to the MainThreadTerminalServiceShape interface in VSCode.
+ * IntelliJ 메인 스레드에서 터미널 관련 서비스를 처리하기 위한 인터페이스입니다.
+ * 터미널 생성, 소멸, UI 제어, 데이터 전송 등 다양한 기능을 정의합니다.
+ * VSCode Extension Host의 `MainThreadTerminalServiceShape`에 해당합니다.
  */
 interface MainThreadTerminalServiceShape : Disposable {
     /**
-     * Creates terminal.
-     * @param extHostTerminalId Extension host terminal ID
-     * @param config Terminal launch configuration
+     * 새로운 터미널을 생성합니다.
+     * @param extHostTerminalId Extension Host에서 관리하는 터미널의 고유 ID
+     * @param config 터미널 실행에 필요한 설정 (예: 셸 경로, 환경 변수 등)
      */
     suspend fun createTerminal(extHostTerminalId: String, config: Map<String, Any?>)
 
     /**
-     * Disposes terminal resources.
-     * @param id Terminal identifier (can be String or Number)
+     * 지정된 터미널과 관련된 리소스를 해제합니다.
+     * @param id 터미널 식별자 (문자열 또는 숫자)
      */
     fun dispose(id: Any)
     
     /**
-     * Hides terminal.
-     * @param id Terminal identifier (can be String or Number)
+     * 터미널을 UI에서 숨깁니다.
+     * @param id 터미널 식별자
      */
     fun hide(id: Any)
     
     /**
-     * Sends text to terminal.
-     * @param id Terminal identifier (can be String or Number)
-     * @param text Text to send
-     * @param shouldExecute Whether to execute
+     * 터미널에 텍스트를 보냅니다.
+     * @param id 터미널 식별자
+     * @param text 보낼 텍스트
+     * @param shouldExecute 텍스트를 보낸 후 바로 실행할지(엔터키를 누를지) 여부
      */
     fun sendText(id: Any, text: String, shouldExecute: Boolean?)
     
     /**
-     * Shows terminal.
-     * @param id Terminal identifier (can be String or Number)
-     * @param preserveFocus Whether to preserve focus
+     * 터미널을 UI에 표시합니다.
+     * @param id 터미널 식별자
+     * @param preserveFocus 터미널을 보여준 후에도 현재 포커스를 유지할지 여부
      */
     fun show(id: Any, preserveFocus: Boolean?)
     
     /**
-     * Registers process support.
-     * @param isSupported Whether supported
+     * 프로세스 실행을 지원하는지 여부를 등록합니다.
      */
     fun registerProcessSupport(isSupported: Boolean)
     
     /**
-     * Registers profile provider.
-     * @param id Profile provider ID
-     * @param extensionIdentifier Extension identifier
+     * 터미널 프로필 제공자를 등록합니다. (예: Git Bash, PowerShell 등)
      */
     fun registerProfileProvider(id: String, extensionIdentifier: String)
     
     /**
-     * Unregisters profile provider.
-     * @param id Profile provider ID
+     * 터미널 프로필 제공자를 등록 해제합니다.
      */
     fun unregisterProfileProvider(id: String)
     
     /**
-     * Registers completion provider.
-     * @param id Completion provider ID
-     * @param extensionIdentifier Extension identifier
-     * @param triggerCharacters List of trigger characters
+     * 터미널 자동 완성 제공자를 등록합니다.
      */
     fun registerCompletionProvider(id: String, extensionIdentifier: String, vararg triggerCharacters: String)
     
     /**
-     * Unregisters completion provider.
-     * @param id Completion provider ID
+     * 터미널 자동 완성 제공자를 등록 해제합니다.
      */
     fun unregisterCompletionProvider(id: String)
     
     /**
-     * Registers quick fix provider.
-     * @param id Quick fix provider ID
-     * @param extensionIdentifier Extension identifier
+     * 터미널 빠른 수정(Quick Fix) 제공자를 등록합니다.
      */
     fun registerQuickFixProvider(id: String, extensionIdentifier: String)
     
     /**
-     * Unregisters quick fix provider.
-     * @param id Quick fix provider ID
+     * 터미널 빠른 수정 제공자를 등록 해제합니다.
      */
     fun unregisterQuickFixProvider(id: String)
     
     /**
-     * Set environment variable collection
-     * @param extensionIdentifier Extension identifier
-     * @param persistent Whether to persist
-     * @param collection Serializable environment variable collection
-     * @param descriptionMap Serializable environment description mapping
+     * 터미널에서 사용할 환경 변수 컬렉션을 설정합니다.
      */
     fun setEnvironmentVariableCollection(
         extensionIdentifier: String,
@@ -117,229 +103,147 @@ interface MainThreadTerminalServiceShape : Disposable {
         descriptionMap: Map<String, Any?>
     )
 
-    /**
-     * Start sending data events
-     */
+    // --- 이벤트 전송 제어 ---
     fun startSendingDataEvents()
-    
-    /**
-     * Stop sending data events
-     */
     fun stopSendingDataEvents()
-    
-    /**
-     * Start sending command events
-     */
     fun startSendingCommandEvents()
-    
-    /**
-     * Stop sending command events
-     */
     fun stopSendingCommandEvents()
-    
-    /**
-     * Start link provider
-     */
     fun startLinkProvider()
-    
-    /**
-     * Stop link provider
-     */
     fun stopLinkProvider()
 
-    /**
-     * Send process data
-     * @param terminalId Terminal ID
-     * @param data Data
-     */
+    // --- 프로세스 관련 데이터 전송 ---
+    
+    /** 터미널 프로세스에 데이터를 보냅니다. */
     fun sendProcessData(terminalId: Int, data: String)
     
-    /**
-     * Send process ready
-     * @param terminalId Terminal ID
-     * @param pid Process ID
-     * @param cwd Current working directory
-     * @param windowsPty Windows PTY information
-     */
-    fun sendProcessReady(
-        terminalId: Int,
-        pid: Int,
-        cwd: String,
-        windowsPty: Map<String, Any?>?
-    )
+    /** 터미널 프로세스가 준비되었음을 알립니다. */
+    fun sendProcessReady(terminalId: Int, pid: Int, cwd: String, windowsPty: Map<String, Any?>?)
     
-    /**
-     * Send process property
-     * @param terminalId Terminal ID
-     * @param property Process property
-     */
+    /** 터미널 프로세스의 속성 변경을 알립니다. */
     fun sendProcessProperty(terminalId: Int, property: Map<String, Any?>)
     
-    /**
-     * Send process exit
-     * @param terminalId Terminal ID
-     * @param exitCode Exit code
-     */
+    /** 터미널 프로세스가 종료되었음을 알립니다. */
     fun sendProcessExit(terminalId: Int, exitCode: Int?)
 }
 
 /**
- * Main thread terminal service implementation class
- * Provides implementation of IDEA platform terminal-related functionality
+ * `MainThreadTerminalServiceShape` 인터페이스의 구현 클래스입니다.
+ * `TerminalInstanceManager`를 통해 실제 터미널 인스턴스를 생성하고 관리합니다.
  */
 class MainThreadTerminalService(private val project: Project) : MainThreadTerminalServiceShape {
     private val logger = Logger.getInstance(MainThreadTerminalService::class.java)
     
-    // Use terminal instance manager
+    // 터미널 인스턴스를 관리하는 프로젝트 레벨 서비스
     private val terminalManager = project.service<TerminalInstanceManager>()
     
-    // Coroutine scope - use IO dispatcher to avoid Main Dispatcher issues
+    // 이 서비스의 생명주기에 맞춰 관리되는 코루틴 스코프
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     override suspend fun createTerminal(extHostTerminalId: String, config: Map<String, Any?>) {
-        logger.info("🚀 Creating terminal: $extHostTerminalId, config: $config")
+        logger.info("🚀 터미널 생성 중: $extHostTerminalId, config: $config")
         
         try {
-            // Check if terminal already exists
             if (terminalManager.containsTerminal(extHostTerminalId)) {
-                logger.warn("Terminal already exists: $extHostTerminalId")
+                logger.warn("터미널이 이미 존재함: $extHostTerminalId")
                 return
             }
             
-            // Get RPC protocol instance
             val pluginContext = PluginContext.getInstance(project)
-            val rpcProtocol = pluginContext.getRPCProtocol()
-            if (rpcProtocol == null) {
-                logger.error("❌ Unable to get RPC protocol instance, terminal creation failed: $extHostTerminalId")
-                throw IllegalStateException("RPC protocol not initialized")
-            }
-            logger.info("✅ Got RPC protocol instance: ${rpcProtocol.javaClass.simpleName}")
+            val rpcProtocol = pluginContext.getRPCProtocol() ?: throw IllegalStateException("RPC 프로토콜이 초기화되지 않았습니다.")
+            logger.info("✅ RPC 프로토콜 인스턴스 확보: ${rpcProtocol.javaClass.simpleName}")
             
-            // Allocate numeric ID
+            // 터미널을 식별할 고유 숫자 ID를 할당받습니다.
             val numericId = terminalManager.allocateNumericId()
-            logger.info("🔢 Allocated terminal numeric ID: $numericId")
+            logger.info("🔢 터미널 숫자 ID 할당: $numericId")
             
-            // Create terminal instance
+            // Map 형태의 설정을 TerminalConfig 데이터 클래스로 변환합니다.
             val terminalConfig = TerminalConfig.fromMap(config)
+            // 실제 터미널 로직을 담고 있는 TerminalInstance를 생성합니다.
             val terminalInstance = TerminalInstance(extHostTerminalId, numericId, project, terminalConfig, rpcProtocol)
 
-            // Initialize terminal
             terminalInstance.initialize()
 
-            // Register to manager
+            // 생성된 터미널 인스턴스를 매니저에 등록합니다.
             terminalManager.registerTerminal(extHostTerminalId, terminalInstance)
             
-            logger.info("✅ Terminal created successfully: $extHostTerminalId (numericId: $numericId)")
+            logger.info("✅ 터미널 생성 성공: $extHostTerminalId (numericId: $numericId)")
             
         } catch (e: Exception) {
-            logger.error("❌ Failed to create terminal: $extHostTerminalId", e)
-            // Clean up possibly created resources
-            terminalManager.unregisterTerminal(extHostTerminalId)
+            logger.error("❌ 터미널 생성 실패: $extHostTerminalId", e)
+            terminalManager.unregisterTerminal(extHostTerminalId) // 실패 시 리소스 정리
             throw e
         }
     }
 
     override fun dispose(id: Any) {
         try {
-            logger.info("🧹 Destroying terminal: $id")
-            
+            logger.info("🧹 터미널 파괴 중: $id")
             val terminalInstance = terminalManager.unregisterTerminal(id.toString())
-            if (terminalInstance != null) {
-                terminalInstance.dispose()
-                logger.info("✅ Terminal destroyed: $id")
-            } else {
-                logger.warn("Terminal does not exist: $id")
-            }
-            
+            terminalInstance?.dispose()
+            logger.info("✅ 터미널 파괴 완료: $id")
         } catch (e: Exception) {
-            logger.error("❌ Failed to destroy terminal: $id", e)
+            logger.error("❌ 터미널 파괴 실패: $id", e)
         }
     }
 
     override fun hide(id: Any) {
         try {
-            logger.info("🙈 Hiding terminal: $id")
-            
-            val terminalInstance = getTerminalInstance(id)
-            if (terminalInstance != null) {
-                terminalInstance.hide()
-                logger.info("✅ Terminal hidden: $id")
-            } else {
-                logger.warn("Terminal does not exist: $id")
-            }
-            
+            logger.info("🙈 터미널 숨기는 중: $id")
+            getTerminalInstance(id)?.hide()
+            logger.info("✅ 터미널 숨김 완료: $id")
         } catch (e: Exception) {
-            logger.error("❌ Failed to hide terminal: $id", e)
+            logger.error("❌ 터미널 숨기기 실패: $id", e)
         }
     }
 
     override fun sendText(id: Any, text: String, shouldExecute: Boolean?) {
         try {
-            logger.debug("📤 Sending text to terminal $id: $text (execute: $shouldExecute)")
-            
-            val terminalInstance = getTerminalInstance(id)
-            if (terminalInstance != null) {
-                terminalInstance.sendText(text, shouldExecute ?: false)
-                logger.debug("✅ Text sent to terminal: $id")
-            } else {
-                logger.warn("Terminal does not exist: $id")
-            }
-            
+            logger.debug("📤 터미널에 텍스트 전송 $id: $text (실행: $shouldExecute)")
+            getTerminalInstance(id)?.sendText(text, shouldExecute ?: false)
+            logger.debug("✅ 터미널에 텍스트 전송 완료: $id")
         } catch (e: Exception) {
-            logger.error("❌ Failed to send text to terminal: $id", e)
+            logger.error("❌ 터미널에 텍스트 전송 실패: $id", e)
         }
     }
 
     override fun show(id: Any, preserveFocus: Boolean?) {
         try {
-            logger.info("👁️ Showing terminal: $id (preserve focus: $preserveFocus)")
-            
-            val terminalInstance = getTerminalInstance(id)
-            if (terminalInstance != null) {
-                terminalInstance.show(preserveFocus ?: true)
-                logger.info("✅ Terminal shown: $id")
-            } else {
-                logger.warn("Terminal does not exist: $id")
-            }
-            
+            logger.info("👁️ 터미널 표시 중: $id (포커스 유지: $preserveFocus)")
+            getTerminalInstance(id)?.show(preserveFocus ?: true)
+            logger.info("✅ 터미널 표시 완료: $id")
         } catch (e: Exception) {
-            logger.error("❌ Failed to show terminal: $id", e)
+            logger.error("❌ 터미널 표시 실패: $id", e)
         }
     }
 
+    // --- 아래는 현재 로깅만 수행하거나 TODO로 남겨진 메소드들 ---
+
     override fun registerProcessSupport(isSupported: Boolean) {
-        logger.info("📋 Registering process support: $isSupported")
-        // In IDEA, process support is built-in, mainly used for logging state here
+        logger.info("📋 프로세스 지원 등록: $isSupported")
     }
 
     override fun registerProfileProvider(id: String, extensionIdentifier: String) {
-        logger.info("📋 Registering profile provider: $id (extension: $extensionIdentifier)")
-        // TODO: Implement profile provider registration logic
+        logger.info("📋 프로필 제공자 등록: $id (확장: $extensionIdentifier)")
     }
 
     override fun unregisterProfileProvider(id: String) {
-        logger.info("📋 Unregistering profile provider: $id")
-        // TODO: Implement profile provider unregistration logic
+        logger.info("📋 프로필 제공자 등록 해제: $id")
     }
 
     override fun registerCompletionProvider(id: String, extensionIdentifier: String, vararg triggerCharacters: String) {
-        logger.info("📋 Registering completion provider: $id (extension: $extensionIdentifier, trigger characters: ${triggerCharacters.joinToString()})")
-        // TODO: Implement completion provider registration logic
+        logger.info("📋 자동 완성 제공자 등록: $id (확장: $extensionIdentifier, 트리거: ${triggerCharacters.joinToString()})")
     }
 
     override fun unregisterCompletionProvider(id: String) {
-        logger.info("📋 Unregistering completion provider: $id")
-        // TODO: Implement completion provider unregistration logic
+        logger.info("📋 자동 완성 제공자 등록 해제: $id")
     }
 
     override fun registerQuickFixProvider(id: String, extensionIdentifier: String) {
-        logger.info("📋 Registering quick fix provider: $id (extension: $extensionIdentifier)")
-        // TODO: Implement quick fix provider registration logic
+        logger.info("📋 빠른 수정 제공자 등록: $id (확장: $extensionIdentifier)")
     }
 
     override fun unregisterQuickFixProvider(id: String) {
-        logger.info("📋 Unregistering quick fix provider: $id")
-        // TODO: Implement quick fix provider unregistration logic
+        logger.info("📋 빠른 수정 제공자 등록 해제: $id")
     }
 
     override fun setEnvironmentVariableCollection(
@@ -348,95 +252,48 @@ class MainThreadTerminalService(private val project: Project) : MainThreadTermin
         collection: Map<String, Any?>?,
         descriptionMap: Map<String, Any?>
     ) {
-        logger.info("📋 Setting environment variable collection: $extensionIdentifier (persistent: $persistent)")
-        // TODO: Implement environment variable collection setting logic
+        logger.info("📋 환경 변수 컬렉션 설정: $extensionIdentifier (영구: $persistent)")
     }
 
-    override fun startSendingDataEvents() {
-        logger.info("📋 Starting to send data events")
-        // TODO: Implement data event sending logic
-    }
-
-    override fun stopSendingDataEvents() {
-        logger.info("📋 Stopping data event sending")
-        // TODO: Implement stopping data event sending logic
-    }
-
-    override fun startSendingCommandEvents() {
-        logger.info("📋 Starting to send command events")
-        // TODO: Implement command event sending logic
-    }
-
-    override fun stopSendingCommandEvents() {
-        logger.info("📋 Stopping command event sending")
-        // TODO: Implement stopping command event sending logic
-    }
-
-    override fun startLinkProvider() {
-        logger.info("📋 Starting link provider")
-        // TODO: Implement link provider startup logic
-    }
-
-    override fun stopLinkProvider() {
-        logger.info("📋 Stopping link provider")
-        // TODO: Implement link provider stopping logic
-    }
-
-    override fun sendProcessData(terminalId: Int, data: String) {
-        logger.debug("Send process data to terminal $terminalId")
-        // Send process data to terminal
-    }
-
-    override fun sendProcessReady(terminalId: Int, pid: Int, cwd: String, windowsPty: Map<String, Any?>?) {
-        logger.info("Send process ready: terminal=$terminalId, pid=$pid, cwd=$cwd")
-        // Send process ready information
-    }
-
-    override fun sendProcessProperty(terminalId: Int, property: Map<String, Any?>) {
-        logger.debug("📋 Sending process property: terminal=$terminalId")
-        // TODO: Notify extension host of process property changes
-    }
-
-    override fun sendProcessExit(terminalId: Int, exitCode: Int?) {
-        logger.info("📋 Sending process exit: terminal=$terminalId, exit code=$exitCode")
-        // TODO: Notify extension host of process exit
-    }
+    override fun startSendingDataEvents() { logger.info("📋 데이터 이벤트 전송 시작") }
+    override fun stopSendingDataEvents() { logger.info("📋 데이터 이벤트 전송 중지") }
+    override fun startSendingCommandEvents() { logger.info("📋 커맨드 이벤트 전송 시작") }
+    override fun stopSendingCommandEvents() { logger.info("📋 커맨드 이벤트 전송 중지") }
+    override fun startLinkProvider() { logger.info("📋 링크 제공자 시작") }
+    override fun stopLinkProvider() { logger.info("📋 링크 제공자 중지") }
+    override fun sendProcessData(terminalId: Int, data: String) { logger.debug("프로세스 데이터 전송: terminal=$terminalId") }
+    override fun sendProcessReady(terminalId: Int, pid: Int, cwd: String, windowsPty: Map<String, Any?>?) { logger.info("프로세스 준비됨: terminal=$terminalId, pid=$pid, cwd=$cwd") }
+    override fun sendProcessProperty(terminalId: Int, property: Map<String, Any?>) { logger.debug("📋 프로세스 속성 전송: terminal=$terminalId") }
+    override fun sendProcessExit(terminalId: Int, exitCode: Int?) { logger.info("📋 프로세스 종료 전송: terminal=$terminalId, code=$exitCode") }
 
     /**
-     * Get terminal instance (by string ID or numeric ID)
+     * ID(문자열 또는 숫자)로 터미널 인스턴스를 가져옵니다.
      */
     fun getTerminalInstance(id: Any): TerminalInstance? {
         return when (id) {
             is String -> terminalManager.getTerminalInstance(id)
             is Number -> terminalManager.getTerminalInstance(id.toInt())
             else -> {
-                logger.warn("Unsupported ID type: ${id.javaClass.name}, attempting to convert to string")
+                logger.warn("지원하지 않는 ID 타입: ${id.javaClass.name}, 문자열로 변환 시도")
                 terminalManager.getTerminalInstance(id.toString())
             }
         }
     }
     
     /**
-     * Get all terminal instances
+     * 모든 터미널 인스턴스를 가져옵니다.
      */
     fun getAllTerminals(): Collection<TerminalInstance> {
         return terminalManager.getAllTerminals()
     }
 
     override fun dispose() {
-        logger.info("🧹 Disposing main thread terminal service")
-        
+        logger.info("🧹 메인 스레드 터미널 서비스 해제 중")
         try {
-            // Cancel coroutine scope
-            scope.cancel()
-            
-            // Terminal instance manager will automatically handle cleanup of all terminals
-            // No manual cleanup needed here as TerminalInstanceManager is project-level service
-            
-            logger.info("✅ Main thread terminal service disposed")
-            
+            scope.cancel() // 모든 코루틴 작업을 취소합니다.
+            logger.info("✅ 메인 스레드 터미널 서비스 해제 완료")
         } catch (e: Exception) {
-            logger.error("❌ Failed to dispose main thread terminal service", e)
+            logger.error("❌ 메인 스레드 터미널 서비스 해제 실패", e)
         }
     }
 }

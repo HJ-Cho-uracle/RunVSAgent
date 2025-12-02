@@ -25,136 +25,132 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
- * File-based RPC protocol logger
- * Logs RPC communication to a file
+ * 파일 기반 RPC 프로토콜 로거입니다.
+ * RPC 통신에서 주고받는 메시지들을 파일에 기록합니다.
  */
 class FileRPCProtocolLogger : IRPCProtocolLogger, Disposable {
     private val logger = Logger.getInstance(FileRPCProtocolLogger::class.java)
     
-   // Total incoming bytes
-   private var totalIncoming = 0
+    // 총 수신 바이트 수
+    private var totalIncoming = 0
     
-   // Total outgoing bytes
-   private var totalOutgoing = 0
+    // 총 발신 바이트 수
+    private var totalOutgoing = 0
     
-   // Log directory
-   private var logDir: Path? = null
+    // 로그 디렉터리 경로
+    private var logDir: Path? = null
     
-   // Log file
-   private var logFile: File? = null
+    // 로그 파일 객체
+    private var logFile: File? = null
     
-   // Log file writer
-   private var writer: BufferedWriter? = null
+    // 로그 파일에 쓰기 위한 BufferedWriter
+    private var writer: BufferedWriter? = null
     
-   // Log queue
-   private val logQueue = LinkedBlockingQueue<String>()
+    // 로그 메시지를 비동기적으로 처리하기 위한 큐
+    private val logQueue = LinkedBlockingQueue<String>()
     
-   // Whether initialized
-   private val isInitialized = AtomicBoolean(false)
+    // 로거 초기화 여부
+    private val isInitialized = AtomicBoolean(false)
     
-   // Whether disposed
-   private val isDisposed = AtomicBoolean(false)
+    // 로거 해제 여부
+    private val isDisposed = AtomicBoolean(false)
     
-   // Logger thread
-   private var loggerThread: Thread? = null
+    // 로그 메시지를 파일에 쓰는 전용 스레드
+    private var loggerThread: Thread? = null
     
-   // Coroutine scope
-   private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // 코루틴 스코프 (로그 큐에 메시지를 추가하는 데 사용)
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-   // Whether logging is enabled
-   private val isEnabled = false
+    // 로깅 활성화 여부 (현재는 비활성화되어 있음)
+    private val isEnabled = false
     
     init {
-        if(!isEnabled) {
-           logger.warn("FileRPCProtocolLogger not enabled")
-        }else {
-           // Create log directory
-           val userHome = System.getProperty("user.home")
-           logDir = Paths.get(userHome, ".ext_host", "log")
+        if (!isEnabled) {
+            logger.warn("FileRPCProtocolLogger가 활성화되지 않았습니다.")
+        } else {
+            // 1. 로그 디렉터리 생성
+            val userHome = System.getProperty("user.home")
+            logDir = Paths.get(userHome, ".ext_host", "log")
 
-           // Ensure directory exists
-           if (!Files.exists(logDir)) {
-               Files.createDirectories(logDir)
-           }
+            if (!Files.exists(logDir)) {
+                Files.createDirectories(logDir)
+            }
 
-           // Create log filename, use timestamp for uniqueness
-           val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
-           logFile = logDir?.resolve("rpc_${timestamp}-idea.log")?.toFile()
+            // 2. 로그 파일 이름 생성 (타임스탬프를 사용하여 고유하게 만듦)
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+            logFile = logDir?.resolve("rpc_${timestamp}-idea.log")?.toFile()
 
-           // Create file writer
-           writer = BufferedWriter(FileWriter(logFile))
+            // 3. 파일 쓰기 객체 생성
+            writer = BufferedWriter(FileWriter(logFile))
 
-           // Start logger thread
-           startLoggerThread()
+            // 4. 로그 쓰기 전용 스레드 시작
+            startLoggerThread()
 
-           // Write log header
-           val startTime = formatTimestampWithMilliseconds(Date())
-           val header = """
+            // 5. 로그 파일 헤더 작성
+            val startTime = formatTimestampWithMilliseconds(Date())
+            val header = """
                |-------------------------------------------------------------
-               | IDEA RPC Protocol Logger
-               | Started at: $startTime
-               | Log file: ${logFile?.absolutePath}
+               | IDEA RPC 프로토콜 로거
+               | 시작 시간: $startTime
+               | 로그 파일: ${logFile?.absolutePath}
                |-------------------------------------------------------------
            
            """.trimMargin()
 
-            logQueue.add(header)
+            logQueue.add(header) // 큐에 헤더 추가
 
             isInitialized.set(true)
-           logger.info("FileRPCProtocolLogger initialized successfully, log file: ${logFile?.absolutePath}")
+            logger.info("FileRPCProtocolLogger가 성공적으로 초기화되었습니다. 로그 파일: ${logFile?.absolutePath}")
         }
     }
     
     /**
-     * Start logger thread
+     * 로그 쓰기 전용 스레드를 시작합니다.
+     * `logQueue`에서 메시지를 가져와 파일에 기록합니다.
      */
     private fun startLoggerThread() {
         loggerThread = thread(start = true, isDaemon = true, name = "RPC-Logger") {
             try {
                 while (!isDisposed.get()) {
-                    val logEntry = logQueue.take()
+                    val logEntry = logQueue.take() // 큐에서 메시지를 가져올 때까지 블록
                     try {
                         writer?.write(logEntry)
                         writer?.newLine()
-                        writer?.flush()
+                        writer?.flush() // 즉시 파일에 쓰기
                     } catch (e: Exception) {
-                       logger.error("Failed to write log file", e)
+                        logger.error("로그 파일 쓰기 실패", e)
                     }
                 }
             } catch (e: InterruptedException) {
-               // Thread interrupted, exit normally
+                // 스레드가 중단되면 정상 종료
             } catch (e: Exception) {
-               logger.error("Logger thread exception", e)
+                logger.error("로거 스레드 예외 발생", e)
             }
         }
     }
     
     /**
-     * Log incoming message
+     * 수신 메시지를 로깅합니다.
      */
     override fun logIncoming(msgLength: Int, req: Int, initiator: RequestInitiator, str: String, data: Any?) {
-        if (!isInitialized.get()) {
-            return
-        }
+        if (!isInitialized.get()) return
         
         totalIncoming += msgLength
         logMessage("Ext → IDEA", totalIncoming, msgLength, req, initiator, str, data)
     }
     
     /**
-     * Log outgoing message
+     * 발신 메시지를 로깅합니다.
      */
     override fun logOutgoing(msgLength: Int, req: Int, initiator: RequestInitiator, str: String, data: Any?) {
-        if (!isInitialized.get()) {
-            return
-        }
+        if (!isInitialized.get()) return
         
         totalOutgoing += msgLength
         logMessage("IDEA → Ext", totalOutgoing, msgLength, req, initiator, str, data)
     }
     
     /**
-     * Log message
+     * 실제 로그 메시지를 포맷하고 큐에 추가합니다.
      */
     private fun logMessage(
         direction: String,
@@ -175,8 +171,8 @@ class FileRPCProtocolLogger : IRPCProtocolLogger, Disposable {
             val logEntry = StringBuilder()
             logEntry.append("[$timestamp] ")
             logEntry.append("[$direction] ")
-            logEntry.append("[Total: ${totalLength.toString().padStart(7)}] ")
-            logEntry.append("[Len: ${msgLength.toString().padStart(5)}] ")
+            logEntry.append("[총: ${totalLength.toString().padStart(7)}] ")
+            logEntry.append("[길이: ${msgLength.toString().padStart(5)}] ")
             logEntry.append("[${req.toString().padStart(5)}] ")
             logEntry.append("[$initiatorStr] ")
             logEntry.append(str)
@@ -190,17 +186,17 @@ class FileRPCProtocolLogger : IRPCProtocolLogger, Disposable {
                 logEntry.append(" ").append(dataStr)
             }
             
-           // Use coroutine to asynchronously add to queue
-           coroutineScope.launch(Dispatchers.IO) {
-               logQueue.add(logEntry.toString())
-           }
+            // 코루틴을 사용하여 로그 큐에 비동기적으로 추가합니다.
+            coroutineScope.launch(Dispatchers.IO) {
+                logQueue.add(logEntry.toString())
+            }
         } catch (e: Exception) {
-           logger.error("Failed to format log message", e)
+            logger.error("로그 메시지 포맷 실패", e)
         }
     }
     
     /**
-     * Safely convert data to string
+     * 데이터를 안전하게 문자열로 변환합니다.
      */
     private fun stringify(data: Any?): String {
         return try {
@@ -211,12 +207,12 @@ class FileRPCProtocolLogger : IRPCProtocolLogger, Disposable {
                 else -> data.toString()
             }
         } catch (e: Exception) {
-           "Unserializable data: ${e.message}"
+            "직렬화 불가능한 데이터: ${e.message}"
         }
     }
     
     /**
-     * Format timestamp with milliseconds
+     * 밀리초를 포함한 타임스탬프를 포맷합니다.
      */
     private fun formatTimestampWithMilliseconds(date: Date): String {
         val calendar = Calendar.getInstance()
@@ -234,7 +230,8 @@ class FileRPCProtocolLogger : IRPCProtocolLogger, Disposable {
     }
     
     /**
-     * Release resources
+     * 리소스를 해제합니다.
+     * 로그 파일 푸터(footer)를 작성하고, 쓰기 객체를 닫으며, 로거 스레드를 중단합니다.
      */
     override fun dispose() {
         if (isDisposed.getAndSet(true)) {
@@ -242,37 +239,37 @@ class FileRPCProtocolLogger : IRPCProtocolLogger, Disposable {
         }
         
         try {
-           // Write log footer
-           val endTime = formatTimestampWithMilliseconds(Date())
-           val footer = """
+            // 로그 파일 푸터 작성
+            val endTime = formatTimestampWithMilliseconds(Date())
+            val footer = """
                |-------------------------------------------------------------
-               | IDEA RPC Protocol Logger
-               | Ended at: $endTime
-               | Total incoming: $totalIncoming bytes
-               | Total outgoing: $totalOutgoing bytes
+               | IDEA RPC 프로토콜 로거
+               | 종료 시간: $endTime
+               | 총 수신: $totalIncoming 바이트
+               | 총 발신: $totalOutgoing 바이트
                |-------------------------------------------------------------
            """.trimMargin()
             
-            logQueue.add(footer)
+            logQueue.add(footer) // 큐에 푸터 추가
             
-           // Wait for log queue to empty
-           var retries = 0
-           while (logQueue.isNotEmpty() && retries < 10) {
-               Thread.sleep(100)
-               retries++
-           }
+            // 로그 큐가 비워질 때까지 잠시 기다립니다.
+            var retries = 0
+            while (logQueue.isNotEmpty() && retries < 10) {
+                Thread.sleep(100)
+                retries++
+            }
             
-           // Close writer
-           writer?.close()
-           writer = null
+            // 쓰기 객체를 닫습니다.
+            writer?.close()
+            writer = null
             
-           // Interrupt logger thread
-           loggerThread?.interrupt()
-           loggerThread = null
+            // 로거 스레드를 중단합니다.
+            loggerThread?.interrupt()
+            loggerThread = null
             
-           logger.info("FileRPCProtocolLogger released")
+            logger.info("FileRPCProtocolLogger 해제됨")
         } catch (e: Exception) {
-           logger.error("Failed to release FileRPCProtocolLogger", e)
+            logger.error("FileRPCProtocolLogger 해제 실패", e)
         }
     }
-} 
+}

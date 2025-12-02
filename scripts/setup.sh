@@ -1,76 +1,77 @@
 #!/bin/bash
 
-# Setup script for RunVSAgent project
-# This script initializes the development environment and dependencies
+# RunVSAgent 프로젝트 설정 스크립트
+# 이 스크립트는 개발 환경 및 의존성을 초기화합니다.
 
+# 오류 발생 시 즉시 종료, 정의되지 않은 변수 사용 시 오류, 파이프라인 오류 시 오류
 set -euo pipefail
 
-# Source common utilities
+# 공통 유틸리티 스크립트 로드
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
-source "$SCRIPT_DIR/lib/build.sh"
+source "$SCRIPT_DIR/lib/build.sh" # 빌드 관련 함수 (init_submodules 등)를 사용하기 위해 로드
 
-# Script configuration
+# --- 스크립트 설정 ---
 readonly SCRIPT_NAME="setup.sh"
 readonly SCRIPT_VERSION="1.0.0"
-readonly PATCH_FILE="deps/patches/vscode/feature-cline-ai.patch"
+readonly PATCH_FILE="deps/patches/vscode/feature-cline-ai.patch" # 적용할 패치 파일 경로
 
-# Setup options
-FORCE_REINSTALL=false
-SKIP_SUBMODULES=false
-SKIP_DEPENDENCIES=false
-APPLY_PATCHES=true
+# --- 설정 옵션 ---
+FORCE_REINSTALL=false   # 의존성 강제 재설치 여부
+SKIP_SUBMODULES=false   # Git 서브모듈 초기화 건너뛰기 여부
+SKIP_DEPENDENCIES=false # 의존성 설치 건너뛰기 여부
+APPLY_PATCHES=true      # 패치 적용 여부
 
-# Show help for this script
+# --- 스크립트 도움말 표시 ---
 show_help() {
     cat << EOF
-$SCRIPT_NAME - Setup development environment for RunVSAgent
+$SCRIPT_NAME - RunVSAgent 개발 환경 설정
 
-USAGE:
-    $SCRIPT_NAME [OPTIONS]
+사용법:
+    $SCRIPT_NAME [옵션]
 
-DESCRIPTION:
-    DESCRIPTION:
-        This script initializes the development environment by:
-        - Validating system requirements (including Git LFS)
-        - Setting up Git LFS for large file handling
-        - Initializing git submodules
-        - Installing project dependencies
-        - Applying necessary patches
-        - Setting up build environment
-OPTIONS:
-    -f, --force           Force reinstall of dependencies
-    -s, --skip-submodules Skip git submodule initialization
-    -d, --skip-deps       Skip dependency installation
-    -p, --no-patches      Skip applying patches
-    -v, --verbose         Enable verbose output
-    -n, --dry-run         Show what would be done without executing
-    -h, --help            Show this help message
+설명:
+    이 스크립트는 다음을 통해 개발 환경을 초기화합니다:
+    - 시스템 요구 사항 유효성 검사 (Git LFS 포함)
+    - 대용량 파일 처리를 위한 Git LFS 설정
+    - Git 서브모듈 초기화
+    - 프로젝트 의존성 설치
+    - 필요한 패치 적용
+    - 빌드 환경 설정
 
-EXAMPLES:
-    $SCRIPT_NAME                    # Full setup
-    $SCRIPT_NAME --force            # Force reinstall everything
-    $SCRIPT_NAME --skip-deps        # Skip dependency installation
-    $SCRIPT_NAME --verbose          # Verbose output
+옵션:
+    -f, --force           의존성 강제 재설치
+    -s, --skip-submodules Git 서브모듈 초기화 건너뛰기
+    -d, --skip-deps       의존성 설치 건너뛰기
+    -p, --no-patches      패치 적용 건너뛰기
+    -v, --verbose         자세한 출력 활성화
+    -n, --dry-run         실행하지 않고 수행될 작업 표시
+    -h, --help            이 도움말 메시지 표시
 
-ENVIRONMENT:
-    NODE_VERSION_MIN    Minimum Node.js version (default: 16.0.0)
-    SKIP_VALIDATION     Skip environment validation if set to 'true'
+예시:
+    $SCRIPT_NAME                    # 전체 설정
+    $SCRIPT_NAME --force            # 모든 것 강제 재설치
+    $SCRIPT_NAME --skip-deps        # 의존성 설치 건너뛰기
+    $SCRIPT_NAME --verbose          # 자세한 출력
 
-REQUIREMENTS:
-    - Git LFS must be installed for handling large files
-    - Run 'git lfs install' manually if setup fails
+환경 변수:
+    NODE_VERSION_MIN    최소 Node.js 버전 (기본값: 16.0.0)
+    SKIP_VALIDATION     'true'로 설정하면 환경 유효성 검사 건너뛰기
 
-EXIT CODES:
-    0    Success
-    1    General error
-    2    Environment validation failed
-    3    Dependency installation failed
-    4    Patch application failed
+요구 사항:
+    - 대용량 파일 처리를 위해 Git LFS가 설치되어 있어야 합니다.
+    - 설정이 실패하면 'git lfs install'을 수동으로 실행하세요.
+
+종료 코드:
+    0    성공
+    1    일반 오류
+    2    환경 유효성 검사 실패
+    3    의존성 설치 실패
+    4    패치 적용 실패
 
 EOF
 }
 
-# Parse command line arguments
+# --- 명령줄 인자 파싱 ---
 parse_setup_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -103,169 +104,182 @@ parse_setup_args() {
                 exit 0
                 ;;
             *)
-                log_error "Unknown option: $1"
-                log_info "Use --help for usage information"
+                log_error "알 수 없는 옵션: $1"
+                log_info "사용법 정보는 --help를 사용하세요."
                 exit 1
                 ;;
         esac
     done
 }
 
-# Validate system requirements
+# --- 시스템 요구 사항 유효성 검사 ---
 validate_system_requirements() {
-    log_step "Validating system requirements..."
+    log_step "시스템 요구 사항 유효성 검사 중..."
     
-    # Skip validation if requested
+    # 요청 시 유효성 검사 건너뛰기
     if [[ "${SKIP_VALIDATION:-false}" == "true" ]]; then
-        log_warn "Skipping environment validation (SKIP_VALIDATION=true)"
+        log_warn "환경 유효성 검사 건너뛰기 (SKIP_VALIDATION=true)"
         return 0
     fi
     
-    # Validate basic environment
+    # 기본 환경 유효성 검사 (common.sh)
     validate_environment
     
-    # Check for additional development tools
+    # 추가 개발 도구 확인
     local dev_tools=("git" "unzip" "curl")
     for tool in "${dev_tools[@]}"; do
         if ! command_exists "$tool"; then
-            die "Required development tool not found: $tool" 2
+            die "필수 개발 도구를 찾을 수 없습니다: $tool" 2
         fi
-        log_debug "Found development tool: $tool"
+        log_debug "개발 도구 찾음: $tool"
     done
     
-    # Check for Git LFS
+    # Git LFS 확인
     if ! command_exists "git-lfs"; then
-        die "Git LFS not found. Please install Git LFS: https://git-lfs.github.io/" 2
+        die "Git LFS를 찾을 수 없습니다. Git LFS를 설치해주세요: https://git-lfs.github.io/" 2
     fi
-    log_debug "Found Git LFS"
+    log_debug "Git LFS 찾음"
     
-    # Check Git configuration
+    # Git 사용자 설정 확인
     if ! git config user.name >/dev/null 2>&1; then
-        log_warn "Git user.name not configured. Run: git config --global user.name 'Your Name'"
+        log_warn "Git user.name이 설정되지 않았습니다. 'git config --global user.name 'Your Name''을 실행하세요."
     fi
     
     if ! git config user.email >/dev/null 2>&1; then
-        log_warn "Git user.email not configured. Run: git config --global user.email 'your.email@example.com'"
+        log_warn "Git user.email이 설정되지 않았습니다. 'git config --global user.email 'your.email@example.com''을 실행하세요."
     fi
     
-    # Check available disk space (at least 2GB)
+    # 사용 가능한 디스크 공간 확인 (최소 2GB)
     local available_space
     if is_macos; then
-        available_space=$(df -g "$PROJECT_ROOT" | awk 'NR==2 {print $4}')
+        available_space=$(df -g "$PROJECT_ROOT" | awk 'NR==2 {print $4}') # macOS
     else
-        available_space=$(df -BG "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/G//')
+        available_space=$(df -BG "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/G//') # Linux
     fi
     
     if [[ "$available_space" -lt 2 ]]; then
-        log_warn "Low disk space: ${available_space}GB available. At least 2GB recommended."
+        log_warn "디스크 공간 부족: ${available_space}GB 사용 가능. 최소 2GB 권장."
     fi
     
-    log_success "System requirements validated"
+    log_success "시스템 요구 사항 유효성 검사 완료"
 }
 
-# Initialize Git LFS
+# --- Git LFS 설정 ---
 setup_git_lfs() {
-    log_step "Setting up Git LFS..."
+    log_step "Git LFS 설정 중..."
     
     cd "$PROJECT_ROOT"
     
-    # Check if Git LFS is already initialized
+    # Git LFS가 이미 초기화되었는지 확인
     if git lfs env >/dev/null 2>&1; then
-        log_debug "Git LFS environment already configured"
+        log_debug "Git LFS 환경이 이미 구성되었습니다."
     else
-        log_info "Initializing Git LFS..."
-        execute_cmd "git lfs install" "Git LFS installation"
+        log_info "Git LFS 초기화 중..."
+        execute_cmd "git lfs install" "Git LFS 설치"
     fi
     
-    # Check if .gitattributes exists and has LFS entries
+    # .gitattributes 파일이 존재하고 LFS 항목이 있는지 확인
     if [[ -f ".gitattributes" ]]; then
         local lfs_files
         lfs_files=$(grep -c "filter=lfs" .gitattributes 2>/dev/null || echo "0")
         if [[ "$lfs_files" -gt 0 ]]; then
-            log_info "Found $lfs_files LFS file pattern(s) in .gitattributes"
+            log_info ".gitattributes에서 $lfs_files개의 LFS 파일 패턴 찾음"
             
-            # Pull LFS files
-            log_info "Pulling LFS files..."
-            execute_cmd "git lfs pull" "Git LFS pull"
+            # LFS 파일 풀 (다운로드)
+            log_info "LFS 파일 풀링 중..."
+            execute_cmd "git lfs pull" "Git LFS 풀"
             
-            # Verify LFS files
-            log_info "Verifying LFS files..."
+            # LFS 파일 확인
+            log_info "LFS 파일 확인 중..."
             if git lfs ls-files >/dev/null 2>&1; then
                 local lfs_file_count
                 lfs_file_count=$(git lfs ls-files | wc -l | tr -d ' ')
                 if [[ "$lfs_file_count" -gt 0 ]]; then
-                    log_success "Successfully pulled $lfs_file_count LFS file(s)"
+                    log_success "$lfs_file_count개의 LFS 파일 성공적으로 풀링됨"
                     git lfs ls-files | while read -r line; do
-                        log_debug "LFS file: $line"
+                        log_debug "LFS 파일: $line"
                     done
                 else
-                    log_warn "No LFS files found in repository"
+                    log_warn "저장소에서 LFS 파일을 찾을 수 없습니다."
                 fi
             fi
         else
-            log_info "No LFS file patterns found in .gitattributes"
+            log_info ".gitattributes에서 LFS 파일 패턴을 찾을 수 없습니다."
         fi
     else
-        log_warn "No .gitattributes file found, skipping LFS file pull"
+        log_warn ".gitattributes 파일을 찾을 수 없어 LFS 파일 풀링 건너뛰기"
     fi
     
-    log_success "Git LFS setup completed"
+    log_success "Git LFS 설정 완료"
 }
 
-# Initialize git submodules
+# --- Git 서브모듈 설정 ---
 setup_submodules() {
     if [[ "$SKIP_SUBMODULES" == "true" ]]; then
-        log_info "Skipping git submodule initialization"
+        log_info "Git 서브모듈 초기화 건너뛰기"
         return 0
     fi
     
-    log_step "Setting up git submodules..."
+    log_step "Git 서브모듈 설정 중..."
     
     cd "$PROJECT_ROOT"
     
-    # Check if .gitmodules exists
+    # .gitmodules 파일이 존재하는지 확인
     if [[ ! -f ".gitmodules" ]]; then
-        log_warn "No .gitmodules file found, skipping submodule setup"
+        log_warn ".gitmodules 파일을 찾을 수 없어 서브모듈 설정 건너뛰기"
         return 0
     fi
     
-    # Initialize and update submodules
+    # 서브모듈 초기화 및 업데이트
     if [[ "$FORCE_REINSTALL" == "true" ]]; then
-        log_info "Force reinstalling submodules..."
-        execute_cmd "git submodule deinit --all -f" "submodule deinit"
+        log_info "서브모듈 강제 재설치 중..."
+        execute_cmd "git submodule deinit --all -f" "서브모듈 deinit"
     fi
     
-    execute_cmd "git submodule init" "submodule init"
-    execute_cmd "git submodule update --recursive" "submodule update"
+    execute_cmd "git submodule init" "서브모듈 init"
+    execute_cmd "git submodule update --recursive" "서브모듈 update"
     
-    # Switch to development branch if specified
+    # 지정된 브랜치로 전환 (VSCode 서브모듈)
     local vscode_dir="$PROJECT_ROOT/$VSCODE_SUBMODULE_PATH"
     if [[ -d "$vscode_dir" ]]; then
         cd "$vscode_dir"
         if git show-ref --verify --quiet "refs/heads/$VSCODE_BRANCH"; then
-            execute_cmd "git checkout $VSCODE_BRANCH" "checkout $VSCODE_BRANCH"
+            execute_cmd "git checkout $VSCODE_BRANCH" "$VSCODE_BRANCH 브랜치 체크아웃"
         elif git show-ref --verify --quiet "refs/remotes/origin/$VSCODE_BRANCH"; then
-            execute_cmd "git checkout -b $VSCODE_BRANCH origin/$VSCODE_BRANCH" "checkout $VSCODE_BRANCH"
+            execute_cmd "git checkout -b $VSCODE_BRANCH origin/$VSCODE_BRANCH" "$VSCODE_BRANCH 브랜치 체크아웃"
         else
-            log_warn "Branch $VSCODE_BRANCH not found, staying on current branch"
+            log_warn "브랜치 $VSCODE_BRANCH를 찾을 수 없습니다. 현재 브랜치 유지"
         fi
     fi
     
-    log_success "Git submodules set up"
+    # 지정된 브랜치로 전환 (Athena 서브모듈)
+    local athena_dir="$PROJECT_ROOT/$ATHENA_SUBMODULE_PATH"
+    if [[ -d "$athena_dir" ]]; then
+        cd "$athena_dir"
+        if git show-ref --verify --quiet "refs/heads/$VSCODE_BRANCH"; then
+            execute_cmd "git checkout $VSCODE_BRANCH" "$VSCODE_BRANCH 브랜치 체크아웃"
+        elif git show-ref --verify --quiet "refs/remotes/origin/$VSCODE_BRANCH"; then
+            execute_cmd "git checkout -b $VSCODE_BRANCH origin/$VSCODE_BRANCH" "$VSCODE_BRANCH 브랜치 체크아웃"
+        else
+            log_warn "브랜치 $VSCODE_BRANCH를 찾을 수 없습니다. 현재 브랜치 유지"
+        fi
+    fi
+
+    log_success "Git 서브모듈 설정 완료"
 }
 
-# Install project dependencies
+# --- 프로젝트 의존성 설치 ---
 install_dependencies() {
     if [[ "$SKIP_DEPENDENCIES" == "true" ]]; then
-        log_info "Skipping dependency installation"
+        log_info "의존성 설치 건너뛰기"
         return 0
     fi
     
-    log_step "Installing project dependencies..."
+    log_step "프로젝트 의존성 설치 중..."
     
-    # Install extension host dependencies
+    # Extension Host 의존성 설치
     if [[ -d "$PROJECT_ROOT/$EXTENSION_HOST_DIR" && -f "$PROJECT_ROOT/$EXTENSION_HOST_DIR/package.json" ]]; then
-        log_info "Installing extension host dependencies..."
+        log_info "Extension Host 의존성 설치 중..."
         cd "$PROJECT_ROOT/$EXTENSION_HOST_DIR"
         
         if [[ "$FORCE_REINSTALL" == "true" ]]; then
@@ -273,13 +287,13 @@ install_dependencies() {
             [[ -f "package-lock.json" ]] && rm -f "package-lock.json"
         fi
         
-        execute_cmd "npm install" "extension host dependencies installation"
+        execute_cmd "npm install" "Extension Host 의존성 설치"
     fi
     
-    # Install VSCode extension dependencies
-    local vscode_dir="$PROJECT_ROOT/$PLUGIN_SUBMODULE_PATH"
+    # VSCode 확장 의존성 설치
+    local vscode_dir="$PROJECT_ROOT/$PLUGIN_SUBMODULE_PATH" # PLUGIN_SUBMODULE_PATH는 Athena를 가리킴
     if [[ -d "$vscode_dir" && -f "$vscode_dir/package.json" ]]; then
-        log_info "Installing VSCode extension dependencies..."
+        log_info "VSCode 확장 의존성 설치 중..."
         cd "$vscode_dir"
         
         if [[ "$FORCE_REINSTALL" == "true" ]]; then
@@ -288,53 +302,72 @@ install_dependencies() {
             [[ -f "pnpm-lock.yaml" ]] && rm -f "pnpm-lock.yaml"
         fi
         
-        # Use pnpm if available and lock file exists
+        # pnpm이 사용 가능하고 lock 파일이 있으면 pnpm 사용
         local pkg_manager="npm"
         if command_exists "pnpm" && [[ -f "pnpm-lock.yaml" ]]; then
             pkg_manager="pnpm"
         fi
         
-        execute_cmd "$pkg_manager install" "VSCode extension dependencies installation"
+        execute_cmd "$pkg_manager install" "VSCode 확장 의존성 설치"
     fi
     
-    log_success "Dependencies installed"
+    # Athena 확장 의존성 설치 (위의 VSCode 확장과 동일한 경로를 사용하므로 중복될 수 있음)
+    local athena_dir="$PROJECT_ROOT/$ATHENA_SUBMODULE_PATH"
+    if [[ -d "$athena_dir" && -f "$athena_dir/package.json" ]]; then
+        log_info "Athena 확장 의존성 설치 중..."
+        cd "$athena_dir"
+
+        if [[ "$FORCE_REINSTALL" == "true" ]]; then
+            remove_dir "node_modules"
+            [[ -f "package-lock.json" ]] && rm -f "package-lock.json"
+            [[ -f "pnpm-lock.yaml" ]] && rm -f "pnpm-lock.yaml"
+        fi
+
+        local pkg_manager="npm"
+        if command_exists "pnpm" && [[ -f "pnpm-lock.yaml" ]]; then
+            pkg_manager="pnpm"
+        fi
+
+        execute_cmd "$pkg_manager install" "Athena 확장 의존성 설치"
+    fi
+
+    log_success "의존성 설치 완료"
 }
 
-# Apply project patches and copy VSCode files
+# --- 프로젝트 패치 적용 및 VSCode 파일 복사 ---
 apply_patches() {
     if [[ "$APPLY_PATCHES" != "true" ]]; then
-        log_info "Skipping patch application"
+        log_info "패치 적용 건너뛰기"
         return 0
     fi
     
-    log_step "Applying project patches..."
+    log_step "프로젝트 패치 적용 중..."
     
     local patch_file="$PROJECT_ROOT/$PATCH_FILE"
     if [[ ! -f "$patch_file" ]]; then
-        log_warn "Patch file not found: $patch_file"
+        log_warn "패치 파일을 찾을 수 없습니다: $patch_file"
         return 0
     fi
     
-    # Use deps/vscode as the source directory (like init.sh)
+    # deps/vscode를 소스 디렉터리로 사용
     local vscode_source_dir="$PROJECT_ROOT/deps/vscode"
     local vscode_target_dir="$PROJECT_ROOT/$EXTENSION_HOST_DIR/vscode"
     
     if [[ ! -d "$vscode_source_dir" ]]; then
-        log_warn "VSCode source directory not found: $vscode_source_dir"
+        log_warn "VSCode 소스 디렉터리를 찾을 수 없습니다: $vscode_source_dir"
         return 0
     fi
     
     cd "$vscode_source_dir"
-    execute_cmd "git clean -dfx && git reset --hard" "reset VSCode source"
+    execute_cmd "git clean -dfx && git reset --hard" "VSCode 소스 초기화"
  
-    # Check if patch can be applied
+    # 패치를 적용할 수 있는지 확인
     if git apply --check "$patch_file" 2>/dev/null; then
-        log_info "Applying patch to VSCode source..."
-        execute_cmd "git apply '$patch_file'" "patch application"
+        log_info "VSCode 소스에 패치 적용 중..."
+        execute_cmd "git apply '$patch_file'" "패치 적용"
         
-        # Copy src/* to target directory (exactly like init.sh)
-        log_info "Copying src/* to $vscode_target_dir..."
-        # Use the same logic as init.sh: mkdir -p $TARGET_DIR || rm -rf "$TARGET_DIR"/*
+        # src/* 내용을 대상 디렉터리로 복사
+        log_info "src/*를 '$vscode_target_dir'로 복사 중..."
         if [[ ! -d "$vscode_target_dir" ]]; then
             ensure_dir "$vscode_target_dir"
         else
@@ -342,25 +375,24 @@ apply_patches() {
         fi
         
         if [[ -d "$vscode_source_dir/src" ]]; then
-            execute_cmd "cp -r src/* '$vscode_target_dir/'" "VSCode files copy"
+            execute_cmd "cp -r src/* '$vscode_target_dir/'" "VSCode 파일 복사"
         else
-            log_error "VSCode src directory not found in $vscode_source_dir"
+            log_error "VSCode src 디렉터리를 찾을 수 없습니다: $vscode_source_dir"
             exit 4
         fi
         
-        # Reset the source repository (like init.sh)
-        log_info "Resetting VSCode source repository..."
+        # 소스 저장소 초기화
+        log_info "VSCode 소스 저장소 초기화 중..."
         execute_cmd "git reset --hard" "git reset"
         execute_cmd "git clean -fd" "git clean"
         
-        log_success "Patch applied and VSCode files copied successfully"
+        log_success "패치 적용 및 VSCode 파일 복사 완료"
     else
-        # Check if patch is already applied
+        # 패치가 이미 적용되었는지 확인
         if git apply --reverse --check "$patch_file" 2>/dev/null; then
-            log_info "Patch appears to already be applied, copying files..."
+            log_info "패치가 이미 적용된 것으로 보입니다. 파일 복사 중..."
             
-            # Still copy the files even if patch is already applied
-            # Use the same logic as init.sh: mkdir -p $TARGET_DIR || rm -rf "$TARGET_DIR"/*
+            # 패치가 이미 적용되었더라도 파일을 복사합니다.
             if [[ ! -d "$vscode_target_dir" ]]; then
                 ensure_dir "$vscode_target_dir"
             else
@@ -368,25 +400,25 @@ apply_patches() {
             fi
             
             if [[ -d "$vscode_source_dir/src" ]]; then
-                execute_cmd "cp -r src/* '$vscode_target_dir/'" "VSCode files copy"
-                log_success "VSCode files copied successfully"
+                execute_cmd "cp -r src/* '$vscode_target_dir/'" "VSCode 파일 복사"
+                log_success "VSCode 파일 복사 완료"
             else
-                log_error "VSCode src directory not found in $vscode_source_dir"
+                log_error "VSCode src 디렉터리를 찾을 수 없습니다: $vscode_source_dir"
                 exit 4
             fi
         else
-            log_error "Patch cannot be applied (conflicts may exist)"
-            log_info "You may need to resolve conflicts manually"
+            log_error "패치를 적용할 수 없습니다 (충돌이 있을 수 있음)"
+            log_info "수동으로 충돌을 해결해야 할 수 있습니다."
             exit 4
         fi
     fi
 }
 
-# Setup development environment
+# --- 개발 환경 설정 ---
 setup_dev_environment() {
-    log_step "Setting up development environment..."
+    log_step "개발 환경 설정 중..."
     
-    # Create necessary directories
+    # 필요한 디렉터리 생성
     local dirs_to_create=(
         "$PROJECT_ROOT/logs"
         "$PROJECT_ROOT/tmp"
@@ -397,49 +429,49 @@ setup_dev_environment() {
         ensure_dir "$dir"
     done
     
-    # Set up Git hooks if they exist
+    # Git 훅 설정 (존재하는 경우)
     local hooks_dir="$PROJECT_ROOT/.githooks"
     if [[ -d "$hooks_dir" ]]; then
-        log_info "Setting up Git hooks..."
-        execute_cmd "git config core.hooksPath .githooks" "Git hooks setup"
+        log_info "Git 훅 설정 중..."
+        execute_cmd "git config core.hooksPath .githooks" "Git 훅 설정"
         
-        # Make hooks executable
+        # 훅 파일에 실행 권한 부여
         find "$hooks_dir" -type f -exec chmod +x {} \;
     fi
     
-    # Create environment file template if it doesn't exist
+    # 환경 파일 템플릿 생성 (존재하지 않는 경우)
     local env_file="$PROJECT_ROOT/.env.local"
     if [[ ! -f "$env_file" ]]; then
-        log_info "Creating environment file template..."
+        log_info "환경 파일 템플릿 생성 중..."
         cat > "$env_file" << 'EOF'
-# Local environment configuration
-# Copy this file to .env.local and customize as needed
+# 로컬 환경 설정
+# 이 파일을 .env.local로 복사하고 필요에 따라 사용자 정의하세요.
 
-# Build configuration
+# 빌드 구성
 # BUILD_MODE=release
 # VERBOSE=false
 
-# Development settings
+# 개발 설정
 # SKIP_VALIDATION=false
 # USE_DEBUG_BUILD=false
 
-# Paths (usually auto-detected)
+# 경로 (일반적으로 자동 감지됨)
 # PROJECT_ROOT=
 # VSCODE_DIR=
 EOF
-        log_info "Created $env_file - customize as needed"
+        log_info "$env_file 생성됨 - 필요에 따라 사용자 정의하세요."
     fi
     
-    log_success "Development environment set up"
+    log_success "개발 환경 설정 완료"
 }
 
-# Verify setup
+# --- 설정 확인 ---
 verify_setup() {
-    log_step "Verifying setup..."
+    log_step "설정 확인 중..."
     
     local errors=0
     
-    # Check critical directories
+    # 중요 디렉터리 확인
     local critical_dirs=(
         "$PROJECT_ROOT/$EXTENSION_HOST_DIR"
         "$PROJECT_ROOT/$IDEA_DIR"
@@ -447,60 +479,60 @@ verify_setup() {
     
     for dir in "${critical_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
-            log_error "Critical directory missing: $dir"
+            log_error "중요 디렉터리 누락: $dir"
             ((errors++))
         fi
     done
     
-    # Check for VSCode submodule
+    # VSCode 서브모듈 확인
     local vscode_dir="$PROJECT_ROOT/$VSCODE_SUBMODULE_PATH"
     if [[ ! -d "$vscode_dir" ]] || [[ ! "$(ls -A "$vscode_dir" 2>/dev/null)" ]]; then
-        log_error "VSCode submodule not properly initialized: $vscode_dir"
+        log_error "VSCode 서브모듈이 제대로 초기화되지 않았습니다: $vscode_dir"
         ((errors++))
     fi
     
-    # Check for package.json files
+    # package.json 파일 확인
     local package_files=(
         "$PROJECT_ROOT/$EXTENSION_HOST_DIR/package.json"
     )
     
     for file in "${package_files[@]}"; do
         if [[ ! -f "$file" ]]; then
-            log_error "Package file missing: $file"
+            log_error "패키지 파일 누락: $file"
             ((errors++))
         fi
     done
     
-    # Check for build tools
+    # 빌드 도구 확인
     if [[ -d "$PROJECT_ROOT/$IDEA_DIR" ]]; then
         if [[ ! -f "$PROJECT_ROOT/$IDEA_DIR/build.gradle" && ! -f "$PROJECT_ROOT/$IDEA_DIR/build.gradle.kts" ]]; then
-            log_warn "No Gradle build file found in IDEA directory"
+            log_warn "IDEA 디렉터리에서 Gradle 빌드 파일을 찾을 수 없습니다."
         fi
     fi
     
     if [[ $errors -gt 0 ]]; then
-        log_error "Setup verification failed with $errors errors"
+        log_error "설정 확인 실패 ($errors개 오류 발생)"
         exit 3
     fi
     
-    log_success "Setup verification passed"
+    log_success "설정 확인 통과"
 }
 
-# Main setup function
+# --- 메인 설정 함수 ---
 main() {
-    log_info "Starting RunVSAgent development environment setup..."
-    log_info "Script: $SCRIPT_NAME v$SCRIPT_VERSION"
-    log_info "Platform: $(get_platform)"
-    log_info "Project root: $PROJECT_ROOT"
+    log_info "RunVSAgent 개발 환경 설정 시작..."
+    log_info "스크립트: $SCRIPT_NAME v$SCRIPT_VERSION"
+    log_info "플랫폼: $(get_platform)"
+    log_info "프로젝트 루트: $PROJECT_ROOT"
     
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_warn "DRY RUN MODE - No changes will be made"
+        log_warn "DRY RUN 모드 - 변경 사항이 적용되지 않습니다."
     fi
     
-    # Parse arguments
+    # 인자 파싱
     parse_setup_args "$@"
     
-    # Run setup steps
+    # 설정 단계 실행
     validate_system_requirements
     setup_git_lfs
     setup_submodules
@@ -509,15 +541,15 @@ main() {
     setup_dev_environment
     verify_setup
     
-    log_success "Setup completed successfully!"
+    log_success "설정 성공적으로 완료되었습니다!"
     log_info ""
-    log_info "Next steps:"
-    log_info "  1. Run './scripts/build.sh' to build the project"
-    log_info "  2. Run './scripts/build.sh --help' for build options"
-    log_info "  3. Check the generated files in the idea/ directory"
+    log_info "다음 단계:"
+    log_info "  1. 프로젝트를 빌드하려면 './scripts/build.sh'를 실행하세요."
+    log_info "  2. 빌드 옵션을 보려면 './scripts/build.sh --help'를 실행하세요."
+    log_info "  3. idea/ 디렉터리에서 생성된 파일을 확인하세요."
     log_info ""
-    log_info "For more information, see the project documentation."
+    log_info "자세한 내용은 프로젝트 문서를 참조하세요."
 }
 
-# Run main function with all arguments
+# 모든 인자와 함께 메인 함수 실행
 main "$@"

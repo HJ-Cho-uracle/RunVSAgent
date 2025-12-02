@@ -16,28 +16,44 @@ import com.sina.weibo.agent.editor.ModelAddedData
 import com.sina.weibo.agent.editor.createURI
 import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostDocumentsProxy
 
+/**
+ * 문서 동기화 서비스 클래스입니다.
+ * IntelliJ 문서의 변경 사항(특히 저장 이벤트)을 감지하고,
+ * Extension Host와 문서 상태를 동기화하는 역할을 합니다.
+ *
+ * @param project 현재 IntelliJ 프로젝트
+ */
 class DocumentSyncService(private val project: Project) {
 
     private val logger = Logger.getInstance(DocumentSyncService::class.java)
     private var extHostDocumentsProxy: ExtHostDocumentsProxy? = null
 
+    /**
+     * `ExtHostDocumentsProxy` 인스턴스를 가져옵니다.
+     * 프록시가 아직 초기화되지 않았으면 `PluginContext`를 통해 초기화합니다.
+     */
     private fun getExtHostDocumentsProxy(): ExtHostDocumentsProxy? {
         if (extHostDocumentsProxy == null) {
             try {
                 val protocol = PluginContext.getInstance(project).getRPCProtocol()
                 extHostDocumentsProxy = protocol?.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostDocuments)
-                logger.debug("ExtHostDocumentsProxy initialized in DocumentSyncService")
+                logger.debug("DocumentSyncService에서 ExtHostDocumentsProxy 초기화됨")
             } catch (e: Exception) {
-                logger.error("Failed to get ExtHostDocumentsProxy in DocumentSyncService", e)
+                logger.error("DocumentSyncService에서 ExtHostDocumentsProxy 가져오기 실패", e)
             }
         }
         return extHostDocumentsProxy
     }
 
+    /**
+     * 문서 저장 시 문서 상태를 Extension Host와 동기화합니다.
+     * @param virtualFile 저장된 문서의 `VirtualFile`
+     * @param document 저장된 문서의 `Document` 객체
+     */
     suspend fun syncDocumentStateOnSave(virtualFile: VirtualFile, document: Document) {
-        logger.info("Starting to sync document save state: ${virtualFile.path}")
+        logger.info("문서 저장 상태 동기화 시작: ${virtualFile.path}")
         try {
-            // Create URI object
+            // VirtualFile로부터 URI 객체를 생성합니다.
             val uriMap = mapOf(
                 "scheme" to "file",
                 "authority" to "",
@@ -47,94 +63,102 @@ class DocumentSyncService(private val project: Project) {
             )
             val uri = createURI(uriMap)
 
-            // Get EditorAndDocManager to manage document state
+            // EditorAndDocManager를 통해 문서 상태를 관리합니다.
             val editorAndDocManager = project.getService(EditorAndDocManager::class.java)
 
-            // Find corresponding EditorHolder
+            // 해당 URI에 연결된 모든 EditorHolder를 찾습니다.
             val editorHandles = editorAndDocManager.getEditorHandleByUri(uri)
 
             if (editorHandles.isNotEmpty()) {
-                // If corresponding editor exists, update its state
+                // 해당 에디터가 존재하면 상태를 업데이트합니다.
                 for (handle in editorHandles) {
-                    // Read latest document content
+                    // 최신 문서 내용을 읽어옵니다.
                     val text = ApplicationManager.getApplication().runReadAction<String> {
                         document.text
                     }
 
-                    // Create updated document data
+                    // 업데이트된 문서 데이터를 생성합니다.
                     val updatedDocument = ModelAddedData(
                         uri = handle.document.uri,
-                        versionId = handle.document.versionId + 1,
+                        versionId = handle.document.versionId + 1, // 버전 ID 증가
                         lines = text.lines(),
                         EOL = handle.document.EOL,
                         languageId = handle.document.languageId,
-                        isDirty = false, // Set to false after save
+                        isDirty = false, // 저장 후에는 dirty 상태가 아님
                         encoding = handle.document.encoding
                     )
 
-                    // Update document state in EditorHolder
+                    // EditorHolder의 문서 상태를 업데이트합니다.
                     handle.document = updatedDocument
 
-                    // Trigger state sync to extension side
+                    // Extension Host에 상태 동기화를 트리거합니다.
                     editorAndDocManager.updateDocumentAsync(updatedDocument)
                 }
 
-                // Send save event to extension process
+                // Extension Host에 문서 저장 이벤트를 전송합니다.
                 getExtHostDocumentsProxy()?.let { proxy ->
                     proxy.acceptModelSaved(uri)
-                    logger.info("Document save event and state synced to extension host: ${virtualFile.path}")
+                    logger.info("문서 저장 이벤트 및 상태가 Extension Host에 동기화됨: ${virtualFile.path}")
                 }
             }
         } catch (e: Exception) {
-            logger.error("Error syncing document state on save", e)
+            logger.error("문서 저장 상태 동기화 중 오류 발생", e)
         }
     }
 
+    /**
+     * 주어진 `VirtualFile`이 파일 시스템 이벤트 처리에 적합한지 필터링합니다.
+     * 디렉터리, 로컬 파일 시스템에 없는 파일, 특정 빌드/설정 파일, 너무 큰 파일 등을 제외합니다.
+     * @param virtualFile 확인할 `VirtualFile`
+     * @return 이벤트 처리에 적합하면 true
+     */
     fun shouldHandleFileEvent(virtualFile: VirtualFile): Boolean {
-        // Filter: only process real files (non-directory) and not temporary files
-        return !virtualFile.isDirectory &&
-                virtualFile.isInLocalFileSystem &&
-                !virtualFile.path.contains("/.idea/") && // Exclude IDE configuration files
-                !virtualFile.path.contains("/target/") && // Exclude build output files
+        return !virtualFile.isDirectory && // 디렉터리가 아님
+                virtualFile.isInLocalFileSystem && // 로컬 파일 시스템에 있음
+                !virtualFile.path.contains("/.idea/") && // IDE 설정 파일 제외
+                !virtualFile.path.contains("/target/") && // 빌드 출력 파일 제외
                 !virtualFile.path.contains("/build/") &&
                 !virtualFile.path.contains("/node_modules/") &&
-                virtualFile.extension != null && // Ensure file has extension
-                !isTooLargeForSyncing(virtualFile) && // Exclude files that are too large for syncing
-                !isForSimpleWidget(virtualFile) // Exclude simple widget files
+                virtualFile.extension != null && // 확장자가 있어야 함
+                !isTooLargeForSyncing(virtualFile) && // 너무 큰 파일 제외
+                !isForSimpleWidget(virtualFile) // 특정 위젯 파일 제외
     }
 
     /**
-     * Check if file is too large for syncing
-     * Reference VS Code implementation, exclude files over 2MB
+     * 파일이 동기화하기에 너무 큰지 확인합니다.
+     * VS Code 구현을 참조하여 2MB를 초과하는 파일을 제외합니다.
+     * @param virtualFile 확인할 `VirtualFile`
+     * @return 파일이 너무 크면 true
      */
     private fun isTooLargeForSyncing(virtualFile: VirtualFile): Boolean {
         return try {
             val maxSizeBytes = 2 * 1024 * 1024L // 2MB
             virtualFile.length > maxSizeBytes
         } catch (e: Exception) {
-            logger.warn("Failed to check file size for: ${virtualFile.path}", e)
+            logger.warn("파일 크기 확인 실패: ${virtualFile.path}", e)
             false
         }
     }
 
     /**
-     * Check if file is for simple widget use
-     * Exclude special purpose file types
+     * 파일이 간단한 위젯 사용을 위한 것인지 확인합니다.
+     * 특정 목적의 파일(예: 임시 파일, 바이너리, 이미지 등)을 제외합니다.
+     * @param virtualFile 확인할 `VirtualFile`
+     * @return 파일이 간단한 위젯용이면 true
      */
     private fun isForSimpleWidget(virtualFile: VirtualFile): Boolean {
         return try {
-            // Exclude special file types
             val fileName = virtualFile.name.lowercase()
             val extension = virtualFile.extension?.lowercase()
             
-            // Temporary files, cache files, backup files, etc.
+            // 임시 파일, 캐시 파일, 백업 파일 등
             fileName.startsWith(".") ||
             fileName.endsWith(".tmp") ||
             fileName.endsWith(".temp") ||
             fileName.endsWith(".bak") ||
             fileName.endsWith(".backup") ||
             fileName.contains("~") ||
-            // Binary file extensions
+            // 바이너리 파일 확장자
             extension in setOf(
                 "exe", "dll", "so", "dylib", "bin", "obj", "o", "a", "lib",
                 "zip", "tar", "gz", "rar", "7z", "jar", "war", "ear",
@@ -142,7 +166,7 @@ class DocumentSyncService(private val project: Project) {
                 "mp3", "mp4", "avi", "mov", "wav", "flv", "wmv",
                 "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"
             ) ||
-            // Special paths
+            // 특수 경로
             virtualFile.path.contains("/.git/") ||
             virtualFile.path.contains("/.svn/") ||
             virtualFile.path.contains("/.hg/") ||
@@ -150,12 +174,15 @@ class DocumentSyncService(private val project: Project) {
             virtualFile.path.contains("/dist/") ||
             virtualFile.path.contains("/out/")
         } catch (e: Exception) {
-            logger.warn("Failed to check if file is for simple widget: ${virtualFile.path}", e)
+            logger.warn("파일이 간단한 위젯용인지 확인 실패: ${virtualFile.path}", e)
             false
         }
     }
 
+    /**
+     * 리소스를 해제합니다.
+     */
     fun dispose() {
         extHostDocumentsProxy = null
     }
-} 
+}

@@ -49,8 +49,10 @@ logs
 extension_host/vscode/*
 deps/roo-code/*
 deps/vscode/*
+deps/athena/*
 !deps/roo-code/.git
 !deps/vscode/.git
+!deps/athena/.git
 jetbrains_plugin/plugins
 jetbrains_plugin/build
 .gradle

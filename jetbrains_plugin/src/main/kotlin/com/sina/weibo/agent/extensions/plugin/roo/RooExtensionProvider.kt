@@ -16,32 +16,45 @@ import com.sina.weibo.agent.util.PluginResourceUtil
 import java.io.File
 
 /**
- * Roo Code extension provider implementation
+ * Roo Code 확장 제공자 구현체입니다.
+ * `ExtensionProvider` 인터페이스를 구현하여 Roo Code 확장에 대한 메타데이터와 생명주기 메소드를 제공합니다.
  */
 class RooExtensionProvider : ExtensionProvider {
     
+    // 확장의 고유 ID를 반환합니다.
     override fun getExtensionId(): String = "roo-code"
     
+    // 확장의 표시 이름을 반환합니다.
     override fun getDisplayName(): String = "Roo Code"
     
-    override fun getDescription(): String = "AI-powered code assistant"
+    // 확장에 대한 설명을 반환합니다.
+    override fun getDescription(): String = "AI 기반 코드 어시스턴트"
     
+    /**
+     * Roo Code 확장을 초기화합니다.
+     * @param project 현재 IntelliJ 프로젝트
+     */
     override fun initialize(project: Project) {
-        // Initialize roo extension configuration
+        // Roo Code 확장 설정을 초기화합니다.
         val extensionConfig = ExtensionConfiguration.getInstance(project)
         extensionConfig.initialize()
         
-        // Initialize extension manager factory
+        // ExtensionManagerFactory를 초기화합니다.
         val extensionManagerFactory = ExtensionManagerFactory.getInstance(project)
         extensionManagerFactory.initialize()
     }
     
+    /**
+     * Roo Code 확장이 사용 가능한지 여부를 확인합니다.
+     * 확장의 코드 디렉터리가 VSIX 설치 경로, 플러그인 리소스 경로 중 하나에 존재하는지 확인합니다.
+     * @param project 현재 IntelliJ 프로젝트
+     * @return 확장이 사용 가능하면 true, 그렇지 않으면 false
+     */
     override fun isAvailable(project: Project): Boolean {
-        // Check if roo-code extension files exist
         val extensionConfig = ExtensionConfiguration.getInstance(project)
         val config = extensionConfig.getConfig(ExtensionType.ROO_CODE)
         
-        // First check project paths
+        // 1. VSIX 설치 경로 확인 (사용자 설정 디렉터리 내 플러그인 폴더)
         val possiblePaths = listOf(
             "${getUserConfigDir()}/plugins/${config.codeDir}"
         )
@@ -50,7 +63,7 @@ class RooExtensionProvider : ExtensionProvider {
             return true
         }
         
-        // Then check plugin resources (for built-in extensions)
+        // 2. 플러그인 리소스 경로 확인 (내장 확장용)
         try {
             val pluginResourcePath = PluginResourceUtil.getResourcePath(
                 PluginConstants.PLUGIN_ID,
@@ -60,18 +73,24 @@ class RooExtensionProvider : ExtensionProvider {
                 return true
             }
         } catch (e: Exception) {
-            // Ignore exceptions when checking plugin resources
+            // 플러그인 리소스 확인 중 예외 발생 시 무시합니다.
         }
         
-        // For development/testing, always return true if we can't find the files
-        // This allows the extension to work even without the actual extension files
+        // TODO: 개발/테스트 환경을 위한 프로젝트 경로 확인 로직 추가 필요
+        // 현재는 파일이 없으면 false를 반환합니다.
         return false
     }
     
+    /**
+     * Roo Code 확장의 설정 메타데이터를 가져옵니다.
+     * @param project 현재 IntelliJ 프로젝트
+     * @return `ExtensionMetadata` 객체
+     */
     override fun getConfiguration(project: Project): ExtensionMetadata {
         val extensionConfig = ExtensionConfiguration.getInstance(project)
-        val config = extensionConfig.getConfig(ExtensionType.ROO_CODE);
+        val config = extensionConfig.getConfig(ExtensionType.ROO_CODE)
 
+        // `ExtensionMetadata` 인터페이스를 구현하는 익명 객체를 반환합니다.
         return object : ExtensionMetadata {
             override fun getCodeDir(): String = config.codeDir
             override fun getPublisher(): String = config.publisher
@@ -84,7 +103,10 @@ class RooExtensionProvider : ExtensionProvider {
         }
     }
     
+    /**
+     * Roo Code 확장 리소스를 해제합니다. (필요한 경우 구현)
+     */
     override fun dispose() {
-        // Cleanup resources if needed
+        // 필요한 리소스 정리 로직을 여기에 추가할 수 있습니다.
     }
-} 
+}

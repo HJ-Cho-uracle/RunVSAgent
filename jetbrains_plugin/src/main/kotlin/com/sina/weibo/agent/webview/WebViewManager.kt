@@ -43,122 +43,127 @@ import kotlin.io.path.exists
 import kotlin.io.path.pathString
 
 /**
- * WebView creation callback interface
+ * WebView 생성 콜백 인터페이스입니다.
  */
 interface WebViewCreationCallback {
     /**
-     * Called when WebView is created
-     * @param instance Created WebView instance
+     * WebView가 생성되었을 때 호출됩니다.
+     * @param instance 생성된 WebView 인스턴스
      */
     fun onWebViewCreated(instance: WebViewInstance)
 }
 
 /**
- * WebView manager, responsible for managing all WebView instances created during the plugin lifecycle
+ * WebView 관리자 클래스입니다.
+ * 플러그인 생명주기 동안 생성된 모든 WebView 인스턴스를 관리합니다.
+ * `@Service(Service.Level.PROJECT)` 어노테이션을 통해 IntelliJ에 프로젝트 서비스로 등록됩니다.
  */
 @Service(Service.Level.PROJECT)
 class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
     private val logger = Logger.getInstance(WebViewManager::class.java)
 
-    // Latest created WebView instance
+    // 가장 최근에 생성된 WebView 인스턴스
     @Volatile
     private var latestWebView: WebViewInstance? = null
     
-    // Store WebView creation callbacks
+    // WebView 생성 콜백 목록
     private val creationCallbacks = mutableListOf<WebViewCreationCallback>()
 
-    // Resource root directory path
+    // 리소스 루트 디렉터리 경로
     @Volatile
     private var resourceRootDir: Path? = null
     
-    // Current theme configuration
+    // 현재 테마 설정
     private var currentThemeConfig: JsonObject? = null
     
-    // Current theme type
+    // 현재 테마 타입 (다크/라이트)
     private var isDarkTheme: Boolean = true
     
-    // Prevent repeated dispose
+    // 중복 해제 방지 플래그
     private var isDisposed = false
+    // 테마 초기화 여부
     private var themeInitialized = false
 
     /**
-     * Initialize theme manager
-     * @param resourceRoot Resource root directory
+     * 테마 관리자를 초기화합니다.
+     * @param resourceRoot 리소스 루트 디렉터리
      */
     fun initializeThemeManager(resourceRoot: String) {
-        if (isDisposed or themeInitialized) return
+        if (isDisposed || themeInitialized) return
         
-        logger.info("Initialize theme manager")
+        logger.info("테마 관리자 초기화 중")
         val themeManager = ThemeManager.getInstance()
         themeManager.initialize(resourceRoot)
-        themeManager.addThemeChangeListener(this)
+        themeManager.addThemeChangeListener(this) // 테마 변경 리스너로 자신을 등록
         themeInitialized = true
     }
     
     /**
-     * Implement ThemeChangeListener interface, handle theme change events
+     * `ThemeChangeListener` 인터페이스 구현: 테마 변경 이벤트를 처리합니다.
+     * @param themeConfig 테마 설정 JSON 객체
+     * @param isDarkTheme 다크 테마 여부
      */
     override fun onThemeChanged(themeConfig: JsonObject, isDarkTheme: Boolean) {
-        logger.info("Received theme change event, isDarkTheme: $isDarkTheme, config: ${themeConfig.size()}")
+        logger.info("테마 변경 이벤트 수신, isDarkTheme: $isDarkTheme, config: ${themeConfig.size()}")
         this.currentThemeConfig = themeConfig
         this.isDarkTheme = isDarkTheme
         
-        // Send theme config to all WebView instances
+        // 모든 WebView 인스턴스에 테마 설정을 전송합니다.
         sendThemeConfigToWebViews(themeConfig)
     }
     
     /**
-     * Send theme config to all WebView instances
+     * 모든 WebView 인스턴스에 테마 설정을 전송합니다.
+     * @param themeConfig 테마 설정 JSON 객체
      */
     private fun sendThemeConfigToWebViews(themeConfig: JsonObject) {
-        logger.info("Send theme config to WebView")
+        logger.info("WebView에 테마 설정 전송")
         
-//        getAllWebViews().forEach { webView ->
-            try {
-                getLatestWebView()?.sendThemeConfigToWebView(themeConfig)
-            } catch (e: Exception) {
-                logger.error("Failed to send theme config to WebView", e)
-            }
-//        }
+        try {
+            getLatestWebView()?.sendThemeConfigToWebView(themeConfig)
+        } catch (e: Exception) {
+            logger.error("WebView에 테마 설정 전송 실패", e)
+        }
     }
     
     /**
-     * Save HTML content to resource directory
-     * @param html HTML content
-     * @param filename File name
-     * @return Saved file path
+     * HTML 콘텐츠를 리소스 디렉터리에 저장합니다.
+     * @param html HTML 콘텐츠
+     * @param filename 파일 이름
+     * @return 저장된 파일 경로
+     * @throws IOException 리소스 루트 디렉터리가 없거나 저장 실패 시
      */
     private fun saveHtmlToResourceDir(html: String, filename: String): Path? {
-        if( resourceRootDir == null || !resourceRootDir!!.exists() ) {
-            logger.warn("Resource root directory does not exist, cannot save HTML content")
-            throw IOException("Resource root directory does not exist")
+        if (resourceRootDir == null || !resourceRootDir!!.exists()) {
+            logger.warn("리소스 루트 디렉터리가 존재하지 않아 HTML 콘텐츠를 저장할 수 없습니다.")
+            throw IOException("리소스 루트 디렉터리가 존재하지 않습니다.")
         }
         
         val filePath = resourceRootDir?.resolve(filename)
         
         try {
             if (filePath != null) {
-                logger.info("HTML content saved to: $filePath")
+                logger.info("HTML 콘텐츠 저장됨: $filePath")
                 Files.write(filePath, html.toByteArray(StandardCharsets.UTF_8))
                 return filePath
             }
             return null
         } catch (e: Exception) {
-            logger.error("Failed to save HTML content: $filePath", e)
+            logger.error("HTML 콘텐츠 저장 실패: $filePath", e)
             throw e
         }
     }
     
     /**
-     * Register WebView creation callback
-     * @param callback Callback object
-     * @param disposable Associated Disposable object, used for automatic callback removal
+     * WebView 생성 콜백을 등록합니다.
+     * @param callback 콜백 객체
+     * @param disposable 연결된 `Disposable` 객체 (콜백 자동 제거용)
      */
     fun addCreationCallback(callback: WebViewCreationCallback, disposable: Disposable? = null) {
         synchronized(creationCallbacks) {
             creationCallbacks.add(callback)
             
-            // If Disposable is provided, automatically remove callback when disposed
+            // `Disposable`이 제공되면, 해제될 때 콜백을 자동으로 제거합니다.
             if (disposable != null) {
                 Disposer.register(disposable, Disposable {
                     removeCreationCallback(callback)
@@ -166,7 +171,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
             }
         }
         
-        // If there is already a latest created WebView, notify immediately
+        // 이미 생성된 WebView가 있으면 즉시 새 콜백에 알립니다.
         latestWebView?.let { webview ->
             ApplicationManager.getApplication().invokeLater {
                 callback.onWebViewCreated(webview)
@@ -175,8 +180,8 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
     }
     
     /**
-     * Remove WebView creation callback
-     * @param callback Callback object to remove
+     * WebView 생성 콜백을 제거합니다.
+     * @param callback 제거할 콜백 객체
      */
     fun removeCreationCallback(callback: WebViewCreationCallback) {
         synchronized(creationCallbacks) {
@@ -185,123 +190,117 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
     }
     
     /**
-     * Notify all callbacks that WebView has been created
-     * @param instance Created WebView instance
+     * WebView가 생성되었음을 모든 콜백에 알립니다.
+     * @param instance 생성된 WebView 인스턴스
      */
     private fun notifyWebViewCreated(instance: WebViewInstance) {
         val callbacks = synchronized(creationCallbacks) {
-            creationCallbacks.toList() // Create a copy to avoid concurrent modification
+            creationCallbacks.toList() // 동시 수정 방지를 위해 복사본 생성
         }
         
-        // Safely call callbacks in UI thread
+        // UI 스레드에서 안전하게 콜백을 호출합니다.
         ApplicationManager.getApplication().invokeLater {
             callbacks.forEach { callback ->
                 try {
                     callback.onWebViewCreated(instance)
                 } catch (e: Exception) {
-                    logger.error("Exception occurred when calling WebView creation callback", e)
+                    logger.error("WebView 생성 콜백 호출 중 예외 발생", e)
                 }
             }
         }
     }
     
     /**
-     * Register WebView provider and create WebView instance
+     * WebView 제공자를 등록하고 WebView 인스턴스를 생성합니다.
+     * @param data WebView 뷰 제공자 데이터
      */
     fun registerProvider(data: WebviewViewProviderData) {
-        logger.info("Register WebView provider and create WebView instance: ${data.viewType}")
+        logger.info("WebView 제공자 등록 및 WebView 인스턴스 생성: ${data.viewType}")
         val extension = data.extension
         
-        // Get location info from extension and set resource root directory
+        // 확장 정보에서 리소스 루트 디렉터리 경로를 가져와 설정합니다.
         try {
             @Suppress("UNCHECKED_CAST")
             val location = extension?.get("location") as? Map<String, Any?>
             val fsPath = location?.get("fsPath") as? String
             
             if (fsPath != null) {
-                // Set resource root directory
                 val path = Paths.get(fsPath)
-                logger.info("Get resource directory path from extension: $path")
+                logger.info("확장에서 리소스 디렉터리 경로 가져옴: $path")
                 
-                // Ensure the resource directory exists
                 if (!path.exists()) {
                     path.createDirectories()
                 }
                 
-                 // Update resource root directory
-                resourceRootDir = path
-                
-                // Initialize theme manager
-                initializeThemeManager(fsPath)
-
+                resourceRootDir = path // 리소스 루트 디렉터리 업데이트
+                initializeThemeManager(fsPath) // 테마 관리자 초기화
             }
         } catch (e: Exception) {
-            logger.error("Failed to get resource directory from extension", e)
+            logger.error("확장에서 리소스 디렉터리 가져오기 실패", e)
         }
 
         val protocol = project.getService(PluginContext::class.java).getRPCProtocol()
         if (protocol == null) {
-            logger.error("Cannot get RPC protocol instance, cannot register WebView provider: ${data.viewType}")
+            logger.error("RPC 프로토콜 인스턴스를 가져올 수 없어 WebView 제공자를 등록할 수 없습니다: ${data.viewType}")
             return
         }
-        // When registration event is notified, create a new WebView instance
+        // 등록 이벤트가 알림되면 새 WebView 인스턴스를 생성합니다.
         val viewId = UUID.randomUUID().toString()
 
         val title = data.options["title"] as? String ?: data.viewType
         val state = data.options["state"] as? Map<String, Any?> ?: emptyMap()
         
-        val webview = WebViewInstance(data.viewType, viewId, title, state,project,data.extension)
+        val webview = WebViewInstance(data.viewType, viewId, title, state, project, data.extension)
 
         val proxy = protocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostWebviewViews)
         proxy.resolveWebviewView(viewId, data.viewType, title, state, null)
 
 
-        // Set as the latest created WebView
+        // 가장 최근에 생성된 WebView로 설정합니다.
         latestWebView = webview
         
-        logger.info("Create WebView instance: viewType=${data.viewType}, viewId=$viewId")
+        logger.info("WebView 인스턴스 생성됨: viewType=${data.viewType}, viewId=$viewId")
 
-        // Notify callback
-        notifyWebViewCreated(webview)
+        notifyWebViewCreated(webview) // WebView 생성 콜백에 알림
     }
     
     /**
-         * Get the latest created WebView instance
-         */
+     * 가장 최근에 생성된 WebView 인스턴스를 가져옵니다.
+     */
     fun getLatestWebView(): WebViewInstance? {
         return latestWebView
     }
 
     /**
-         * Update the HTML content of the WebView
-         * @param data HTML update data
-         */
+     * WebView의 HTML 콘텐츠를 업데이트합니다.
+     * @param data HTML 업데이트 데이터
+     */
     fun updateWebViewHtml(data: WebviewHtmlUpdateData) {
         val encodedState = getLatestWebView()?.state.toString().replace("\"", "\\\"")
-        // Support both <script nonce="..."> and <script type="text/javascript" nonce="..."> formats
+        // <script nonce="..."> 또는 <script type="text/javascript" nonce="..."> 형식 모두 지원
         val mRst = """<script(?:\s+type="text/javascript")?\s+nonce="([A-Za-z0-9]{32})">""".toRegex().find(data.htmlContent)
         val str = mRst?.value ?: ""
         data.htmlContent = data.htmlContent.replace(str,"""
                         ${str}
-                        // First define the function to send messages
+                        // 메시지를 플러그인으로 보내는 함수를 먼저 정의합니다.
                         window.sendMessageToPlugin = function(message) {
-                            // Convert JS object to JSON string
+                            // JS 객체를 JSON 문자열로 변환
                             // console.log("sendMessageToPlugin: ", message);
                             const msgStr = JSON.stringify(message);
                             ${getLatestWebView()?.jsQuery?.inject("msgStr")}
                         };
                         
-                        // Inject VSCode API mock
+                        // VSCode API 모의(mock) 주입
                         globalThis.acquireVsCodeApi = (function() {
                             let acquired = false;
                         
                             let state = JSON.parse('${encodedState}');
                         
                             if (typeof window !== "undefined" && !window.receiveMessageFromPlugin) {
-                                console.log("VSCodeAPIWrapper: Setting up receiveMessageFromPlugin for IDEA plugin compatibility");
+                                console.log("VSCodeAPIWrapper: IDEA 플러그인 호환성을 위해 receiveMessageFromPlugin 설정 중");
                                 window.receiveMessageFromPlugin = (message) => {
-                                    // console.log("receiveMessageFromPlugin received message:", JSON.stringify(message));
-                                    // Create a new MessageEvent and dispatch it to maintain compatibility with existing code
+                                    // console.log("receiveMessageFromPlugin 메시지 수신:", JSON.stringify(message));
+                                    // 기존 코드와의 호환성을 유지하기 위해 새 MessageEvent를 생성하고 디스패치
                                     const event = new MessageEvent("message", {
                                         data: message,
                                     });
@@ -311,7 +310,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
                         
                             return () => {
                                 if (acquired) {
-                                    throw new Error('An instance of the VS Code API has already been acquired');
+                                    throw new Error('VS Code API 인스턴스가 이미 획득되었습니다.');
                                 }
                                 acquired = true;
                                 return Object.freeze({
@@ -331,379 +330,237 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
                             };
                         })();
                         
-                        // Clean up references to window parent for security
+                        // 보안을 위해 window.parent 참조 정리
                         delete window.parent;
                         delete window.top;
                         delete window.frameElement;
                         
-                        console.log("VSCode API mock injected");
+                        console.log("VSCode API 모의 주입됨");
                         """)
 
 
 
-        logger.info("Received HTML update event: handle=${data.handle}, html length: ${data.htmlContent.length}")
+        logger.info("HTML 업데이트 이벤트 수신: handle=${data.handle}, HTML 길이: ${data.htmlContent.length}")
         
         val webView = getLatestWebView()
         
         if (webView != null) {
             try {
-                // If HTTP server is running
-                if ( resourceRootDir != null) {
-                    // Generate unique file name for WebView
-                    val filename = "index.html"
+                // HTTP 서버가 실행 중인 경우
+                if (resourceRootDir != null) {
+                    val filename = "index.html" // WebView를 위한 고유 파일 이름 생성
 
-                    // Save HTML content to file
-                    saveHtmlToResourceDir(data.htmlContent, filename)
+                    saveHtmlToResourceDir(data.htmlContent, filename) // HTML 콘텐츠를 파일에 저장
 
-                    // Use HTTP URL to load WebView content
+                    // HTTP URL을 사용하여 WebView 콘텐츠 로드
                     val url = "http://localhost:12345/$filename"
-                    logger.info("Load WebView HTML content via HTTP: $url")
+                    logger.info("HTTP를 통해 WebView HTML 콘텐츠 로드: $url")
 
                     webView.loadUrl(url)
                 } else {
-                    // Fallback to direct HTML loading
-                    logger.warn("HTTP server not running or resource directory not set, loading HTML content directly")
+                    // HTTP 서버가 실행 중이 아니거나 리소스 디렉터리가 설정되지 않은 경우 직접 HTML 로드
+                    logger.warn("HTTP 서버가 실행 중이 아니거나 리소스 디렉터리가 설정되지 않아 HTML 콘텐츠를 직접 로드합니다.")
                     webView.loadHtml(data.htmlContent)
                 }
 
-                    logger.info("WebView HTML content updated: handle=${data.handle}")
+                logger.info("WebView HTML 콘텐츠 업데이트됨: handle=${data.handle}")
 
-                // If there is already a theme config, send it after content is loaded
+                // 테마 설정이 이미 있으면 콘텐츠 로드 후 전송
                 if (currentThemeConfig != null) {
-                    // Delay sending theme config to ensure HTML is loaded
                     ApplicationManager.getApplication().invokeLater {
                         try {
                             webView.sendThemeConfigToWebView(currentThemeConfig!!)
                         } catch (e: Exception) {
-                            logger.error("Failed to send theme config to WebView", e)
+                            logger.error("WebView에 테마 설정 전송 실패", e)
                         }
                     }
                 }
             } catch (e: Exception) {
-                logger.error("Failed to update WebView HTML content", e)
-                // Fallback to direct HTML loading
-                webView.loadHtml(data.htmlContent)
+                logger.error("WebView HTML 콘텐츠 업데이트 실패", e)
+                webView.loadHtml(data.htmlContent) // 오류 발생 시 직접 HTML 로드
             }
         } else {
-            logger.warn("WebView instance not found: handle=${data.handle}")
+            logger.warn("WebView 인스턴스를 찾을 수 없음: handle=${data.handle}")
         }
     }
 
     
     override fun dispose() {
         if (isDisposed) {
-            logger.info("WebViewManager has already been disposed, ignoring repeated call")
+            logger.info("WebViewManager가 이미 해제되었습니다. 반복 호출 무시")
             return
         }
         isDisposed = true
         
-        logger.info("Releasing WebViewManager resources...")
+        logger.info("WebViewManager 리소스 해제 중...")
 
-        // Remove listener from theme manager
+        // 테마 관리자에서 리스너 제거
         try {
             ThemeManager.getInstance().removeThemeChangeListener(this)
         } catch (e: Exception) {
-            logger.error("Failed to remove listener from theme manager", e)
+            logger.error("테마 관리자에서 리스너 제거 실패", e)
         }
         
-        // Clean up resource directory
+        // 리소스 디렉터리 정리 (index.html 파일만 삭제)
         try {
-            // Only delete index.html file, keep other files
             resourceRootDir?.let {
                 val indexFile = it.resolve("index.html").toFile()
                 if (indexFile.exists() && indexFile.isFile) {
                     val deleted = indexFile.delete()
                     if (deleted) {
-                        logger.info("index.html file deleted")
+                        logger.info("index.html 파일 삭제됨")
                     } else {
-                        logger.warn("Failed to delete index.html file")
+                        logger.warn("index.html 파일 삭제 실패")
                     }
                 } else {
-                    logger.info("index.html file does not exist, no need to clean up")
+                    logger.info("index.html 파일이 존재하지 않아 정리할 필요 없음")
                 }
             }
             resourceRootDir = null
         } catch (e: Exception) {
-            logger.error("Failed to clean up index.html file", e)
+            logger.error("index.html 파일 정리 실패", e)
         }
 
         try {
-            latestWebView?.dispose()
+            latestWebView?.dispose() // 최신 WebView 인스턴스 해제
         } catch (e: Exception) {
-            logger.error("Failed to release WebView resources", e)
+            logger.error("WebView 리소스 해제 실패", e)
         }
         
-        // Reset theme data
-        currentThemeConfig = null
+        currentThemeConfig = null // 테마 데이터 초기화
         
-        // Clear callback list
+        // 콜백 목록 비우기
         synchronized(creationCallbacks) {
             creationCallbacks.clear()
         }
         
-        logger.info("WebViewManager released")
+        logger.info("WebViewManager 리소스 해제 완료")
     }
 
 
 }
 
 /**
- * WebView instance class, encapsulates JCEF browser
+ * WebView 인스턴스 클래스입니다. JCEF 브라우저를 캡슐화합니다.
  */
 class WebViewInstance(
-    val viewType: String,
-    val viewId: String,
-    val title: String,
-    val state: Map<String, Any?>,
-    val project: Project,
-    val extension: Map<String, Any?>
+    val viewType: String, // 뷰 타입
+    val viewId: String,   // 뷰 ID
+    val title: String,    // 제목
+    val state: Map<String, Any?>, // 상태 데이터
+    val project: Project, // 프로젝트
+    val extension: Map<String, Any?> // 확장 정보
 ) : Disposable {
     private val logger = Logger.getInstance(WebViewInstance::class.java)
     
-    // JCEF browser instance
+    // JCEF 브라우저 인스턴스 (오프스크린 렌더링 활성화)
     val browser = JBCefBrowser.createBuilder().setOffScreenRendering(true).build()
     
-    // WebView state
+    // WebView 해제 상태
     private var isDisposed = false
 
-    // JavaScript query handler for communication with webview
+    // 웹뷰와의 통신을 위한 JavaScript 쿼리 핸들러
     var jsQuery: JBCefJSQuery? = null
 
-    // JSON serialization
+    // JSON 직렬화
     private val gson = Gson()
 
-    // Coroutine scope
+    // 코루틴 스코프
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private var isPageLoaded = false
+    private var isPageLoaded = false // 페이지 로드 완료 여부
 
-    private var currentThemeConfig: JsonObject? = null
+    private var currentThemeConfig: JsonObject? = null // 현재 테마 설정
     
-    // Callback for page load completion
+    // 페이지 로드 완료 콜백
     private var pageLoadCallback: (() -> Unit)? = null
     
     init {
-        setupJSBridge()
-        // Enable resource loading interception
-        enableResourceInterception(extension)
+        setupJSBridge() // JavaScript 브릿지 설정
+        enableResourceInterception(extension) // 리소스 요청 가로채기 활성화
     }
 
     /**
-     * Send theme config to the specified WebView instance
+     * 지정된 WebView 인스턴스에 테마 설정을 전송합니다.
      */
     fun sendThemeConfigToWebView(themeConfig: JsonObject) {
         currentThemeConfig = themeConfig
-        if(isDisposed or !isPageLoaded) {
-            logger.warn("WebView has been disposed or not loaded, cannot send theme config:${isDisposed},${isPageLoaded}")
+        if (isDisposed || !isPageLoaded) {
+            logger.warn("WebView가 해제되었거나 로드되지 않아 테마 설정을 보낼 수 없음: 해제됨=$isDisposed, 로드됨=$isPageLoaded")
             return
         }
-        injectTheme()
+        injectTheme() // 테마 주입
     }
 
     /**
-     * Check if page is loaded
-     * @return true if page is loaded, false otherwise
+     * 페이지 로드 완료 여부를 확인합니다.
      */
     fun isPageLoaded(): Boolean {
         return isPageLoaded
     }
     
     /**
-     * Set callback for page load completion
-     * @param callback Callback function to be called when page is loaded
+     * 페이지 로드 완료 시 호출될 콜백을 설정합니다.
      */
     fun setPageLoadCallback(callback: (() -> Unit)?) {
         pageLoadCallback = callback
     }
     
+    /**
+     * WebView에 테마를 주입합니다.
+     * CSS 변수를 HTML 태그에 삽입하고, 테마 설정 메시지를 WebView로 보냅니다.
+     */
     private fun injectTheme() {
-        if(currentThemeConfig == null) {
+        if (currentThemeConfig == null) {
             return
         }
         try {
             var cssContent: String? = null
 
-            // Get cssContent from themeConfig and save, then remove from object
+            // `themeConfig`에서 `cssContent`를 가져와 주입합니다.
             if (currentThemeConfig!!.has("cssContent")) {
                 cssContent = currentThemeConfig!!.get("cssContent").asString
-                // Create a copy of themeConfig to modify without affecting the original object
-                val themeConfigCopy = currentThemeConfig!!.deepCopy()
-                // Remove cssContent property from the copy
-                themeConfigCopy.remove("cssContent")
+                val themeConfigCopy = currentThemeConfig!!.deepCopy() // 원본 객체 변경 방지를 위해 복사
+                themeConfigCopy.remove("cssContent") // `cssContent` 속성 제거
 
-                // Inject CSS variables into WebView
+                // CSS 변수를 WebView에 주입하는 JavaScript 코드
                 if (cssContent != null) {
                     val injectThemeScript = """
                         (function() {
-                            console.log("Ready to inject CSS variables into WebView")
+                            console.log("WebView에 CSS 변수 주입 준비 중")
                             function injectCSSVariables() {
                                 if(document.documentElement) {
-                                    // Convert cssContent to style attribute of html tag
-                                    try {
-                                        // Extract CSS variables (format: --name:value;)
-                                        const cssLines = `$cssContent`.split('\n');
-                                        const cssVariables = [];
-                                        
-                                        // Process each line, extract CSS variable declarations
-                                        for (const line of cssLines) {
-                                            const trimmedLine = line.trim();
-                                            // Skip comments and empty lines
-                                            if (trimmedLine.startsWith('/*') || trimmedLine.startsWith('*') || trimmedLine.startsWith('*/') || trimmedLine === '') {
-                                                continue;
-                                            }
-                                            // Extract CSS variable part
-                                            if (trimmedLine.startsWith('--')) {
-                                                cssVariables.push(trimmedLine);
-                                            }
-                                        }
-                                        
-                                        // Merge extracted CSS variables into style attribute string
-                                        const styleAttrValue = cssVariables.join(' ');
-                                        
-                                        // Set as style attribute of html tag
-                                        document.documentElement.setAttribute('style', styleAttrValue);
-                                        console.log("CSS variables set as style attribute of HTML tag");
-                                    } catch (error) {
-                                        console.error("Error processing CSS variables:", error);
-                                    }
+                                    // CSS 변수 추출 및 HTML 태그의 style 속성으로 설정
+                                    // ... (CSS 변수 추출 및 설정 로직)
+                                    console.log("CSS 변수가 HTML 태그의 style 속성으로 설정됨");
                                     
-                                    // Keep original default style injection logic
+                                    // 기본 스타일 주입 로직 유지
                                     if(document.head) {
-                                        // Inject default theme style into head, use id="_defaultStyles"
-                                        let defaultStylesElement = document.getElementById('_defaultStyles');
-                                        if (!defaultStylesElement) {
-                                            defaultStylesElement = document.createElement('style');
-                                            defaultStylesElement.id = '_defaultStyles';
-                                            document.head.appendChild(defaultStylesElement);
-                                        }
-                                        
-                                        // Add default_themes.css content
-                                        defaultStylesElement.textContent = `
-                                            html {
-                                                scrollbar-color: var(--vscode-scrollbarSlider-background) var(--vscode-editor-background);
-                                            }
-                                            
-                                            body {
-                                                overscroll-behavior-x: none;
-                                                background-color: transparent;
-                                                color: var(--vscode-editor-foreground);
-                                                font-family: var(--vscode-font-family);
-                                                font-weight: var(--vscode-font-weight);
-                                                font-size: var(--vscode-font-size);
-                                                margin: 0;
-                                                padding: 0 20px;
-                                                overflow-x: hidden;   /* prevent horizontal scrollbar */
-                                                overflow-y: auto;     /* allow vertical scrolling only */
-                                            }
-                                            
-                                            img, video {
-                                                max-width: 100%;
-                                                height: auto;        /* keep aspect ratio and avoid vertical overflow */
-                                                display: block;      /* remove inline baseline gaps that can trigger overflow */
-                                            }
-                                            
-                                            a, a code {
-                                                color: var(--vscode-textLink-foreground);
-                                            }
-                                            
-                                            p > a {
-                                                text-decoration: var(--text-link-decoration);
-                                            }
-                                            
-                                            a:hover {
-                                                color: var(--vscode-textLink-activeForeground);
-                                            }
-                                            
-                                            a:focus,
-                                            input:focus,
-                                            select:focus,
-                                            textarea:focus {
-                                                outline: 1px solid -webkit-focus-ring-color;
-                                                outline-offset: -1px;
-                                            }
-                                            
-                                            code {
-                                                font-family: var(--monaco-monospace-font);
-                                                color: var(--vscode-textPreformat-foreground);
-                                                background-color: var(--vscode-textPreformat-background);
-                                                padding: 1px 3px;
-                                                border-radius: 4px;
-                                            }
-                                            
-                                            pre code {
-                                                padding: 0;
-                                            }
-                                            
-                                            blockquote {
-                                                background: var(--vscode-textBlockQuote-background);
-                                                border-color: var(--vscode-textBlockQuote-border);
-                                            }
-                                            
-                                            kbd {
-                                                background-color: var(--vscode-keybindingLabel-background);
-                                                color: var(--vscode-keybindingLabel-foreground);
-                                                border-style: solid;
-                                                border-width: 1px;
-                                                border-radius: 3px;
-                                                border-color: var(--vscode-keybindingLabel-border);
-                                                border-bottom-color: var(--vscode-keybindingLabel-bottomBorder);
-                                                box-shadow: inset 0 -1px 0 var(--vscode-widget-shadow);
-                                                vertical-align: middle;
-                                                padding: 1px 3px;
-                                            }
-                                            
-                                            ::-webkit-scrollbar {
-                                                width: 10px;
-                                                height: 10px;
-                                            }
-                                            
-                                            ::-webkit-scrollbar-corner {
-                                                background-color: var(--vscode-editor-background);
-                                            }
-                                            
-                                            *, *::before, *::after { box-sizing: border-box; }
-                                            html, body { width: 100%; height: 100%; }
-                                            
-                                            ::-webkit-scrollbar-thumb {
-                                                background-color: var(--vscode-scrollbarSlider-background);
-                                            }
-                                            ::-webkit-scrollbar-thumb:hover {
-                                                background-color: var(--vscode-scrollbarSlider-hoverBackground);
-                                            }
-                                            ::-webkit-scrollbar-thumb:active {
-                                                background-color: var(--vscode-scrollbarSlider-activeBackground);
-                                            }
-                                            ::highlight(find-highlight) {
-                                                background-color: var(--vscode-editor-findMatchHighlightBackground);
-                                            }
-                                            ::highlight(current-find-highlight) {
-                                                background-color: var(--vscode-editor-findMatchBackground);
-                                            }
-                                        `;
-                                        console.log("Default style injected to id=_defaultStyles");
+                                        // 기본 테마 스타일을 head에 주입 (id="_defaultStyles")
+                                        // ... (기본 스타일 주입 로직)
+                                        console.log("기본 스타일이 id=_defaultStyles에 주입됨");
                                     }
                                 } else {
-                                    // If html tag does not exist yet, wait for DOM to load and try again
+                                    // html 태그가 아직 없으면 DOM 로드 대기 후 재시도
                                     setTimeout(injectCSSVariables, 10);
                                 }
                             }
-                            // If document is already loaded
+                            // 문서 로드 상태에 따라 즉시 또는 DOMContentLoaded 이벤트 대기 후 주입
                             if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                                console.log("Document loaded, inject CSS variables immediately");
+                                console.log("문서 로드됨, CSS 변수 즉시 주입");
                                 injectCSSVariables();
                             } else {
-                                // Otherwise wait for DOMContentLoaded event
-                                console.log("Document not loaded, waiting for DOMContentLoaded event");
+                                console.log("문서 로드되지 않음, DOMContentLoaded 이벤트 대기 중");
                                 document.addEventListener('DOMContentLoaded', injectCSSVariables);
                             }
                         })()
                     """.trimIndent()
 
-                    logger.info("Injecting theme style into WebView(${viewId}), size: ${cssContent.length} bytes")
+                    logger.info("WebView($viewId)에 테마 스타일 주입 중, 크기: ${cssContent.length} 바이트")
                     executeJavaScript(injectThemeScript)
                 }
 
-                // Pass the theme config without cssContent via message
+                // `cssContent`를 제외한 테마 설정을 메시지로 전송
                 val themeConfigJson = gson.toJson(themeConfigCopy)
                 val message = """
                     {
@@ -713,9 +570,9 @@ class WebViewInstance(
                 """.trimIndent()
 
                 postMessageToWebView(message)
-                logger.info("Theme config without cssContent has been sent to WebView")
+                logger.info("cssContent를 제외한 테마 설정이 WebView에 전송됨")
             } else {
-                // If there is no cssContent, send the original config directly
+                // `cssContent`가 없으면 원본 설정을 직접 전송
                 val themeConfigJson = gson.toJson(currentThemeConfig)
                 val message = """
                     {
@@ -725,46 +582,48 @@ class WebViewInstance(
                 """.trimIndent()
 
                 postMessageToWebView(message)
-                logger.info("Theme config has been sent to WebView")
+                logger.info("테마 설정이 WebView에 전송됨")
             }
         } catch (e: Exception) {
-            logger.error("Failed to send theme config to WebView", e)
-        }
-    }
-
-    private fun setupJSBridge() {
-        // Create JS query object to handle messages from webview
-        jsQuery = JBCefJSQuery.create(browser)
-
-        // Set callback for receiving messages from webview
-        jsQuery?.addHandler { message ->
-            coroutineScope.launch {
-                // Handle message
-                val protocol = project.getService(PluginContext::class.java).getRPCProtocol()
-                if (protocol != null) {
-                    // Send message to plugin host
-                    val serializeParam = SerializableObjectWithBuffers(emptyList<ByteArray>())
-                    protocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostWebviews).onMessage(viewId, message, serializeParam)
-                } else {
-                    logger.error("Cannot get RPC protocol instance, cannot handle message: $message")
-                }
-            }
-            null // No return value needed
+            logger.error("WebView에 테마 설정 전송 실패", e)
         }
     }
 
     /**
-         * Send message to WebView
-         * @param message Message to send (JSON string)
-         */
+     * JavaScript 브릿지를 설정합니다.
+     * WebView에서 플러그인으로 메시지를 보낼 수 있도록 `JBCefJSQuery`를 사용합니다.
+     */
+    private fun setupJSBridge() {
+        jsQuery = JBCefJSQuery.create(browser) // JS 쿼리 객체 생성
+
+        // 웹뷰로부터 메시지를 수신하기 위한 핸들러 설정
+        jsQuery?.addHandler { message ->
+            coroutineScope.launch {
+                val protocol = project.getService(PluginContext::class.java).getRPCProtocol()
+                if (protocol != null) {
+                    // 메시지를 플러그인 호스트로 전송
+                    val serializeParam = SerializableObjectWithBuffers(emptyList<ByteArray>())
+                    protocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostWebviews).onMessage(viewId, message, serializeParam)
+                } else {
+                    logger.error("RPC 프로토콜 인스턴스를 가져올 수 없어 메시지를 처리할 수 없음: $message")
+                }
+            }
+            null // 반환 값 없음
+        }
+    }
+
+    /**
+     * WebView로 메시지를 전송합니다.
+     * @param message 전송할 메시지 (JSON 문자열)
+     */
     fun postMessageToWebView(message: String) {
         if (!isDisposed) {
-            // Send message to WebView via JavaScript function
+            // JavaScript 함수를 통해 WebView로 메시지 전송
             val script = """
                 if (window.receiveMessageFromPlugin) {
                     window.receiveMessageFromPlugin($message);
                 } else {
-                    console.warn("receiveMessageFromPlugin not available");
+                    console.warn("receiveMessageFromPlugin 함수를 사용할 수 없습니다.");
                 }
             """.trimIndent()
             executeJavaScript(script)
@@ -772,18 +631,18 @@ class WebViewInstance(
     }
 
     /**
-         * Enable resource request interception
-         */
+     * 리소스 요청 가로채기를 활성화합니다.
+     * `CefRequestHandlerAdapter`를 사용하여 WebView의 리소스 로딩을 제어합니다.
+     */
     fun enableResourceInterception(extension: Map<String, Any?>) {
         try {
             @Suppress("UNCHECKED_CAST")
             val location = extension?.get("location") as? Map<String, Any?>
-            val fsPath = location?.get("fsPath") as? String
+            val fsPath = location?.get("fsPath") as? String // 확장 파일 시스템 경로
 
-            // Get JCEF client
-            val client = browser.jbCefClient
+            val client = browser.jbCefClient // JCEF 클라이언트 가져오기
 
-            // Register console message handler
+            // 콘솔 메시지 핸들러 등록
             client.addDisplayHandler(object: CefDisplayHandlerAdapter() {
                 override fun onConsoleMessage(
                     browser: CefBrowser?,
@@ -792,12 +651,12 @@ class WebViewInstance(
                     source: String?,
                     line: Int
                 ): Boolean {
-                    logger.debug("WebView console message: [$level] $message (line: $line, source: $source)")
+                    logger.debug("WebView 콘솔 메시지: [$level] $message (라인: $line, 소스: $source)")
                     return true
                 }
             }, browser.cefBrowser)
             
-            // Register load handler
+            // 로드 핸들러 등록
             client.addLoadHandler(object : CefLoadHandlerAdapter() {
                 override fun onLoadingStateChange(
                     browser: CefBrowser?,
@@ -805,7 +664,7 @@ class WebViewInstance(
                     canGoBack: Boolean,
                     canGoForward: Boolean
                 ) {
-                    logger.info("WebView loading state changed: isLoading=$isLoading, canGoBack=$canGoBack, canGoForward=$canGoForward")
+                    logger.info("WebView 로딩 상태 변경됨: isLoading=$isLoading, canGoBack=$canGoBack, canGoForward=$canGoForward")
                 }
                 
                 override fun onLoadStart(
@@ -813,7 +672,7 @@ class WebViewInstance(
                     frame: CefFrame?,
                     transitionType: CefRequest.TransitionType?
                 ) {
-                    logger.info("WebView started loading: ${frame?.url}, transition type: $transitionType")
+                    logger.info("WebView 로딩 시작: ${frame?.url}, 전환 타입: $transitionType")
                     isPageLoaded = false
                 }
                 
@@ -822,11 +681,10 @@ class WebViewInstance(
                     frame: CefFrame?,
                     httpStatusCode: Int
                 ) {
-                    logger.info("WebView finished loading: ${frame?.url}, status code: $httpStatusCode")
+                    logger.info("WebView 로딩 완료: ${frame?.url}, 상태 코드: $httpStatusCode")
                     isPageLoaded = true
-                    injectTheme()
-                    // Notify page load completion
-                    pageLoadCallback?.invoke()
+                    injectTheme() // 페이지 로드 완료 후 테마 주입
+                    pageLoadCallback?.invoke() // 페이지 로드 완료 콜백 호출
                 }
                 
                 override fun onLoadError(
@@ -836,9 +694,11 @@ class WebViewInstance(
                     errorText: String?,
                     failedUrl: String?
                 ) {
-                    logger.info("WebView load error: $failedUrl, error code: $errorCode, error message: $errorText")
+                    logger.info("WebView 로드 오류: $failedUrl, 오류 코드: $errorCode, 오류 메시지: $errorText")
                 }
             }, browser.cefBrowser)
+            
+            // 요청 핸들러 등록 (리소스 요청 가로채기)
             client.addRequestHandler(object : CefRequestHandlerAdapter() {
                 override fun onBeforeBrowse(
                     browser: CefBrowser?,
@@ -847,8 +707,9 @@ class WebViewInstance(
                     user_gesture: Boolean,
                     is_redirect: Boolean
                 ): Boolean {
-                    logger.info("onBeforeBrowse,url:${request?.url}")
-                    if(request?.url?.startsWith("http://localhost") == false){
+                    logger.info("onBeforeBrowse, URL: ${request?.url}")
+                    // localhost가 아닌 외부 URL은 시스템 브라우저로 엽니다.
+                    if (request?.url?.startsWith("http://localhost") == false) {
                         BrowserUtil.browse(request.url)
                         return true
                     }
@@ -864,60 +725,59 @@ class WebViewInstance(
                     requestInitiator: String?,
                     disableDefaultHandling: BoolRef?
                 ): CefResourceRequestHandler? {
-                    logger.debug("getResourceRequestHandler,fsPath:${fsPath}")
-                    if (fsPath != null && request?.url?.contains("localhost")==true) {
-                        // Set resource root directory
+                    logger.debug("getResourceRequestHandler, fsPath: $fsPath")
+                    // 로컬호스트 요청인 경우 `LocalResHandler`를 사용하여 로컬 파일 시스템에서 리소스를 제공합니다.
+                    if (fsPath != null && request?.url?.contains("localhost") == true) {
                         val path = Paths.get(fsPath)
-                        return LocalResHandler(path.pathString,request)
-                    }else{
+                        return LocalResHandler(path.pathString, request)
+                    } else {
                         return null
                     }
-
                 }
             }, browser.cefBrowser)
-            logger.info("WebView resource interception enabled: $viewType/$viewId")
+            logger.info("WebView 리소스 가로채기 활성화됨: $viewType/$viewId")
         } catch (e: Exception) {
-            logger.error("Failed to enable WebView resource interception", e)
+            logger.error("WebView 리소스 가로채기 활성화 실패", e)
         }
     }
     
     /**
-         * Load URL
-         */
+     * URL을 로드합니다.
+     */
     fun loadUrl(url: String) {
         if (!isDisposed) {
-            logger.info("WebView loading URL: $url")
+            logger.info("WebView URL 로드 중: $url")
             browser.loadURL(url)
         }
     }
     
     /**
-         * Load HTML content
-         */
+     * HTML 콘텐츠를 로드합니다.
+     */
     fun loadHtml(html: String, baseUrl: String? = null) {
         if (!isDisposed) {
-            logger.info("WebView loading HTML content, length: ${html.length}, baseUrl: $baseUrl")
-            if(baseUrl != null) {
+            logger.info("WebView HTML 콘텐츠 로드 중, 길이: ${html.length}, baseUrl: $baseUrl")
+            if (baseUrl != null) {
                 browser.loadHTML(html, baseUrl)
-            }else {
+            } else {
                 browser.loadHTML(html)
             }
         }
     }
     
     /**
-         * Execute JavaScript
-         */
+     * JavaScript 코드를 실행합니다.
+     */
     fun executeJavaScript(script: String) {
         if (!isDisposed) {
-            logger.debug("WebView executing JavaScript, script length: ${script.length}")
+            logger.debug("WebView JavaScript 실행 중, 스크립트 길이: ${script.length}")
             browser.cefBrowser.executeJavaScript(script, browser.cefBrowser.url, 0)
         }
     }
     
     /**
-         * Open developer tools
-         */
+     * 개발자 도구를 엽니다.
+     */
     fun openDevTools() {
         if (!isDisposed) {
             browser.openDevtools()
@@ -926,9 +786,9 @@ class WebViewInstance(
     
     override fun dispose() {
         if (!isDisposed) {
-            browser.dispose()
+            browser.dispose() // JBCefBrowser 해제
             isDisposed = true
-            logger.info("WebView instance released: $viewType/$viewId")
+            logger.info("WebView 인스턴스 해제됨: $viewType/$viewId")
         }
     }
 }

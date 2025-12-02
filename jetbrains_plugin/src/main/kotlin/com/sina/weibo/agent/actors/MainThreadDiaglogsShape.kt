@@ -20,17 +20,17 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Configuration options for the open file dialog.
- * This data class encapsulates all the parameters needed to customize the file chooser dialog.
+ * 파일 열기 다이얼로그의 설정을 담는 데이터 클래스입니다.
+ * 파일 선택기의 동작을 커스터마이징하는 데 필요한 모든 파라미터를 캡슐화합니다.
  *
- * @property defaultUri The default URI/path to start browsing from
- * @property openLabel Custom label text for the dialog's open button
- * @property canSelectFiles Whether files can be selected in the dialog
- * @property canSelectFolders Whether folders can be selected in the dialog
- * @property canSelectMany Whether multiple items can be selected simultaneously
- * @property filters File extension filters for filtering displayed files (format: {"Description": ["ext1", "ext2"]})
- * @property title Custom title for the dialog window
- * @property allowUIResources Whether to allow UI resources to be selected
+ * @property defaultUri 다이얼로그가 처음 열릴 때 보여줄 기본 경로(URI)
+ * @property openLabel 다이얼로그의 '열기' 또는 '선택' 버튼에 표시될 사용자 정의 텍스트
+ * @property canSelectFiles 파일 선택을 허용할지 여부
+ * @property canSelectFolders 폴더 선택을 허용할지 여부
+ * @property canSelectMany 여러 항목을 동시에 선택할 수 있는지 여부
+ * @property filters 표시할 파일을 필터링하기 위한 확장자 필터 (예: {"이미지": ["jpg", "png"]})
+ * @property title 다이얼로그 창의 사용자 정의 제목
+ * @property allowUIResources UI 리소스 선택을 허용할지 여부 (일반적으로 false)
  */
 data class MainThreadDialogOpenOptions(
     val defaultUri: Map<String, String?>?,
@@ -44,54 +44,48 @@ data class MainThreadDialogOpenOptions(
 )
 
 /**
- * Interface defining the contract for main thread dialog operations.
- * This interface provides methods for showing file open and save dialogs that must be executed on the main UI thread.
+ * IntelliJ 메인 UI 스레드에서 다이얼로그 관련 작업을 처리하기 위한 인터페이스입니다.
+ * 파일 열기 및 저장 다이얼로그를 띄우는 메소드를 정의합니다.
  */
 interface MainThreadDiaglogsShape : Disposable {
     /**
-     * Shows an open file dialog and returns the selected file URIs.
+     * 파일 열기 다이얼로그를 띄우고, 사용자가 선택한 파일들의 URI 목록을 반환합니다.
      *
-     * @param options Configuration options for customizing the dialog behavior
-     * @return List of selected file URIs, or null if the dialog was cancelled
+     * @param options 다이얼로그의 동작을 커스터마이징하기 위한 설정 옵션
+     * @return 선택된 파일들의 URI 리스트. 사용자가 다이얼로그를 취소하면 null을 반환할 수 있습니다.
      */
     suspend fun showOpenDialog(options: Map<String, Any?>?): MutableList<URI>?
 
     /**
-     * Shows a save file dialog and returns the selected file URI.
+     * 파일 저장 다이얼로그를 띄우고, 사용자가 선택한 파일의 URI를 반환합니다.
      *
-     * @param options Configuration options for customizing the dialog behavior
-     * @return The selected file URI for saving, or null if the dialog was cancelled
+     * @param options 다이얼로그의 동작을 커스터마이징하기 위한 설정 옵션
+     * @return 저장하기 위해 선택된 파일의 URI. 사용자가 다이얼로그를 취소하면 null을 반환합니다.
      */
     suspend fun showSaveDialog(options: Map<String, Any?>?): URI?
 }
 
 /**
- * Implementation of MainThreadDiaglogsShape that provides file dialog functionality
- * executed on the IntelliJ platform's main UI thread.
- *
- * This class handles both file open and save dialogs using IntelliJ's file chooser APIs,
- * ensuring all UI operations are performed on the main thread as required by the platform.
+ * `MainThreadDiaglogsShape` 인터페이스의 구현 클래스입니다.
+ * IntelliJ 플랫폼의 파일 선택 API를 사용하여 메인 UI 스레드에서 파일 다이얼로그 기능을 제공합니다.
  */
 class MainThreadDiaglogs : MainThreadDiaglogsShape {
     private val logger = Logger.getInstance(MainThreadDiaglogs::class.java)
 
     /**
-     * Shows an open file dialog with the specified options.
+     * 지정된 옵션으로 파일 열기 다이얼로그를 보여줍니다.
+     * 이 메소드는 IntelliJ의 `invokeLater`를 사용하여 모든 UI 작업을 메인 스레드에서 실행하도록 보장합니다.
+     * 코루틴을 사용하여 비동기적인 다이얼로그 결과를 동기적인 코드처럼 처리할 수 있게 합니다.
      *
-     * This method creates a file chooser dialog that allows users to select one or more files
-     * based on the provided configuration. The operation is performed on the main UI thread
-     * using IntelliJ's invokeLater mechanism.
-     *
-     * @param map Configuration map containing dialog options
-     * @return Mutable list of selected file URIs, or null if cancelled
+     * @param map 다이얼로그 옵션을 담고 있는 Map
+     * @return 선택된 파일 URI의 변경 가능한 리스트, 또는 취소 시 null
      */
     override suspend fun showOpenDialog(map: Map<String, Any?>?): MutableList<URI>? {
-        // Convert the configuration map to typed options
         val options = create(map)
         
-        // Create file chooser descriptor with default values for unspecified options
+        // 파일 선택기의 동작을 정의하는 디스크립터를 생성합니다.
         val descriptor = FileChooserDescriptor(
-            /* chooseFiles = */ true,
+            /* chooseFiles = */ options?.canSelectFiles ?: true,
             /* chooseFolders = */ options?.canSelectFolders ?: true,
             /* chooseJars = */ false,
             /* chooseJarsAsFiles = */ false,
@@ -101,29 +95,30 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
             .withTitle(options?.title ?: "Open")
             .withDescription(options?.openLabel ?: "Select files")
         
-        // Apply file extension filters if provided
+        // 파일 확장자 필터를 적용합니다.
         options?.filters?.forEach { (name, extensions) ->
             descriptor.withFileFilter { file ->
                 extensions.any { file.extension?.equals(it, true) ?: false }
             }
         }
 
-        // Use coroutine to handle the asynchronous file chooser operation
+        // 코루틴을 사용하여 비동기 다이얼로그 작업을 일시 중단하고 결과를 기다립니다.
         return suspendCancellableCoroutine { continuation ->
+            // UI 작업은 반드시 메인 스레드에서 실행해야 합니다.
             ApplicationManager.getApplication().invokeLater({
                 try {
-                    // Show the file chooser dialog and get selected files
+                    // IntelliJ 파일 선택 다이얼로그를 띄웁니다.
                     val files = FileChooser.chooseFiles(descriptor, null, null)
                     
-                    // Convert IntelliJ VirtualFile objects to URI objects
+                    // 선택된 VirtualFile 객체를 우리가 사용하는 URI 객체로 변환합니다.
                     val result = files.map { file ->
                         URI.file(file.path)
                     }.toMutableList()
                     
-                    // Resume coroutine with the result
+                    // 코루틴을 결과와 함께 재개합니다.
                     continuation.resume(result)
                 } catch (e: Exception) {
-                    // Resume coroutine with exception if an error occurs
+                    // 오류 발생 시 예외와 함께 코루틴을 재개합니다.
                     continuation.resumeWithException(e)
                 }
             }, ModalityState.defaultModalityState())
@@ -131,55 +126,44 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
     }
 
     /**
-     * Shows a save file dialog with the specified options.
+     * 지정된 옵션으로 파일 저장 다이얼로그를 보여줍니다.
      *
-     * This method creates a file saver dialog that allows users to select a location
-     * and filename for saving a file. The operation is performed on the main UI thread.
-     *
-     * @param map Configuration map containing dialog options
-     * @return URI of the selected save location, or null if cancelled
+     * @param map 다이얼로그 옵션을 담고 있는 Map
+     * @return 저장 위치의 URI, 또는 취소 시 null
      */
     override suspend fun showSaveDialog(map: Map<String, Any?>?): URI? {
-        // Convert the configuration map to typed options
         val options = create(map)
         
-        // Create file saver descriptor with custom title and description
         val descriptor = FileSaverDescriptor("Save", options?.openLabel ?: "Select save location")
 
-        // Apply file extension filters if provided
         options?.filters?.forEach { (name, extensions) ->
             descriptor.withFileFilter { file ->
                 extensions.any { file.extension?.equals(it, true) ?: false }
             }
         }
 
-        // Extract default path and filename from options
+        // 옵션에서 기본 경로와 파일 이름을 추출합니다.
         val path = options?.defaultUri?.get("path")
         var fileName: String? = null
         
-        // Convert the path string to a Path object and extract filename
         val virtualFile = path?.let { filePath ->
             val file = File(filePath)
             fileName = file.name
             Path.of(file.parentFile.absolutePath)
         }
 
-        // Use coroutine to handle the asynchronous save dialog operation
         return suspendCancellableCoroutine { continuation ->
             ApplicationManager.getApplication().invokeLater({
                 try {
-                    // Show the save file dialog and get the selected file
+                    // IntelliJ 파일 저장 다이얼로그를 띄웁니다.
                     val file = FileChooserFactory.getInstance()
                         .createSaveFileDialog(descriptor, null)
                         .save(virtualFile, fileName)
                     
-                    // Convert the result to URI format
                     val result = file?.let { URI.file(it.file.absolutePath) }
                     
-                    // Resume coroutine with the result
                     continuation.resume(result)
                 } catch (e: Exception) {
-                    // Resume coroutine with exception if an error occurs
                     continuation.resumeWithException(e)
                 }
             }, ModalityState.defaultModalityState())
@@ -187,13 +171,10 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
     }
 
     /**
-     * Creates a MainThreadDialogOpenOptions instance from a configuration map.
+     * `Map` 형태의 설정 정보를 `MainThreadDialogOpenOptions` 데이터 클래스 인스턴스로 변환하는 헬퍼 메소드입니다.
      *
-     * This helper method safely extracts typed values from a generic map structure
-     * and constructs a properly typed configuration object.
-     *
-     * @param map Configuration map containing dialog options as key-value pairs
-     * @return MainThreadDialogOpenOptions instance, or null if map is null
+     * @param map 다이얼로그 옵션을 키-값 쌍으로 담고 있는 Map
+     * @return `MainThreadDialogOpenOptions` 인스턴스, 또는 map이 null이면 null
      */
     private fun create(map: Map<String, Any?>?): MainThreadDialogOpenOptions? {
         map?.let {
@@ -211,10 +192,7 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
     }
 
     /**
-     * Disposes of any resources held by this dialog handler.
-     *
-     * This method is called when the plugin or component is being shut down,
-     * allowing for proper cleanup of resources.
+     * 이 다이얼로그 핸들러가 사용하던 리소스를 해제합니다.
      */
     override fun dispose() {
         logger.info("Disposing MainThreadDiaglogs")

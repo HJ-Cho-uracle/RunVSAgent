@@ -9,56 +9,56 @@ import com.intellij.openapi.diagnostic.Logger
 import java.net.URI
 
 /**
- * Main thread debug service interface.
- * This interface defines the contract for debug services that operate on the main thread,
- * providing methods for managing debug sessions, breakpoints, and debug adapter communication.
+ * IntelliJ 메인 스레드에서 디버그 관련 서비스를 처리하기 위한 인터페이스입니다.
+ * 디버그 세션, 브레이크포인트, 디버그 어댑터(DA)와의 통신 등을 관리하는 메소드를 정의합니다.
+ * VSCode Extension Host의 `MainThreadDebugServiceShape`에 해당합니다.
  */
 interface MainThreadDebugServiceShape : Disposable {
     /**
-     * Registers debug types that this service can handle.
-     * @param debugTypes List of debug type identifiers (e.g., "java", "python", "node")
+     * 이 서비스가 처리할 수 있는 디버그 유형을 등록합니다.
+     * @param debugTypes 디버그 유형 식별자 리스트 (예: "java", "python", "node")
      */
     fun registerDebugTypes(debugTypes: List<String>)
     
     /**
-     * Notifies that a debug session has been cached/stored for later use.
-     * @param sessionID Unique identifier for the debug session
+     * 디버그 세션이 나중에 사용하기 위해 캐시/저장되었음을 알립니다.
+     * @param sessionID 디버그 세션의 고유 식별자
      */
     fun sessionCached(sessionID: String)
     
     /**
-     * Accepts and processes a message from the debug adapter.
-     * @param handle Unique handle identifying the debug adapter connection
-     * @param message The protocol message received from the debug adapter
+     * 디버그 어댑터(Debug Adapter)로부터 받은 메시지를 수락하고 처리합니다.
+     * @param handle 디버그 어댑터 연결을 식별하는 고유 핸들
+     * @param message 디버그 어댑터로부터 받은 프로토콜 메시지
      */
     fun acceptDAMessage(handle: Int, message: Any)
     
     /**
-     * Accepts and processes an error reported by the debug adapter.
-     * @param handle Unique handle identifying the debug adapter connection
-     * @param name The error name/type
-     * @param message Human-readable error message
-     * @param stack Optional stack trace for the error
+     * 디버그 어댑터가 보고한 오류를 수락하고 처리합니다.
+     * @param handle 디버그 어댑터 연결을 식별하는 고유 핸들
+     * @param name 오류의 이름/유형
+     * @param message 사람이 읽을 수 있는 오류 메시지
+     * @param stack 오류의 스택 트레이스 (선택 사항)
      */
     fun acceptDAError(handle: Int, name: String, message: String, stack: String?)
     
     /**
-     * Accepts notification that the debug adapter has exited.
-     * @param handle Unique handle identifying the debug adapter connection
-     * @param code Optional exit code (null if terminated by signal)
-     * @param signal Optional signal name that caused termination (null if exited normally)
+     * 디버그 어댑터가 종료되었음을 알리는 통지를 수락합니다.
+     * @param handle 디버그 어댑터 연결을 식별하는 고유 핸들
+     * @param code 종료 코드 (시그널에 의해 종료된 경우 null)
+     * @param signal 종료를 유발한 시그널 이름 (정상 종료된 경우 null)
      */
     fun acceptDAExit(handle: Int, code: Int?, signal: String?)
     
     /**
-     * Registers a debug configuration provider for a specific debug type.
-     * @param type The debug type this provider handles
-     * @param triggerKind When this provider should be triggered (1=initial, 2=dynamic)
-     * @param hasProvideMethod Whether this provider has a provideDebugConfigurations method
-     * @param hasResolveMethod Whether this provider has a resolveDebugConfiguration method
-     * @param hasResolve2Method Whether this provider has a resolveDebugConfigurationWithSubstitutedVariables method
-     * @param handle Unique handle for this provider registration
-     * @return Registration result (typically Unit or success indicator)
+     * 특정 디버그 유형에 대한 디버그 설정 제공자(Configuration Provider)를 등록합니다.
+     * @param type 이 제공자가 처리할 디버그 유형
+     * @param triggerKind 이 제공자가 언제 트리거되어야 하는지 (1=초기, 2=동적)
+     * @param hasProvideMethod `provideDebugConfigurations` 메소드를 가지고 있는지 여부
+     * @param hasResolveMethod `resolveDebugConfiguration` 메소드를 가지고 있는지 여부
+     * @param hasResolve2Method `resolveDebugConfigurationWithSubstitutedVariables` 메소드를 가지고 있는지 여부
+     * @param handle 이 제공자 등록을 위한 고유 핸들
+     * @return 등록 결과 (일반적으로 Unit 또는 성공 여부)
      */
     fun registerDebugConfigurationProvider(
         type: String,
@@ -70,84 +70,84 @@ interface MainThreadDebugServiceShape : Disposable {
     ): Any
     
     /**
-     * Registers a debug adapter descriptor factory for a specific debug type.
-     * @param type The debug type this factory creates adapters for
-     * @param handle Unique handle for this factory registration
-     * @return Registration result (typically Unit or success indicator)
+     * 특정 디버그 유형에 대한 디버그 어댑터 디스크립터 팩토리(Descriptor Factory)를 등록합니다.
+     * @param type 이 팩토리가 어댑터를 생성할 디버그 유형
+     * @param handle 이 팩토리 등록을 위한 고유 핸들
+     * @return 등록 결과
      */
     fun registerDebugAdapterDescriptorFactory(type: String, handle: Int): Any
     
     /**
-     * Unregisters a debug configuration provider.
-     * @param handle The handle of the provider to unregister
+     * 디버그 설정 제공자를 등록 해제합니다.
+     * @param handle 등록 해제할 제공자의 핸들
      */
     fun unregisterDebugConfigurationProvider(handle: Int)
     
     /**
-     * Unregisters a debug adapter descriptor factory.
-     * @param handle The handle of the factory to unregister
+     * 디버그 어댑터 디스크립터 팩토리를 등록 해제합니다.
+     * @param handle 등록 해제할 팩토리의 핸들
      */
     fun unregisterDebugAdapterDescriptorFactory(handle: Int)
     
     /**
-     * Starts a new debugging session.
-     * @param folder Optional workspace folder URI for the debug session
-     * @param nameOrConfig Either the name of a predefined configuration or the configuration object itself
-     * @param options Launch options for the debug session
-     * @return Success indicator (true if debugging started successfully)
+     * 새로운 디버깅 세션을 시작합니다.
+     * @param folder 디버그 세션을 위한 워크스페이스 폴더 URI (선택 사항)
+     * @param nameOrConfig 미리 정의된 설정의 이름 또는 설정 객체 자체
+     * @param options 디버그 세션을 위한 실행 옵션
+     * @return 디버깅이 성공적으로 시작되었으면 true
      */
     fun startDebugging(folder: URI?, nameOrConfig: Any, options: Any): Any
     
     /**
-     * Stops an active debugging session.
-     * @param sessionId Optional session ID to stop (null stops all sessions)
-     * @return Operation result (typically Unit)
+     * 활성화된 디버깅 세션을 중지합니다.
+     * @param sessionId 중지할 세션 ID (null이면 모든 세션 중지)
+     * @return 작업 결과
      */
     fun stopDebugging(sessionId: String?): Any
     
     /**
-     * Sets a custom name for a debug session.
-     * @param id The session ID to name
-     * @param name The display name for the session
+     * 디버그 세션에 사용자 정의 이름을 설정합니다.
+     * @param id 이름을 지정할 세션 ID
+     * @param name 세션에 표시될 이름
      */
     fun setDebugSessionName(id: String, name: String)
     
     /**
-     * Sends a custom request to the debug adapter.
-     * @param id The session ID to send the request to
-     * @param command The debug adapter protocol command
-     * @param args Arguments for the command
-     * @return The response from the debug adapter
+     * 디버그 어댑터에 사용자 정의 요청을 보냅니다.
+     * @param id 요청을 보낼 세션 ID
+     * @param command 디버그 어댑터 프로토콜의 커맨드
+     * @param args 커맨드에 대한 인자
+     * @return 디버그 어댑터로부터의 응답
      */
     fun customDebugAdapterRequest(id: String, command: String, args: Any): Any
     
     /**
-     * Retrieves information about a specific breakpoint from the debug protocol.
-     * @param id The session ID
-     * @param breakpoinId The breakpoint ID to query
-     * @return Breakpoint information or null if not found
+     * 디버그 프로토콜로부터 특정 브레이크포인트에 대한 정보를 가져옵니다.
+     * @param id 세션 ID
+     * @param breakpoinId 조회할 브레이크포인트 ID
+     * @return 브레이크포인트 정보 또는 찾지 못하면 null
      */
     fun getDebugProtocolBreakpoint(id: String, breakpoinId: String): Any?
     
     /**
-     * Appends text to the debug console output.
-     * @param value The text to append to the console
+     * 디버그 콘솔 출력에 텍스트를 추가합니다.
+     * @param value 콘솔에 추가할 텍스트
      */
     fun appendDebugConsole(value: String)
     
     /**
-     * Registers new breakpoints with the debug service.
-     * @param breakpoints List of breakpoint objects to register
-     * @return Registration result (typically Unit or success indicator)
+     * 디버그 서비스에 새로운 브레이크포인트를 등록합니다.
+     * @param breakpoints 등록할 브레이크포인트 객체 리스트
+     * @return 등록 결과
      */
     fun registerBreakpoints(breakpoints: List<Any>): Any
     
     /**
-     * Unregisters existing breakpoints.
-     * @param breakpointIds List of regular breakpoint IDs to remove
-     * @param functionBreakpointIds List of function breakpoint IDs to remove
-     * @param dataBreakpointIds List of data breakpoint IDs to remove
-     * @return Unregistration result (typically Unit)
+     * 기존 브레이크포인트를 등록 해제합니다.
+     * @param breakpointIds 제거할 일반 브레이크포인트 ID 리스트
+     * @param functionBreakpointIds 제거할 함수 브레이크포인트 ID 리스트
+     * @param dataBreakpointIds 제거할 데이터 브레이크포인트 ID 리스트
+     * @return 등록 해제 결과
      */
     fun unregisterBreakpoints(
         breakpointIds: List<String>,
@@ -156,60 +156,59 @@ interface MainThreadDebugServiceShape : Disposable {
     ): Any
     
     /**
-     * Registers a debug visualizer extension.
-     * @param extensionId The ID of the extension providing the visualizer
-     * @param id The unique ID of the visualizer within the extension
+     * 디버그 시각화 도우미(Visualizer) 확장을 등록합니다.
+     * @param extensionId 시각화 도우미를 제공하는 확장의 ID
+     * @param id 확장 내에서 시각화 도우미의 고유 ID
      */
     fun registerDebugVisualizer(extensionId: String, id: String)
     
     /**
-     * Unregisters a debug visualizer extension.
-     * @param extensionId The ID of the extension providing the visualizer
-     * @param id The unique ID of the visualizer within the extension
+     * 디버그 시각화 도우미 확장을 등록 해제합니다.
+     * @param extensionId 시각화 도우미를 제공하는 확장의 ID
+     * @param id 확장 내에서 시각화 도우미의 고유 ID
      */
     fun unregisterDebugVisualizer(extensionId: String, id: String)
     
     /**
-     * Registers a debug visualizer tree structure.
-     * @param treeId Unique identifier for the tree
-     * @param canEdit Whether the tree structure can be edited by users
+     * 디버그 시각화 도우미의 트리 구조를 등록합니다.
+     * @param treeId 트리의 고유 식별자
+     * @param canEdit 사용자가 트리 구조를 편집할 수 있는지 여부
      */
     fun registerDebugVisualizerTree(treeId: String, canEdit: Boolean)
     
     /**
-     * Unregisters a debug visualizer tree structure.
-     * @param treeId Unique identifier for the tree to unregister
+     * 디버그 시각화 도우미의 트리 구조를 등록 해제합니다.
+     * @param treeId 등록 해제할 트리의 고유 식별자
      */
     fun unregisterDebugVisualizerTree(treeId: String)
 }
 
 /**
- * Main thread debug service implementation.
- * This class provides the concrete implementation of the MainThreadDebugServiceShape interface,
- * handling debug session management, breakpoint operations, and debug adapter communication.
- * All operations are logged for debugging purposes.
+ * `MainThreadDebugServiceShape` 인터페이스의 구현 클래스입니다.
+ * 현재는 각 메소드 호출 시 정보를 로깅하는 역할만 수행하며, 실제 기능은 구현되어 있지 않습니다.
+ * 향후 IntelliJ의 디버깅 프레임워크와 연동하는 코드가 추가될 수 있습니다.
  */
 class MainThreadDebugService : MainThreadDebugServiceShape {
     private val logger = Logger.getInstance(MainThreadDebugService::class.java)
 
     override fun registerDebugTypes(debugTypes: List<String>) {
-        logger.info("Registering debug types: $debugTypes")
+        logger.info("디버그 유형 등록: $debugTypes")
     }
     
     override fun sessionCached(sessionID: String) {
-        logger.info("Session cached: $sessionID")
+        logger.info("세션 캐시됨: $sessionID")
     }
     
     override fun acceptDAMessage(handle: Int, message: Any) {
-        logger.info("Received debug adapter message: handle=$handle, message=$message")
+        logger.info("디버그 어댑터 메시지 수신: handle=$handle, message=$message")
     }
     
     override fun acceptDAError(handle: Int, name: String, message: String, stack: String?) {
-        logger.info("Received debug adapter error: handle=$handle, name=$name, message=$message, stack=$stack")
+        logger.info("디버그 어댑터 오류 수신: handle=$handle, name=$name, message=$message, stack=$stack")
     }
     
     override fun acceptDAExit(handle: Int, code: Int?, signal: String?) {
-        logger.info("Received debug adapter exit: handle=$handle, code=$code, signal=$signal")
+        logger.info("디버그 어댑터 종료 수신: handle=$handle, code=$code, signal=$signal")
     }
     
     override fun registerDebugConfigurationProvider(
@@ -220,55 +219,55 @@ class MainThreadDebugService : MainThreadDebugServiceShape {
         hasResolve2Method: Boolean,
         handle: Int
     ): Any {
-        logger.info("Registering debug configuration provider: type=$type, triggerKind=$triggerKind, " +
+        logger.info("디버그 설정 제공자 등록: type=$type, triggerKind=$triggerKind, " +
                 "hasProvideMethod=$hasProvideMethod, hasResolveMethod=$hasResolveMethod, " +
                 "hasResolve2Method=$hasResolve2Method, handle=$handle")
         return Unit
     }
     
     override fun registerDebugAdapterDescriptorFactory(type: String, handle: Int): Any {
-        logger.info("Registering debug adapter descriptor factory: type=$type, handle=$handle")
+        logger.info("디버그 어댑터 디스크립터 팩토리 등록: type=$type, handle=$handle")
         return Unit
     }
     
     override fun unregisterDebugConfigurationProvider(handle: Int) {
-        logger.info("Unregistering debug configuration provider: handle=$handle")
+        logger.info("디버그 설정 제공자 등록 해제: handle=$handle")
     }
     
     override fun unregisterDebugAdapterDescriptorFactory(handle: Int) {
-        logger.info("Unregistering debug adapter descriptor factory: handle=$handle")
+        logger.info("디버그 어댑터 디스크립터 팩토리 등록 해제: handle=$handle")
     }
     
     override fun startDebugging(folder: URI?, nameOrConfig: Any, options: Any): Any {
-        logger.info("Starting debugging: folder=$folder, nameOrConfig=$nameOrConfig, options=$options")
+        logger.info("디버깅 시작: folder=$folder, nameOrConfig=$nameOrConfig, options=$options")
         return true
     }
     
     override fun stopDebugging(sessionId: String?): Any {
-        logger.info("Stopping debugging: sessionId=$sessionId")
+        logger.info("디버깅 중지: sessionId=$sessionId")
         return Unit
     }
     
     override fun setDebugSessionName(id: String, name: String) {
-        logger.info("Setting debug session name: id=$id, name=$name")
+        logger.info("디버그 세션 이름 설정: id=$id, name=$name")
     }
     
     override fun customDebugAdapterRequest(id: String, command: String, args: Any): Any {
-        logger.info("Custom debug adapter request: id=$id, command=$command, args=$args")
+        logger.info("사용자 정의 디버그 어댑터 요청: id=$id, command=$command, args=$args")
         return Unit
     }
     
     override fun getDebugProtocolBreakpoint(id: String, breakpoinId: String): Any? {
-        logger.info("Getting debug protocol breakpoint: id=$id, breakpoinId=$breakpoinId")
+        logger.info("디버그 프로토콜 브레이크포인트 가져오기: id=$id, breakpoinId=$breakpoinId")
         return Unit
     }
     
     override fun appendDebugConsole(value: String) {
-        logger.info("Appending to debug console: $value")
+        logger.info("디버그 콘솔에 추가: $value")
     }
     
     override fun registerBreakpoints(breakpoints: List<Any>): Any {
-        logger.info("Registering breakpoints: ${breakpoints.size} total")
+        logger.info("브레이크포인트 등록: 총 ${breakpoints.size}개")
         return Unit
     }
     
@@ -277,26 +276,26 @@ class MainThreadDebugService : MainThreadDebugServiceShape {
         functionBreakpointIds: List<String>,
         dataBreakpointIds: List<String>
     ): Any {
-        logger.info("Unregistering breakpoints: ${breakpointIds.size} regular, " +
-                "${functionBreakpointIds.size} function, " +
-                "${dataBreakpointIds.size} data breakpoints")
+        logger.info("브레이크포인트 등록 해제: 일반 ${breakpointIds.size}개, " +
+                "함수 ${functionBreakpointIds.size}개, " +
+                "데이터 ${dataBreakpointIds.size}개")
         return Unit
     }
     
     override fun registerDebugVisualizer(extensionId: String, id: String) {
-        logger.info("Registering debug visualizer: extensionId=$extensionId, id=$id")
+        logger.info("디버그 시각화 도우미 등록: extensionId=$extensionId, id=$id")
     }
     
     override fun unregisterDebugVisualizer(extensionId: String, id: String) {
-        logger.info("Unregistering debug visualizer: extensionId=$extensionId, id=$id")
+        logger.info("디버그 시각화 도우미 등록 해제: extensionId=$extensionId, id=$id")
     }
     
     override fun registerDebugVisualizerTree(treeId: String, canEdit: Boolean) {
-        logger.info("Registering debug visualizer tree: treeId=$treeId, canEdit=$canEdit")
+        logger.info("디버그 시각화 도우미 트리 등록: treeId=$treeId, canEdit=$canEdit")
     }
     
     override fun unregisterDebugVisualizerTree(treeId: String) {
-        logger.info("Unregistering debug visualizer tree: treeId=$treeId")
+        logger.info("디버그 시각화 도우미 트리 등록 해제: treeId=$treeId")
     }
 
     override fun dispose() {

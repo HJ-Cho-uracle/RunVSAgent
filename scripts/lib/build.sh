@@ -1,290 +1,300 @@
 #!/bin/bash
 
-# Build-specific utility functions
-# This file provides functions for building VSCode extensions and IDEA plugins
+# 빌드 관련 유틸리티 함수
+# 이 파일은 VSCode 확장 및 IDEA 플러그인 빌드를 위한 함수를 제공합니다.
 
-# Source common utilities (common.sh should be in the same directory)
+# --- 공통 유틸리티 로드 ---
+# common.sh 스크립트가 동일한 디렉터리에 있다고 가정합니다.
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$LIB_DIR/common.sh"
 
-# Build configuration
-readonly DEFAULT_BUILD_MODE="release"
-readonly VSCODE_BRANCH="develop"
-readonly IDEA_DIR="jetbrains_plugin"
-readonly TEMP_PREFIX="build_temp_"
+# --- 빌드 구성 ---
+readonly DEFAULT_BUILD_MODE="release" # 기본 빌드 모드
+readonly VSCODE_BRANCH="develop"      # VSCode 서브모듈의 브랜치
+readonly IDEA_DIR="jetbrains_plugin"  # IDEA 플러그인 디렉터리
+readonly TEMP_PREFIX="build_temp_"    # 임시 디렉터리 접두사
 
-# Build modes
-readonly BUILD_MODE_RELEASE="release"
-readonly BUILD_MODE_DEBUG="debug"
+# --- 빌드 모드 ---
+readonly BUILD_MODE_RELEASE="release" # 릴리스 모드
+readonly BUILD_MODE_DEBUG="debug"     # 디버그 모드
 
-# Global build variables
-BUILD_MODE="$DEFAULT_BUILD_MODE"
-VSIX_FILE=""
-SKIP_VSCODE_BUILD=false
-SKIP_BASE_BUILD=false
-SKIP_IDEA_BUILD=false
+# --- 전역 빌드 변수 ---
+BUILD_MODE="$DEFAULT_BUILD_MODE" # 현재 빌드 모드
+VSIX_FILE=""                     # 생성된 VSIX 파일 경로
+SKIP_VSCODE_BUILD=false          # VSCode 빌드 건너뛰기 여부
+SKIP_BASE_BUILD=false            # 기본 확장 빌드 건너뛰기 여부
+SKIP_IDEA_BUILD=false            # IDEA 빌드 건너뛰기 여부
 
-# Initialize build environment
+# --- 빌드 환경 초기화 ---
 init_build_env() {
-    log_step "Initializing build environment..."
+    log_step "빌드 환경 초기화 중..."
     
-    # Set build paths
-    export BUILD_TEMP_DIR="$(mktemp -d -t ${TEMP_PREFIX}XXXXXX)"
-    export PLUGIN_BUILD_DIR="$PROJECT_ROOT/$PLUGIN_SUBMODULE_PATH"
+    # 빌드 경로 설정
+    export BUILD_TEMP_DIR="$(mktemp -d -t ${TEMP_PREFIX}XXXXXX)" # 임시 빌드 디렉터리 생성
+    # 빌드할 메인 플러그인은 Athena. ATHENA_SUBMODULE_PATH는 common.sh에 정의되어 있다고 가정합니다.
+    export PLUGIN_BUILD_DIR="$PROJECT_ROOT/$ATHENA_SUBMODULE_PATH"
     export BASE_BUILD_DIR="$PROJECT_ROOT/$EXTENSION_HOST_DIR"
     export IDEA_BUILD_DIR="$PROJECT_ROOT/$IDEA_DIR"
-    export VSCODE_PLUGIN_NAME="${VSCODE_PLUGIN_NAME:-roo-code}"
-    export VSCODE_PLUGIN_TARGET_DIR="$IDEA_BUILD_DIR/plugins/${VSCODE_PLUGIN_NAME}"
-    
-    # Validate build tools
+    export VSCODE_PLUGIN_NAME="athena" # 빌드할 VSCode 플러그인 이름
+    export VSCODE_PLUGIN_TARGET_DIR="$IDEA_BUILD_DIR/plugins/${VSCODE_PLUGIN_NAME}" # IDEA 플러그인 내 대상 디렉터리
+
+    # 빌드 도구 유효성 검사
     validate_build_tools
     
-    log_debug "Build temp directory: $BUILD_TEMP_DIR"
-    log_debug "Plugin build directory: $PLUGIN_BUILD_DIR"
-    log_debug "Base build directory: $BASE_BUILD_DIR"
-    log_debug "IDEA build directory: $IDEA_BUILD_DIR"
+    log_debug "임시 빌드 디렉터리: $BUILD_TEMP_DIR"
+    log_debug "플러그인 빌드 디렉터리: $PLUGIN_BUILD_DIR"
+    log_debug "기본 빌드 디렉터리: $BASE_BUILD_DIR"
+    log_debug "IDEA 빌드 디렉터리: $IDEA_BUILD_DIR"
     
-    log_success "Build environment initialized"
+    log_success "빌드 환경 초기화 완료"
 }
 
-# Validate build tools
+# --- 빌드 도구 유효성 검사 ---
 validate_build_tools() {
-    log_step "Validating build tools..."
+    log_step "빌드 도구 유효성 검사 중..."
     
-    local required_tools=("git" "node" "npm" "unzip")
+    local required_tools=("git" "node" "npm" "unzip") # 필수 도구 목록
     
-    # Add platform-specific tools
+    # pnpm 패키지 관리자 확인
     if command_exists "pnpm"; then
-        log_debug "Found pnpm package manager"
+        log_debug "pnpm 패키지 관리자 찾음"
     else
-        log_warn "pnpm not found, will use npm"
+        log_warn "pnpm을 찾을 수 없습니다. npm을 사용합니다."
     fi
     
-    # Check for Gradle (for IDEA plugin)
+    # Gradle 확인 (IDEA 플러그인용)
     if command_exists "gradle" || [[ -f "$IDEA_BUILD_DIR/gradlew" ]]; then
-        log_debug "Found Gradle build tool"
+        log_debug "Gradle 빌드 도구 찾음"
     else
-        log_warn "Gradle not found, IDEA plugin build may fail"
+        log_warn "Gradle을 찾을 수 없습니다. IDEA 플러그인 빌드가 실패할 수 있습니다."
     fi
     
+    # 모든 필수 도구 확인
     for tool in "${required_tools[@]}"; do
         if ! command_exists "$tool"; then
-            die "Required build tool not found: $tool"
+            die "필수 빌드 도구를 찾을 수 없습니다: $tool"
         fi
-        log_debug "Found build tool: $tool"
+        log_debug "빌드 도구 찾음: $tool"
     done
     
-    log_success "Build tools validation passed"
+    log_success "빌드 도구 유효성 검사 통과"
 }
 
-# Initialize git submodules
+# --- Git 서브모듈 초기화 ---
 init_submodules() {
-    log_step "Initializing git submodules..."
+    log_step "Git 서브모듈 초기화 중..."
     
+    # 플러그인 빌드 디렉터리가 비어 있으면 초기화
     if [[ ! -d "$PLUGIN_BUILD_DIR" ]] || [[ ! "$(ls -A "$PLUGIN_BUILD_DIR" 2>/dev/null)" ]]; then
-        log_info "VSCode submodule not found or empty, initializing..."
+        log_info "VSCode 확장 서브모듈을 찾을 수 없거나 비어 있습니다. 초기화 중..."
         
         cd "$PROJECT_ROOT"
         execute_cmd "git submodule init" "git submodule init"
-        execute_cmd "git submodule update" "git submodule update"
+        execute_cmd "git submodule update --recursive" "git submodule update"
         
         log_info "Switching to $VSCODE_BRANCH branch..."
         cd "$PLUGIN_BUILD_DIR"
         execute_cmd "git checkout $VSCODE_BRANCH" "git checkout $VSCODE_BRANCH"
         
-        log_success "Git submodules initialized"
+        log_success "Git 서브모듈 초기화 완료"
     else
-        log_info "VSCode submodule already exists, skipping initialization"
+        log_info "VSCode 확장 서브모듈이 이미 존재합니다. 초기화 건너뛰기"
     fi
 }
 
-# Apply patches to VSCode
+# --- VSCode에 패치 적용 ---
 apply_vscode_patches() {
     local patch_file="$1"
     
     if [[ -z "$patch_file" ]] || [[ ! -f "$patch_file" ]]; then
-        log_warn "No patch file specified or file not found: $patch_file"
+        log_warn "패치 파일이 지정되지 않았거나 파일을 찾을 수 없습니다: $patch_file"
         return 0
     fi
     
-    log_step "Applying VSCode patches..."
+    log_step "VSCode 패치 적용 중..."
     
     cd "$PLUGIN_BUILD_DIR"
     
-    # Check if patch is already applied
+    # 패치가 이미 적용되었는지 확인
     if git apply --check "$patch_file" 2>/dev/null; then
-        execute_cmd "git apply '$patch_file'" "patch application"
-        log_success "Patch applied successfully"
+        execute_cmd "git apply '$patch_file'" "패치 적용"
+        log_success "패치 성공적으로 적용됨"
     else
-        log_warn "Patch cannot be applied (may already be applied or conflicts exist)"
+        log_warn "패치를 적용할 수 없습니다 (이미 적용되었거나 충돌이 있을 수 있음)"
     fi
 }
 
-# Revert VSCode changes
+# --- VSCode 변경 사항 되돌리기 ---
 revert_vscode_changes() {
-    log_step "Reverting VSCode changes..."
+    log_step "VSCode 변경 사항 되돌리기 중..."
     
     cd "$PLUGIN_BUILD_DIR"
     execute_cmd "git reset --hard" "git reset"
     execute_cmd "git clean -fd" "git clean"
     
-    log_success "VSCode changes reverted"
+    log_success "VSCode 변경 사항 되돌리기 완료"
 }
 
-# Build VSCode extension
+# --- VSCode 확장 빌드 ---
 build_vscode_extension() {
     if [[ "$SKIP_VSCODE_BUILD" == "true" ]]; then
-        log_info "Skipping VSCode extension build"
+        log_info "VSCode 확장 빌드 건너뛰기"
         return 0
     fi
     
-    log_step "Building VSCode extension..."
+    log_step "VSCode 확장 빌드 중..."
     
     cd "$PLUGIN_BUILD_DIR"
     
-    # Install dependencies
-    local pkg_manager="npm"
+    # 의존성 설치 (pnpm 또는 npm 사용)
+    local pkg_manager="npm" # pkg_manager를 여기서 초기화합니다.
     if command_exists "pnpm" && [[ -f "pnpm-lock.yaml" ]]; then
         pkg_manager="pnpm"
     fi
     
-    log_info "Installing dependencies with $pkg_manager..."
-    execute_cmd "$pkg_manager install" "dependency installation"
+    log_info "$pkg_manager 를 사용하여 의존성 설치 중..."
+    execute_cmd "$pkg_manager install" "의존성 설치"
     
-    # Apply Windows compatibility fix if needed
+    # 필요한 경우 Windows 호환성 수정 적용
     apply_windows_compatibility_fix
     
-    # Build based on mode
+    # 모드에 따라 빌드
     if [[ "$BUILD_MODE" == "$BUILD_MODE_DEBUG" ]]; then
-        log_info "Building in debug mode..."
+        log_info "디버그 모드로 빌드 중..."
         export USE_DEBUG_BUILD="true"
-        execute_cmd "$pkg_manager run vsix" "VSIX build"
-        execute_cmd "$pkg_manager run bundle" "bundle build"
+        if ! "$pkg_manager" run vsix; then
+            die "VSIX 빌드 실패"
+        fi
+        if ! "$pkg_manager" run bundle; then
+            die "번들 빌드 실패"
+        fi
     else
-        log_info "Building in release mode..."
-        execute_cmd "$pkg_manager run vsix" "VSIX build"
+        log_info "릴리스 모드로 빌드 중..."
+        if ! "$pkg_manager" run vsix; then
+            die "VSIX 빌드 실패"
+        fi
     fi
     
-    # Find the generated VSIX file
+    # 생성된 VSIX 파일 찾기
     VSIX_FILE=$(get_latest_file "$PLUGIN_BUILD_DIR/bin" "*.vsix")
     if [[ -z "$VSIX_FILE" ]]; then
-        die "VSIX file not found after build"
+        die "빌드 후 VSIX 파일을 찾을 수 없습니다."
     fi
     
-    log_success "VSCode extension built: $VSIX_FILE"
+    log_success "VSCode 확장 빌드됨: $VSIX_FILE"
 }
 
-# Apply Windows compatibility fix
+# --- Windows 호환성 수정 적용 ---
 apply_windows_compatibility_fix() {
     local windows_release_file="$PLUGIN_BUILD_DIR/node_modules/.pnpm/windows-release@6.1.0/node_modules/windows-release/index.js"
     
     if [[ -f "$windows_release_file" ]]; then
-        log_debug "Applying Windows compatibility fix..."
+        log_debug "Windows 호환성 수정 적용 중..."
         
-        # Use perl for cross-platform compatibility
+        # 크로스 플랫폼 호환성을 위해 perl 사용
         if command_exists "perl"; then
             perl -i -pe "s/execaSync\\('wmic', \\['os', 'get', 'Caption'\\]\\)\\.stdout \\|\\| ''/''/g" "$windows_release_file"
             perl -i -pe "s/execaSync\\('powershell', \\['\\(Get-CimInstance -ClassName Win32_OperatingSystem\\)\\.caption'\\]\\)\\.stdout \\|\\| ''/''/g" "$windows_release_file"
-            log_debug "Windows compatibility fix applied"
+            log_debug "Windows 호환성 수정 적용됨"
         else
-            log_warn "perl not found, skipping Windows compatibility fix"
+            log_warn "perl을 찾을 수 없습니다. Windows 호환성 수정 건너뛰기"
         fi
     fi
 }
 
-# Extract VSIX file
+# --- VSIX 파일 압축 해제 ---
 extract_vsix() {
     local vsix_file="$1"
     local extract_dir="$2"
     
     if [[ -z "$vsix_file" ]] || [[ ! -f "$vsix_file" ]]; then
-        die "VSIX file not found: $vsix_file"
+        die "VSIX 파일을 찾을 수 없습니다: $vsix_file"
     fi
     
-    log_step "Extracting VSIX file..."
+    log_step "VSIX 파일 압축 해제 중..."
     
     ensure_dir "$extract_dir"
-    execute_cmd "unzip -q '$vsix_file' -d '$extract_dir'" "VSIX extraction"
+    execute_cmd "unzip -q '$vsix_file' -d '$extract_dir'" "VSIX 압축 해제"
     
-    log_success "VSIX extracted to: $extract_dir"
+    log_success "VSIX 압축 해제됨: $extract_dir"
 }
 
-# Copy VSIX contents to target directory
+# --- VSIX 내용을 대상 디렉터리로 복사 ---
 copy_vscode_extension() {
     local vsix_file="${1:-$VSIX_FILE}"
     local target_dir="${2:-$VSCODE_PLUGIN_TARGET_DIR}"
     
     if [[ -z "$vsix_file" ]]; then
-        die "No VSIX file specified"
+        die "VSIX 파일이 지정되지 않았습니다."
     fi
     
-    log_step "Copying VSCode extension files..."
+    log_step "VSCode 확장 파일 복사 중..."
     
-    # Clean target directory
+    # 대상 디렉터리 정리
     remove_dir "$target_dir"
     ensure_dir "$target_dir"
     
-    # Extract VSIX to temp directory
+    # VSIX를 임시 디렉터리에 압축 해제
     local temp_extract_dir="$BUILD_TEMP_DIR/vsix_extract"
     extract_vsix "$vsix_file" "$temp_extract_dir"
     
-    # Copy extension files
-    copy_files "$temp_extract_dir/extension" "$target_dir/" "VSCode extension files"
+    # 확장 파일 복사
+    copy_files "$temp_extract_dir/extension" "$target_dir/" "VSCode 확장 파일"
     
-    log_success "VSCode extension files copied"
+    log_success "VSCode 확장 파일 복사 완료"
 }
 
-# Copy debug resources (for debug builds)
+# --- 디버그 리소스 복사 (디버그 빌드용) ---
 copy_debug_resources() {
     if [[ "$BUILD_MODE" != "$BUILD_MODE_DEBUG" ]]; then
         return 0
     fi
-    
-    log_step "Copying debug resources..."
-    
+
+    log_step "디버그 리소스 복사 중..."
+
     local debug_res_dir="$PROJECT_ROOT/debug-resources"
-    local vscode_plugin_debug_dir="$debug_res_dir/${VSCODE_PLUGIN_NAME}"
-    
-    # Clean debug resources
+    local vscode_plugin_debug_dir="${1:-$debug_res_dir/${VSCODE_PLUGIN_NAME}}"
+
+    # 디버그 리소스 정리
     remove_dir "$debug_res_dir"
     ensure_dir "$vscode_plugin_debug_dir"
-    
+
     cd "$PLUGIN_BUILD_DIR"
-    
-    # Copy various debug resources
-    copy_files "src/dist/i18n" "$vscode_plugin_debug_dir/dist/" "i18n files"
+
+    # 다양한 디버그 리소스 복사
+    copy_files "src/dist/i18n" "$vscode_plugin_debug_dir/dist/" "i18n 파일"
     copy_files "src/dist/extension.js" "$vscode_plugin_debug_dir/dist/" "extension.js"
     copy_files "src/dist/extension.js.map" "$vscode_plugin_debug_dir/dist/" "extension.js.map"
-    
-    # Copy WASM files
+
+    # WASM 파일 복사
     find "$PLUGIN_BUILD_DIR/src/dist" -maxdepth 1 -name "*.wasm" -exec cp {} "$vscode_plugin_debug_dir/dist/" \;
-    
-    # Copy assets and audio
+
+    # assets 및 audio 복사
     copy_files "src/assets" "$vscode_plugin_debug_dir/" "assets"
-    copy_files "src/webview-ui/audio" "$vscode_plugin_debug_dir/" "audio files"
-    
-    # Copy webview build
-    copy_files "src/webview-ui/build" "$vscode_plugin_debug_dir/webview-ui/" "webview build"
-    
-    # Copy theme files
+    copy_files "src/webview-ui/audio" "$vscode_plugin_debug_dir/" "audio 파일"
+
+    # webview 빌드 복사
+    copy_files "src/webview-ui/build" "$vscode_plugin_debug_dir/webview-ui/" "webview 빌드"
+
+    # 테마 파일 복사
     ensure_dir "$vscode_plugin_debug_dir/src/integrations/theme/default-themes"
-    copy_files "src/integrations/theme/default-themes" "$vscode_plugin_debug_dir/src/integrations/theme/" "default themes"
-    
-    # Copy IDEA themes if they exist
+    copy_files "src/integrations/theme/default-themes" "$vscode_plugin_debug_dir/src/integrations/theme/" "기본 테마"
+
+    # IDEA 테마가 존재하면 복사
     local idea_themes_dir="$IDEA_BUILD_DIR/src/main/resources/themes"
     if [[ -d "$idea_themes_dir" ]]; then
-        copy_files "$idea_themes_dir/*" "$vscode_plugin_debug_dir/src/integrations/theme/default-themes/" "IDEA themes"
+        copy_files "$idea_themes_dir/*" "$vscode_plugin_debug_dir/src/integrations/theme/default-themes/" "IDEA 테마"
     fi
-    
-    # Copy JSON files (excluding specific ones)
+
+    # JSON 파일 복사 (특정 파일 제외)
     for json_file in "$PLUGIN_BUILD_DIR"/*.json; do
         local filename=$(basename "$json_file")
         if [[ "$filename" != "package-lock.json" && "$filename" != "tsconfig.json" ]]; then
             copy_files "$json_file" "$vscode_plugin_debug_dir/" "$filename"
         fi
     done
-    
-    # Remove type field from package.json for CommonJS compatibility
+
+    # CommonJS 호환성을 위해 package.json에서 type 필드 제거
     local debug_package_json="$vscode_plugin_debug_dir/package.json"
     if [[ -f "$debug_package_json" ]]; then
         node -e "
@@ -293,47 +303,47 @@ copy_debug_resources() {
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
             delete pkg.type;
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-            console.log('Removed type field from debug package.json for CommonJS compatibility');
+            console.log('CommonJS 호환성을 위해 디버그 package.json에서 type 필드 제거');
         " "$debug_package_json"
     fi
-    
-    log_success "Debug resources copied"
+
+    log_success "디버그 리소스 복사 완료"
 }
 
-# Build base extension
+# --- 기본 확장 빌드 ---
 build_extension_host() {
     if [[ "$SKIP_BASE_BUILD" == "true" ]]; then
-        log_info "Skipping Extension host build"
+        log_info "Extension Host 빌드 건너뛰기"
         return 0
     fi
     
-    log_step "Building Extension host..."
+    log_step "Extension Host 빌드 중..."
     
     cd "$BASE_BUILD_DIR"
     
-    # Clean previous build
+    # 이전 빌드 정리
     remove_dir "dist"
     
-    # Build extension
+    # 모드에 따라 확장 빌드
     if [[ "$BUILD_MODE" == "$BUILD_MODE_DEBUG" ]]; then
-        execute_cmd "npm run build" "Extension host build (debug)"
+        execute_cmd "npm run build" "Extension Host 빌드 (디버그)"
     else
-        execute_cmd "npm run build:extension" "Extension host build (release)"
+        execute_cmd "npm run build:extension" "Extension Host 빌드 (릴리스)"
     fi
     
-    # Generate production dependencies list
-    execute_cmd "npm ls --prod --depth=10 --parseable > '$IDEA_BUILD_DIR/prodDep.txt'" "production dependencies list"
+    # 프로덕션 의존성 목록 생성
+    execute_cmd "npm ls --prod --depth=10 --parseable > '$IDEA_BUILD_DIR/prodDep.txt'" "프로덕션 의존성 목록"
     
-    log_success "Base extension built"
+    log_success "기본 확장 빌드 완료"
 }
 
-# Copy base extension for debug
+# --- 디버그용 기본 확장 복사 ---
 copy_base_debug_resources() {
     if [[ "$BUILD_MODE" != "$BUILD_MODE_DEBUG" ]]; then
         return 0
     fi
     
-    log_step "Copying base debug resources..."
+    log_step "기본 디버그 리소스 복사 중..."
     
     local debug_res_dir="$PROJECT_ROOT/debug-resources"
     local runtime_dir="$debug_res_dir/runtime"
@@ -342,20 +352,20 @@ copy_base_debug_resources() {
     ensure_dir "$runtime_dir"
     ensure_dir "$node_modules_dir"
     
-    # Copy node_modules
-    copy_files "$BASE_BUILD_DIR/node_modules/*" "$node_modules_dir/" "base node_modules"
+    # node_modules 복사
+    copy_files "$BASE_BUILD_DIR/node_modules/*" "$node_modules_dir/" "기본 node_modules"
     
-    # Copy package.json and dist
-    copy_files "$BASE_BUILD_DIR/package.json" "$runtime_dir/" "base package.json"
-    copy_files "$BASE_BUILD_DIR/dist/*" "$runtime_dir/" "base dist files"
+    # package.json 및 dist 복사
+    copy_files "$BASE_BUILD_DIR/package.json" "$runtime_dir/" "기본 package.json"
+    copy_files "$BASE_BUILD_DIR/dist/*" "$runtime_dir/" "기본 dist 파일"
     
-    log_success "Base debug resources copied"
+    log_success "기본 디버그 리소스 복사 완료"
 }
 
-# Build IDEA plugin
+# --- IDEA 플러그인 빌드 ---
 build_idea_plugin() {
     if [[ "$SKIP_IDEA_BUILD" == "true" ]]; then
-        log_info "Skipping IDEA plugin build"
+        log_info "IDEA 플러그인 빌드 건너뛰기"
         return 0
     fi
     
@@ -363,48 +373,48 @@ build_idea_plugin() {
     
     cd "$IDEA_BUILD_DIR"
     
-    # Check for Gradle build files
+    # Gradle 빌드 파일 확인
     if [[ ! -f "build.gradle" && ! -f "build.gradle.kts" ]]; then
-        die "No Gradle build file found in IDEA directory"
+        die "IDEA 디렉터리에서 Gradle 빌드 파일을 찾을 수 없습니다."
     fi
     
-    # Use gradlew if available, otherwise use system gradle
+    # gradlew가 있으면 사용하고, 없으면 시스템 gradle 사용
     local gradle_cmd="gradle"
     if [[ -f "./gradlew" ]]; then
         gradle_cmd="./gradlew"
         chmod +x "./gradlew"
     fi
     
-    # Set debugMode based on BUILD_MODE
+    # BUILD_MODE에 따라 debugMode 설정
     local debug_mode="none"
     if [[ "$BUILD_MODE" == "$BUILD_MODE_RELEASE" ]]; then
         debug_mode="release"
-        log_info "Building IDEA plugin in release mode (debugMode=release)"
+        log_info "릴리스 모드로 IDEA 플러그인 빌드 중 (debugMode=release)"
     elif [[ "$BUILD_MODE" == "$BUILD_MODE_DEBUG" ]]; then
         debug_mode="idea"
-        log_info "Building IDEA plugin in debug mode (debugMode=idea)"
+        log_info "디버그 모드로 IDEA 플러그인 빌드 중 (debugMode=idea)"
     fi
     
-    # Build plugin with debugMode property
-    execute_cmd "$gradle_cmd -PdebugMode=$debug_mode buildPlugin --info" "IDEA plugin build"
+    # debugMode 속성과 함께 플러그인 빌드
+    execute_cmd "$gradle_cmd -PdebugMode=$debug_mode buildPlugin --info" "IDEA 플러그인 빌드"
     
-    # Find generated plugin
+    # 생성된 플러그인 찾기
     local plugin_file
     plugin_file=$(find "$IDEA_BUILD_DIR/build/distributions" \( -name "*.zip" -o -name "*.jar" \) -type f | sort -r | head -n 1)
     
     if [[ -n "$plugin_file" ]]; then
-        log_success "IDEA plugin built: $plugin_file"
+        log_success "IDEA 플러그인 빌드됨: $plugin_file"
         export IDEA_PLUGIN_FILE="$plugin_file"
     else
-        log_warn "IDEA plugin file not found in build/distributions"
+        log_warn "build/distributions에서 IDEA 플러그인 파일을 찾을 수 없습니다."
     fi
 }
 
-# Clean build artifacts
+# --- 빌드 결과물 정리 ---
 clean_build() {
-    log_step "Cleaning build artifacts..."
+    log_step "빌드 결과물 정리 중..."
     
-    # Clean VSCode build
+    # VSCode 빌드 정리
     if [[ -d "$PLUGIN_BUILD_DIR" ]]; then
         cd "$PLUGIN_BUILD_DIR"
         [[ -d "bin" ]] && remove_dir "bin"
@@ -412,35 +422,35 @@ clean_build() {
         [[ -d "node_modules" ]] && remove_dir "node_modules"
     fi
     
-    # Clean base build
+    # 기본 빌드 정리
     if [[ -d "$BASE_BUILD_DIR" ]]; then
         cd "$BASE_BUILD_DIR"
         [[ -d "dist" ]] && remove_dir "dist"
         [[ -d "node_modules" ]] && remove_dir "node_modules"
     fi
     
-    # Clean IDEA build
+    # IDEA 빌드 정리
     if [[ -d "$IDEA_BUILD_DIR" ]]; then
         cd "$IDEA_BUILD_DIR"
         [[ -d "build" ]] && remove_dir "build"
         [[ -d "$VSCODE_PLUGIN_TARGET_DIR" ]] && remove_dir "$VSCODE_PLUGIN_TARGET_DIR"
     fi
     
-    # Clean debug resources
+    # 디버그 리소스 정리
     [[ -d "$PROJECT_ROOT/debug-resources" ]] && remove_dir "$PROJECT_ROOT/debug-resources"
     
-    # Clean temp directories
+    # 임시 디렉터리 정리
     find /tmp -name "${TEMP_PREFIX}*" -type d -exec rm -rf {} + 2>/dev/null || true
     
-    log_success "Build artifacts cleaned"
+    log_success "빌드 결과물 정리 완료"
 }
 
-# Cleanup build environment
+# --- 빌드 환경 정리 ---
 cleanup_build() {
     if [[ -n "${BUILD_TEMP_DIR:-}" && -d "${BUILD_TEMP_DIR:-}" ]]; then
         remove_dir "$BUILD_TEMP_DIR"
     fi
 }
 
-# Set up cleanup trap
+# --- 정리 트랩 설정 ---
 trap cleanup_build EXIT

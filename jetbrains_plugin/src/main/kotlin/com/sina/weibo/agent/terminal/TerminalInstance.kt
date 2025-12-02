@@ -27,21 +27,20 @@ import org.jetbrains.plugins.terminal.ShellStartupOptions
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
 
 /**
- * Terminal instance class
+ * 터미널 인스턴스 클래스입니다.
+ * 단일 터미널의 생명주기 및 작업을 관리합니다. 다음을 포함합니다:
+ * - 터미널 생성 및 초기화
+ * - ExtHost 프로세스와의 RPC 통신
+ * - 셸 통합 관리
+ * - 터미널 표시 및 숨기기
+ * - 텍스트 전송 및 명령어 실행
+ * - 리소스 정리 및 해제
  *
- * Manages the lifecycle and operations of a single terminal, including:
- * - Terminal creation and initialization
- * - RPC communication with ExtHost process
- * - Shell integration management
- * - Terminal show and hide
- * - Text sending and command execution
- * - Resource cleanup and disposal
- *
- * @property extHostTerminalId Terminal identifier in ExtHost process
- * @property numericId Numeric ID for RPC communication
- * @property project IDEA project instance
- * @property config Terminal configuration parameters
- * @property rpcProtocol RPC protocol instance
+ * @property extHostTerminalId ExtHost 프로세스 내 터미널 식별자
+ * @property numericId RPC 통신을 위한 숫자 ID
+ * @property project IDEA 프로젝트 인스턴스
+ * @property config 터미널 설정 파라미터
+ * @property rpcProtocol RPC 프로토콜 인스턴스
  */
 class TerminalInstance(
     val extHostTerminalId: String,
@@ -52,112 +51,111 @@ class TerminalInstance(
 ) : Disposable {
 
     companion object {
-        private const val DEFAULT_TERMINAL_NAME = "roo-cline"
-        private const val TERMINAL_TOOL_WINDOW_ID = "Terminal"
+        private const val DEFAULT_TERMINAL_NAME = "roo-cline" // 기본 터미널 이름
+        private const val TERMINAL_TOOL_WINDOW_ID = "Terminal" // 터미널 툴 윈도우 ID
     }
 
     private val logger = Logger.getInstance(TerminalInstance::class.java)
 
-    // Terminal components
+    // 터미널 컴포넌트
     private var terminalWidget: TerminalWidget? = null
     private var shellWidget: ShellTerminalWidget? = null
 
-    // State management
+    // 상태 관리
     private val state = TerminalState()
 
-    // Coroutine scope - use IO dispatcher to avoid Main Dispatcher issues
+    // 코루틴 스코프 (IO 디스패처 사용)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // Shell integration manager
+    // 셸 통합 관리자
     private val terminalShellIntegration = TerminalShellIntegration(extHostTerminalId, numericId, rpcProtocol)
 
-    // Event callback manager
+    // 이벤트 콜백 관리자
     private val callbackManager = TerminalCallbackManager()
 
     /**
-     * Add terminal close listener
+     * 터미널 닫힘 콜백을 추가합니다.
      */
     fun addTerminalCloseCallback(callback: () -> Unit) {
         callbackManager.addCloseCallback(callback)
     }
 
     /**
-     * Initialize terminal instance
+     * 터미널 인스턴스를 초기화합니다.
      *
-     * @throws IllegalStateException if terminal is already initialized or disposed
-     * @throws Exception if error occurs during initialization
+     * @throws IllegalStateException 터미널이 이미 초기화되었거나 해제된 경우
+     * @throws Exception 초기화 중 오류가 발생한 경우
      */
     fun initialize() {
-        state.checkCanInitialize(extHostTerminalId)
+        state.checkCanInitialize(extHostTerminalId) // 초기화 가능 여부 확인
 
         try {
-            logger.info("🚀 Initializing terminal instance: $extHostTerminalId (numericId: $numericId)")
+            logger.info("🚀 터미널 인스턴스 초기화 중: $extHostTerminalId (numericId: $numericId)")
 
-            // 🎯 First register to project's Disposer to avoid memory leaks
+            // 🎯 메모리 누수 방지를 위해 프로젝트의 Disposer에 등록합니다.
             registerToProjectDisposer()
 
-            // Switch to EDT thread for UI operations
+            // UI 작업은 EDT 스레드에서 수행해야 합니다.
             ApplicationManager.getApplication().invokeAndWait {
                 performInitialization()
             }
         } catch (e: Exception) {
-            logger.error("❌ Failed to initialize terminal instance: $extHostTerminalId", e)
+            logger.error("❌ 터미널 인스턴스 초기화 실패: $extHostTerminalId", e)
             throw e
         }
     }
 
     /**
-     * Register to project Disposer
+     * 프로젝트의 Disposer에 터미널 인스턴스를 등록합니다.
      */
     private fun registerToProjectDisposer() {
         try {
-            // Register TerminalInstance as a child Disposable of the project
-            Disposer.register(project, this)
-            logger.info("✅ Terminal instance registered to project Disposer: $extHostTerminalId")
+            Disposer.register(project, this) // `this` (TerminalInstance)를 자식 Disposable로 등록
+            logger.info("✅ 터미널 인스턴스가 프로젝트 Disposer에 등록됨: $extHostTerminalId")
         } catch (e: Exception) {
-            logger.error("❌ Failed to register terminal instance to project Disposer: $extHostTerminalId", e)
+            logger.error("❌ 터미널 인스턴스를 프로젝트 Disposer에 등록 실패: $extHostTerminalId", e)
             throw e
         }
     }
 
     /**
-     * Perform initialization steps
+     * 초기화 단계를 수행합니다.
      */
     private fun performInitialization() {
         try {
-            createTerminalWidget()
-            setupShellIntegration()
-            finalizeInitialization()
+            createTerminalWidget() // 터미널 위젯 생성
+            setupShellIntegration() // 셸 통합 설정
+            finalizeInitialization() // 초기화 마무리
         } catch (e: Exception) {
-            logger.error("❌ Failed to initialize terminal in EDT thread: $extHostTerminalId", e)
+            logger.error("❌ EDT 스레드에서 터미널 초기화 실패: $extHostTerminalId", e)
             throw e
         }
     }
 
     /**
-     * Setup shell integration
+     * 셸 통합을 설정합니다.
      */
     private fun setupShellIntegration() {
         terminalShellIntegration.setupShellIntegration()
     }
 
     /**
-     * Finalize initialization
+     * 초기화 마무리 단계입니다.
      */
     private fun finalizeInitialization() {
-        state.markInitialized()
-        logger.info("✅ Terminal instance initialization complete: $extHostTerminalId")
+        state.markInitialized() // 초기화 완료 상태로 표시
+        logger.info("✅ 터미널 인스턴스 초기화 완료: $extHostTerminalId")
 
-        // 🎯 Add terminalWidget to Terminal tool window
+        // 🎯 터미널 위젯을 터미널 툴 윈도우에 추가합니다.
         addToTerminalToolWindow()
         
-        notifyTerminalOpened()
-        notifyShellIntegrationChange()
-        handleInitialText()
+        notifyTerminalOpened() // ExtHost에 터미널이 열렸음을 알립니다.
+        notifyShellIntegrationChange() // ExtHost에 셸 통합 변경을 알립니다.
+        handleInitialText() // 초기 텍스트 처리
     }
 
     /**
-     * Handle initial text
+     * 초기 텍스트가 설정되어 있으면 터미널에 보냅니다.
      */
     private fun handleInitialText() {
         config.initialText?.let { initialText ->
@@ -166,81 +164,81 @@ class TerminalInstance(
     }
 
     /**
-     * Create terminal widget
+     * 터미널 위젯을 생성합니다.
      */
     private fun createTerminalWidget() {
         try {
-            val customRunner = createCustomRunner()
-            val startupOptions = createStartupOptions()
+            val customRunner = createCustomRunner() // 커스텀 러너 생성
+            val startupOptions = createStartupOptions() // 시작 옵션 생성
 
-            logger.info("🚀 Calling startShellTerminalWidget...")
+            logger.info("🚀 startShellTerminalWidget 호출 중...")
 
             terminalWidget = customRunner.startShellTerminalWidget(
-                this, // parent disposable
+                this, // 부모 Disposable
                 startupOptions,
-                false  // deferSessionStartUntilUiShown - start session immediately, must be false
+                false  // deferSessionStartUntilUiShown - 세션을 즉시 시작 (false로 설정해야 함)
             )
 
-            logger.info("✅ startShellTerminalWidget call complete, returned widget: ${terminalWidget?.javaClass?.name}")
+            logger.info("✅ startShellTerminalWidget 호출 완료, 반환된 위젯: ${terminalWidget?.javaClass?.name}")
 
-            initializeWidgets()
-            setupTerminalCloseListener()
+            initializeWidgets() // 위젯 초기화
+            setupTerminalCloseListener() // 터미널 닫힘 리스너 설정
 
-            logger.info("✅ Terminal widget created successfully")
+            logger.info("✅ 터미널 위젯 생성 성공")
 
         } catch (e: Exception) {
-            logger.error("❌ Failed to create terminal widget", e)
+            logger.error("❌ 터미널 위젯 생성 실패", e)
             throw e
         }
     }
 
     /**
-     * Create custom runner
+     * `PtyProcess`를 프록시하여 입출력 스트림을 가로챌 수 있는 커스텀 러너를 생성합니다.
      */
     private fun createCustomRunner(): LocalTerminalDirectRunner {
         return object : LocalTerminalDirectRunner(project) {
             override fun createProcess(options: ShellStartupOptions): PtyProcess {
-                logger.info("🔧 Custom createProcess method called...")
-                logger.info("Startup options: $options")
+                logger.info("🔧 커스텀 createProcess 메소드 호출됨...")
+                logger.info("시작 옵션: $options")
 
-                val originalProcess = super.createProcess(options)
-                logger.info("✅ Original Process created: ${originalProcess.javaClass.name}")
+                val originalProcess = super.createProcess(options) // 원본 프로세스 생성
+                logger.info("✅ 원본 프로세스 생성됨: ${originalProcess.javaClass.name}")
 
-                return createProxyPtyProcess(originalProcess)
+                return createProxyPtyProcess(originalProcess) // 프록시 `PtyProcess` 생성
             }
 
             override fun createShellTerminalWidget(
                 parent: Disposable,
                 startupOptions: ShellStartupOptions
             ): TerminalWidget {
-                logger.info("🔧 Custom createShellTerminalWidget method called...")
+                logger.info("🔧 커스텀 createShellTerminalWidget 메소드 호출됨...")
                 return super.createShellTerminalWidget(parent, startupOptions)
             }
 
             override fun configureStartupOptions(baseOptions: ShellStartupOptions): ShellStartupOptions {
-                logger.info("🔧 Custom configureStartupOptions method called...")
+                logger.info("🔧 커스텀 configureStartupOptions 메소드 호출됨...")
                 return super.configureStartupOptions(baseOptions)
             }
         }
     }
 
     /**
-     * Create startup options
+     * 셸 시작 옵션을 생성합니다.
      */
     private fun createStartupOptions(): ShellStartupOptions {
-        val fullShellCommand = buildShellCommand()
+        val fullShellCommand = buildShellCommand() // 전체 셸 명령어 구성
 
-        logger.info("🔧 Shell config: shellPath=${config.shellPath}, shellArgs=${config.shellArgs}")
-        logger.info("🔧 Full shell command: $fullShellCommand")
+        logger.info("🔧 셸 설정: shellPath=${config.shellPath}, shellArgs=${config.shellArgs}")
+        logger.info("🔧 전체 셸 명령어: $fullShellCommand")
 
         return ShellStartupOptions.Builder()
-            .workingDirectory(config.cwd ?: project.basePath)
-            .shellCommand(fullShellCommand)
+            .workingDirectory(config.cwd ?: project.basePath) // 작업 디렉터리 설정
+            .shellCommand(fullShellCommand) // 셸 명령어 설정
             .build()
     }
 
     /**
-     * Build shell command
+     * 셸 명령어를 구성합니다.
      */
     private fun buildShellCommand(): List<String>? {
         return buildList {
@@ -250,64 +248,64 @@ class TerminalInstance(
     }
 
     /**
-     * Initialize widget components
+     * 위젯 컴포넌트들을 초기화합니다.
      */
     private fun initializeWidgets() {
         shellWidget = JBTerminalWidget.asJediTermWidget(terminalWidget!!) as? ShellTerminalWidget
-            ?: throw IllegalStateException("Cannot get ShellTerminalWidget")
+            ?: throw IllegalStateException("ShellTerminalWidget을 가져올 수 없습니다.")
 
-        // Set terminal title
+        // 터미널 제목 설정
         terminalWidget!!.terminalTitle.change {
             userDefinedTitle = config.name ?: DEFAULT_TERMINAL_NAME
         }
     }
 
     /**
-     * Set terminal close event listener
+     * 터미널 닫힘 이벤트 리스너를 설정합니다.
      */
     private fun setupTerminalCloseListener() {
         try {
-            Disposer.register(terminalWidget!!) {
-                logger.info("🔔 TerminalWidget dispose event: $extHostTerminalId")
-                if (!state.isDisposed) {
-                    onTerminalClosed()
+            Disposer.register(terminalWidget!!) { // `terminalWidget`이 해제될 때 콜백 호출
+                logger.info("🔔 TerminalWidget dispose 이벤트: $extHostTerminalId")
+                if (!state.isDisposed) { // 이미 해제된 상태가 아니면
+                    onTerminalClosed() // 터미널 닫힘 처리
                 }
             }
         } catch (e: Exception) {
-            logger.error("❌ Failed to set terminal close event listener: $extHostTerminalId", e)
+            logger.error("❌ 터미널 닫힘 이벤트 리스너 설정 실패: $extHostTerminalId", e)
         }
     }
 
     /**
-     * Create proxy PtyProcess to intercept input/output streams
+     * 입출력 스트림을 가로채기 위한 프록시 `PtyProcess`를 생성합니다.
      */
     private fun createProxyPtyProcess(originalProcess: PtyProcess): PtyProcess {
-        logger.info("🔧 Creating proxy PtyProcess to intercept input/output streams...")
+        logger.info("🔧 입출력 스트림을 가로채기 위한 프록시 PtyProcess 생성 중...")
 
-        val rawDataCallback = createRawDataCallback()
+        val rawDataCallback = createRawDataCallback() // 원시 데이터 콜백 생성
         return ProxyPtyProcess(originalProcess, rawDataCallback)
     }
 
     /**
-     * Create raw data callback handler
+     * 원시 데이터 콜백 핸들러를 생성합니다.
      */
     private fun createRawDataCallback(): ProxyPtyProcessCallback {
         return object : ProxyPtyProcessCallback {
             override fun onRawData(data: String, streamType: String) {
-                logger.debug("📥 Raw data [$streamType]: ${data.length} chars")
+                logger.debug("📥 원시 데이터 [$streamType]: ${data.length} 문자")
 
                 try {
-                    sendRawDataToExtHost(data)
-                    terminalShellIntegration.appendRawOutput(data)
+                    sendRawDataToExtHost(data) // ExtHost로 원시 데이터 전송
+                    terminalShellIntegration.appendRawOutput(data) // 셸 통합 로직에 데이터 추가
                 } catch (e: Exception) {
-                    logger.error("❌ Failed to process raw data (terminal: $extHostTerminalId)", e)
+                    logger.error("❌ 원시 데이터 처리 실패 (터미널: $extHostTerminalId)", e)
                 }
             }
         }
     }
 
     /**
-     * Send raw data to ExtHost
+     * 원시 데이터를 ExtHost로 전송합니다.
      */
     private fun sendRawDataToExtHost(data: String) {
         val extHostTerminalServiceProxy =
@@ -316,67 +314,67 @@ class TerminalInstance(
             id = numericId,
             data = data
         )
-        logger.debug("✅ Sent raw data to exthost: ${data.length} chars (terminal: $extHostTerminalId)")
+        logger.debug("✅ ExtHost로 원시 데이터 전송 완료: ${data.length} 문자 (터미널: $extHostTerminalId)")
     }
 
     /**
-     * Show terminal
+     * 터미널을 표시합니다.
      */
     fun show(preserveFocus: Boolean = false) {
         if (!state.canOperate()) {
-            logger.warn("Terminal not initialized or disposed, cannot show: $extHostTerminalId")
+            logger.warn("터미널이 초기화되지 않았거나 해제되어 표시할 수 없음: $extHostTerminalId")
             return
         }
 
         ApplicationManager.getApplication().invokeLater {
             try {
-                showTerminalToolWindow()
-                shellWidget?.show(preserveFocus)
-                logger.info("✅ Terminal shown: $extHostTerminalId")
+                showTerminalToolWindow() // 터미널 툴 윈도우 표시
+                shellWidget?.show(preserveFocus) // 셸 위젯 표시
+                logger.info("✅ 터미널 표시됨: $extHostTerminalId")
             } catch (e: Exception) {
-                logger.error("❌ Failed to show terminal: $extHostTerminalId", e)
+                logger.error("❌ 터미널 표시 실패: $extHostTerminalId", e)
             }
         }
     }
 
     /**
-     * Hide terminal
+     * 터미널을 숨깁니다.
      */
     fun hide() {
         if (!state.canOperate()) {
-            logger.warn("Terminal not initialized or disposed, cannot hide: $extHostTerminalId")
+            logger.warn("터미널이 초기화되지 않았거나 해제되어 숨길 수 없음: $extHostTerminalId")
             return
         }
 
         ApplicationManager.getApplication().invokeLater {
             try {
-                hideTerminalToolWindow()
-                shellWidget?.hide()
-                logger.info("✅ Terminal hidden: $extHostTerminalId")
+                hideTerminalToolWindow() // 터미널 툴 윈도우 숨기기
+                shellWidget?.hide() // 셸 위젯 숨기기
+                logger.info("✅ 터미널 숨김: $extHostTerminalId")
             } catch (e: Exception) {
-                logger.error("❌ Failed to hide terminal: $extHostTerminalId", e)
+                logger.error("❌ 터미널 숨기기 실패: $extHostTerminalId", e)
             }
         }
     }
 
     /**
-     * Show terminal tool window and activate current terminal tab
+     * 터미널 툴 윈도우를 표시하고 현재 터미널 탭을 활성화합니다.
      */
     private fun showTerminalToolWindow() {
         try {
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TERMINAL_TOOL_WINDOW_ID)
-            toolWindow?.show(null)
+            toolWindow?.show(null) // 툴 윈도우 표시
         } catch (e: Exception) {
-            logger.error("❌ Failed to show terminal tool window", e)
+            logger.error("❌ 터미널 툴 윈도우 표시 실패", e)
         }
     }
 
     /**
-     * Add terminalWidget to Terminal tool window
+     * `terminalWidget`을 터미널 툴 윈도우에 추가합니다.
      */
     private fun addToTerminalToolWindow() {
         if (terminalWidget == null) {
-            logger.warn("TerminalWidget is null, cannot add to tool window")
+            logger.warn("TerminalWidget이 null이므로 툴 윈도우에 추가할 수 없음")
             return
         }
 
@@ -385,22 +383,22 @@ class TerminalInstance(
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TERMINAL_TOOL_WINDOW_ID)
             
             if (toolWindow == null) {
-                logger.warn("Terminal tool window does not exist")
+                logger.warn("터미널 툴 윈도우가 존재하지 않음")
                 return
             }
             
-            // Use TerminalToolWindowManager's newTab method to create new Content
+            // `TerminalToolWindowManager`의 `newTab` 메소드를 사용하여 새 Content를 생성합니다.
             val content = terminalToolWindowManager.newTab(toolWindow, terminalWidget!!)
-            content.displayName = config.name ?: DEFAULT_TERMINAL_NAME
+            content.displayName = config.name ?: DEFAULT_TERMINAL_NAME // 탭 이름 설정
             
-            logger.info("✅ Added terminalWidget to Terminal tool window: ${content.displayName}")
+            logger.info("✅ terminalWidget이 터미널 툴 윈도우에 추가됨: ${content.displayName}")
         } catch (e: Exception) {
-            logger.error("❌ Failed to add terminalWidget to tool window", e)
+            logger.error("❌ terminalWidget을 툴 윈도우에 추가 실패", e)
         }
     }
 
     /**
-     * Hide terminal tool window
+     * 터미널 툴 윈도우를 숨깁니다.
      */
     private fun hideTerminalToolWindow() {
         val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TERMINAL_TOOL_WINDOW_ID)
@@ -408,11 +406,11 @@ class TerminalInstance(
     }
 
     /**
-     * Send text to terminal
+     * 터미널에 텍스트를 보냅니다.
      */
     fun sendText(text: String, shouldExecute: Boolean = false) {
         if (!state.canOperate()) {
-            logger.warn("Terminal not initialized or disposed, cannot send text: $extHostTerminalId")
+            logger.warn("터미널이 초기화되지 않았거나 해제되어 텍스트를 보낼 수 없음: $extHostTerminalId")
             return
         }
 
@@ -421,24 +419,24 @@ class TerminalInstance(
                 val shell = shellWidget ?: return@invokeLater
 
                 if (shouldExecute) {
-                    shell.executeCommand(text)
-                    logger.info("✅ Command executed: $text (terminal: $extHostTerminalId)")
+                    shell.executeCommand(text) // 명령 실행
+                    logger.info("✅ 명령어 실행됨: $text (터미널: $extHostTerminalId)")
                 } else {
-                    shell.writePlainMessage(text)
-                    logger.info("✅ Text sent: $text (terminal: $extHostTerminalId)")
+                    shell.writePlainMessage(text) // 일반 텍스트 쓰기
+                    logger.info("✅ 텍스트 전송됨: $text (터미널: $extHostTerminalId)")
                 }
             } catch (e: Exception) {
-                logger.error("❌ Failed to send text: $extHostTerminalId", e)
+                logger.error("❌ 텍스트 전송 실패: $extHostTerminalId", e)
             }
         }
     }
 
     /**
-     * Notify exthost process that terminal is opened
+     * ExtHost 프로세스에 터미널이 열렸음을 알립니다.
      */
     private fun notifyTerminalOpened() {
         try {
-            logger.info("📤 Notify exthost process terminal opened: $extHostTerminalId (numericId: $numericId)")
+            logger.info("📤 ExtHost 프로세스에 터미널 열림 알림: $extHostTerminalId (numericId: $numericId)")
 
             val shellLaunchConfigDto = config.toShellLaunchConfigDto(project.basePath)
             val extHostTerminalServiceProxy =
@@ -451,14 +449,14 @@ class TerminalInstance(
                 shellLaunchConfig = shellLaunchConfigDto
             )
 
-            logger.info("✅ Successfully notified exthost process terminal opened: $extHostTerminalId")
+            logger.info("✅ ExtHost 프로세스에 터미널 열림 알림 성공: $extHostTerminalId")
         } catch (e: Exception) {
-            logger.error("❌ Failed to notify exthost process terminal opened: $extHostTerminalId", e)
+            logger.error("❌ ExtHost 프로세스에 터미널 열림 알림 실패: $extHostTerminalId", e)
         }
     }
 
     /**
-     * Notify Shell integration change
+     * 셸 통합 변경을 알립니다.
      */
     private fun notifyShellIntegrationChange() {
         try {
@@ -466,16 +464,16 @@ class TerminalInstance(
                 rpcProtocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostTerminalShellIntegration)
 
             extHostTerminalShellIntegrationProxy.shellIntegrationChange(instanceId = numericId)
-            logger.info("✅ Notified exthost Shell integration initialized: (terminal: $extHostTerminalId)")
+            logger.info("✅ ExtHost에 셸 통합 초기화 알림: (터미널: $extHostTerminalId)")
 
             notifyEnvironmentVariableChange(extHostTerminalShellIntegrationProxy)
         } catch (e: Exception) {
-            logger.error("❌ Failed to notify exthost Shell integration initialized: (terminal: $extHostTerminalId)", e)
+            logger.error("❌ ExtHost에 셸 통합 초기화 알림 실패: (터미널: $extHostTerminalId)", e)
         }
     }
 
     /**
-     * Notify environment variable change
+     * 환경 변수 변경을 알립니다.
      */
     private fun notifyEnvironmentVariableChange(extHostTerminalShellIntegrationProxy: ExtHostTerminalShellIntegrationProxy) {
         config.env?.takeIf { it.isNotEmpty() }?.let { env ->
@@ -490,37 +488,37 @@ class TerminalInstance(
                     isTrusted = true
                 )
 
-                logger.info("✅ Notified exthost environment variable change: ${env.size} variables (terminal: $extHostTerminalId)")
+                logger.info("✅ ExtHost에 환경 변수 변경 알림: ${env.size} 변수 (터미널: $extHostTerminalId)")
             } catch (e: Exception) {
-                logger.error("❌ Failed to notify environment variable change: (terminal: $extHostTerminalId)", e)
+                logger.error("❌ 환경 변수 변경 알림 실패: (터미널: $extHostTerminalId)", e)
             }
         }
     }
 
     /**
-     * Trigger terminal close event
+     * 터미널 닫힘 이벤트를 트리거합니다.
      */
     private fun onTerminalClosed() {
-        logger.info("🔔 Terminal closed event triggered: $extHostTerminalId (numericId: $numericId)")
+        logger.info("🔔 터미널 닫힘 이벤트 트리거됨: $extHostTerminalId (numericId: $numericId)")
 
         try {
-            notifyTerminalClosed()
-            callbackManager.executeCloseCallbacks()
+            notifyTerminalClosed() // ExtHost에 터미널 닫힘 알림
+            callbackManager.executeCloseCallbacks() // 등록된 닫힘 콜백 실행
 
             if (!state.isDisposed) {
-                dispose()
+                dispose() // 아직 해제되지 않았으면 해제
             }
         } catch (e: Exception) {
-            logger.error("Failed to handle terminal closed event: $extHostTerminalId", e)
+            logger.error("터미널 닫힘 이벤트 처리 실패: $extHostTerminalId", e)
         }
     }
 
     /**
-     * Notify exthost process that terminal is closed
+     * ExtHost 프로세스에 터미널이 닫혔음을 알립니다.
      */
     private fun notifyTerminalClosed() {
         try {
-            logger.info("📤 Notify exthost process terminal closed: $extHostTerminalId (numericId: $numericId)")
+            logger.info("📤 ExtHost 프로세스에 터미널 닫힘 알림: $extHostTerminalId (numericId: $numericId)")
 
             val extHostTerminalServiceProxy =
                 rpcProtocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostTerminalService)
@@ -530,44 +528,46 @@ class TerminalInstance(
                 exitReason = numericId
             )
 
-            logger.info("✅ Successfully notified exthost process terminal closed: $extHostTerminalId")
+            logger.info("✅ ExtHost 프로세스에 터미널 닫힘 알림 성공: $extHostTerminalId")
         } catch (e: Exception) {
-            logger.error("❌ Failed to notify exthost process terminal closed: $extHostTerminalId", e)
-        }
-    }
-
-    override fun dispose() {
-        if (state.isDisposed) return
-
-        logger.info("🧹 Disposing terminal instance: $extHostTerminalId")
-
-        try {
-            // 🎯 Mark as disposed first to avoid repeated calls in callbacks
-            state.markDisposed()
-            
-            callbackManager.clear()
-            scope.cancel()
-
-            // 🎯 Dispose terminalWidget, onTerminalClosed callback will be skipped since state.isDisposed=true
-            terminalWidget?.let { widget ->
-                try {
-                    Disposer.dispose(widget)
-                } catch (e: Exception) {
-                    logger.error("❌ Failed to dispose terminalWidget: $extHostTerminalId", e)
-                }
-            }
-
-            terminalShellIntegration.dispose()
-            cleanupResources()
-
-            logger.info("✅ Terminal instance disposed: $extHostTerminalId")
-        } catch (e: Exception) {
-            logger.error("❌ Failed to dispose terminal instance: $extHostTerminalId", e)
+            logger.error("❌ ExtHost 프로세스에 터미널 닫힘 알림 실패: $extHostTerminalId", e)
         }
     }
 
     /**
-     * Cleanup resources
+     * 리소스를 해제합니다.
+     */
+    override fun dispose() {
+        if (state.isDisposed) return // 이미 해제되었으면 중복 호출 방지
+
+        logger.info("🧹 터미널 인스턴스 해제 중: $extHostTerminalId")
+
+        try {
+            state.markDisposed() // 해제 상태로 표시
+            
+            callbackManager.clear() // 콜백 정리
+            scope.cancel() // 코루틴 스코프 취소
+
+            // terminalWidget 해제 (onTerminalClosed 콜백은 state.isDisposed=true이므로 건너뜀)
+            terminalWidget?.let { widget ->
+                try {
+                    Disposer.dispose(widget)
+                } catch (e: Exception) {
+                    logger.error("❌ terminalWidget 해제 실패: $extHostTerminalId", e)
+                }
+            }
+
+            terminalShellIntegration.dispose() // 셸 통합 리소스 해제
+            cleanupResources() // 기타 리소스 정리
+
+            logger.info("✅ 터미널 인스턴스 해제 완료: $extHostTerminalId")
+        } catch (e: Exception) {
+            logger.error("❌ 터미널 인스턴스 해제 실패: $extHostTerminalId", e)
+        }
+    }
+
+    /**
+     * 리소스를 정리합니다.
      */
     private fun cleanupResources() {
         terminalWidget = null
@@ -576,23 +576,23 @@ class TerminalInstance(
 }
 
 /**
- * Terminal configuration data class
+ * 터미널 설정 데이터를 담는 데이터 클래스입니다.
  */
 data class TerminalConfig(
-    val name: String? = null,
-    val shellPath: String? = null,
-    val shellArgs: List<String>? = null,
-    val cwd: String? = null,
-    val env: Map<String, String>? = null,
-    val useShellEnvironment: Boolean? = null,
-    val hideFromUser: Boolean? = null,
-    val isFeatureTerminal: Boolean? = null,
-    val forceShellIntegration: Boolean? = null,
-    val initialText: String? = null
+    val name: String? = null,             // 터미널 이름
+    val shellPath: String? = null,        // 셸 실행 파일 경로
+    val shellArgs: List<String>? = null,  // 셸 실행 인자
+    val cwd: String? = null,              // 현재 작업 디렉터리
+    val env: Map<String, String>? = null, // 환경 변수
+    val useShellEnvironment: Boolean? = null, // 셸 환경 사용 여부
+    val hideFromUser: Boolean? = null,    // 사용자에게 숨길지 여부
+    val isFeatureTerminal: Boolean? = null, // 기능 터미널 여부
+    val forceShellIntegration: Boolean? = null, // 셸 통합 강제 여부
+    val initialText: String? = null       // 초기 텍스트
 ) {
     companion object {
         /**
-         * Create TerminalConfig from Map
+         * Map으로부터 `TerminalConfig` 객체를 생성합니다.
          */
         fun fromMap(config: Map<String, Any?>): TerminalConfig {
             return TerminalConfig(
@@ -611,7 +611,7 @@ data class TerminalConfig(
     }
 
     /**
-     * Convert to ShellLaunchConfigDto
+     * `ShellLaunchConfigDto`로 변환합니다.
      */
     fun toShellLaunchConfigDto(defaultCwd: String?): ShellLaunchConfigDto {
         return ShellLaunchConfigDto(
@@ -632,7 +632,8 @@ data class TerminalConfig(
 }
 
 /**
- * Terminal state manager
+ * 터미널 상태 관리자입니다.
+ * 터미널의 초기화 및 해제 상태를 추적합니다.
  */
 private class TerminalState {
     @Volatile
@@ -643,46 +644,69 @@ private class TerminalState {
 
     val isDisposed: Boolean get() = _isDisposed
 
+    /**
+     * 터미널 인스턴스가 초기화될 수 있는지 확인합니다.
+     * 이미 초기화되었거나 해제된 경우 예외를 발생시킵니다.
+     */
     fun checkCanInitialize(terminalId: String) {
         if (isInitialized || _isDisposed) {
-            throw IllegalStateException("Terminal instance already initialized or disposed: $terminalId")
+            throw IllegalStateException("터미널 인스턴스가 이미 초기화되었거나 해제되었습니다: $terminalId")
         }
     }
 
+    /**
+     * 터미널을 초기화된 상태로 표시합니다.
+     */
     fun markInitialized() {
         isInitialized = true
     }
 
+    /**
+     * 터미널을 해제된 상태로 표시합니다.
+     */
     fun markDisposed() {
         _isDisposed = true
     }
 
+    /**
+     * 터미널이 현재 작동 가능한 상태인지 확인합니다.
+     */
     fun canOperate(): Boolean {
         return isInitialized && !_isDisposed
     }
 }
 
 /**
- * Terminal callback manager
+ * 터미널 콜백 관리자입니다.
+ * 터미널 닫힘 콜백을 등록하고 실행합니다.
  */
 private class TerminalCallbackManager {
     private val logger = Logger.getInstance(TerminalCallbackManager::class.java)
     private val terminalCloseCallbacks = mutableListOf<() -> Unit>()
 
+    /**
+     * 터미널 닫힘 콜백을 추가합니다.
+     */
     fun addCloseCallback(callback: () -> Unit) {
         terminalCloseCallbacks.add(callback)
     }
 
+    /**
+     * 등록된 모든 터미널 닫힘 콜백을 실행합니다.
+     */
     fun executeCloseCallbacks() {
         terminalCloseCallbacks.forEach { callback ->
             try {
                 callback()
             } catch (e: Exception) {
-                logger.error("Failed to execute terminal close callback", e)
+                logger.error("터미널 닫힘 콜백 실행 실패", e)
             }
         }
     }
 
+    /**
+     * 모든 콜백을 지웁니다.
+     */
     fun clear() {
         terminalCloseCallbacks.clear()
     }

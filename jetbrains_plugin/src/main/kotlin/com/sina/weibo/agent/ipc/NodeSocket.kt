@@ -16,30 +16,40 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
- * NodeSocket implementation, wrapping Java Socket
- * Corresponds to NodeSocket implementation in VSCode
+ * NodeSocket 구현체입니다. Java의 `Socket` 또는 `SocketChannel`을 래핑하여 사용합니다.
+ * VSCode의 `NodeSocket` 구현에 해당하며, Extension Host와의 저수준 통신을 담당합니다.
  */
 class NodeSocket : ISocket {
 
     private val logger = Logger.getInstance(NodeSocket::class.java)
+    // 데이터, 연결 종료, 스트림 종료 이벤트를 위한 리스너 맵
     private val dataListeners = ConcurrentHashMap<ISocket.DataListener, Unit>()
     private val closeListeners = ConcurrentHashMap<ISocket.CloseListener, Unit>()
     private val endListeners = ConcurrentHashMap<() -> Unit, Unit>()
+    // 쓰기 가능 상태를 나타내는 플래그
     private val canWrite = AtomicBoolean(true)
+    // 데이터 수신을 위한 별도의 스레드
     private var receiveThread: Thread? = null
+    // 객체 해제 여부를 나타내는 플래그
     private val isDisposed = AtomicBoolean(false)
+    // 스트림 종료 후 지연 종료를 위한 타이머 핸들
     private var endTimeoutHandle: Thread? = null
-    private val socketEndTimeoutMs = 30_000L // 30 second timeout
-    private val debugLabel: String
-    private val input: java.io.InputStream
-    private val output: java.io.OutputStream
-    private val closeAction: () -> Unit
-    private val isSocket: Boolean
-    private val socket: Socket?
-    private val channel: SocketChannel?
-    private val writeAction: (ByteArray) -> Unit
+    // 소켓 종료 타임아웃 (30초)
+    private val socketEndTimeoutMs = 30_000L
+    private val debugLabel: String // 디버깅을 위한 레이블
+    private val input: java.io.InputStream // 입력 스트림
+    private val output: java.io.OutputStream // 출력 스트림
+    private val closeAction: () -> Unit // 소켓/채널 닫기 액션
+    private val isSocket: Boolean // TCP 소켓인지 UDS 채널인지 구분
+    private val socket: Socket? // TCP 소켓 인스턴스
+    private val channel: SocketChannel? // UDS 채널 인스턴스
+    private val writeAction: (ByteArray) -> Unit // 데이터 쓰기 액션
 
-    // Compatible with Socket/SocketChannel
+    /**
+     * TCP 소켓을 사용하는 생성자입니다.
+     * @param socket 래핑할 Java `Socket` 객체
+     * @param debugLabel 디버깅을 위한 레이블
+     */
     constructor(socket: Socket, debugLabel: String = "") {
         this.input = socket.getInputStream()
         this.output = socket.getOutputStream()
@@ -50,11 +60,16 @@ class NodeSocket : ISocket {
         this.channel = null
         this.writeAction = { buffer ->
             output.write(buffer)
-            output.flush()
+            output.flush() // 데이터 전송 후 즉시 플러시
         }
         traceSocketEvent(SocketDiagnosticsEventType.CREATED, mapOf("type" to "NodeSocket-TCP"))
     }
 
+    /**
+     * `SocketChannel` (UDS)을 사용하는 생성자입니다.
+     * @param channel 래핑할 Java `SocketChannel` 객체
+     * @param debugLabel 디버깅을 위한 레이블
+     */
     constructor(channel: SocketChannel, debugLabel: String = "") {
         this.input = Channels.newInputStream(channel)
         this.output = Channels.newOutputStream(channel)
@@ -66,42 +81,45 @@ class NodeSocket : ISocket {
         this.writeAction = { buffer ->
             val byteBuffer = java.nio.ByteBuffer.wrap(buffer)
             while (byteBuffer.hasRemaining()) {
-                channel.write(byteBuffer)
+                channel.write(byteBuffer) // 모든 바이트가 쓰여질 때까지 반복
             }
         }
         traceSocketEvent(SocketDiagnosticsEventType.CREATED, mapOf("type" to "NodeSocket-UDS"))
     }
 
+    /**
+     * 데이터 수신을 시작합니다.
+     * 별도의 스레드에서 입력 스트림을 지속적으로 읽습니다.
+     */
     override fun startReceiving() {
-        if (receiveThread != null) return
+        if (receiveThread != null) return // 이미 수신 스레드가 실행 중이면 중복 실행 방지
 
         receiveThread = thread(start = true, name = "NodeSocket-Receiver-$debugLabel") {
-            val buffer = ByteArray(8192) // 8KB buffer
+            val buffer = ByteArray(8192) // 8KB 버퍼
             try {
                 while (!isDisposed.get() && !Thread.currentThread().isInterrupted) {
                     try {
                         val bytesRead = input.read(buffer)
                         if (bytesRead == -1) {
-                            // Stream ended
-                            logger.info("Socket[$debugLabel] Read EOF, triggering onEndReceived()")
+                            // 스트림 끝(EOF)에 도달
+                            logger.info("Socket[$debugLabel] EOF 읽음, onEndReceived() 트리거")
                             onEndReceived()
                             break
                         } else if (bytesRead > 0) {
                             val data = buffer.copyOfRange(0, bytesRead)
                             traceSocketEvent(SocketDiagnosticsEventType.READ, data)
-                            // Notify all data listeners
+                            // 모든 데이터 리스너에게 수신된 데이터를 알립니다.
                             dataListeners.keys.forEach { listener ->
                                 try {
                                     listener.onData(data)
                                 } catch (e: Exception) {
-                                    logger.error("Socket[$debugLabel] Data listener processing exception", e)
+                                    logger.error("Socket[$debugLabel] 데이터 리스너 처리 중 예외 발생", e)
                                 }
                             }
                         }
                     } catch (e: IOException) {
                         if (!isDisposed.get()) {
-                            // Only report errors when socket is not actively closed
-                            logger.error("Socket[$debugLabel] IO exception occurred while reading data", e)
+                            logger.error("Socket[$debugLabel] 데이터 읽기 중 IO 예외 발생", e)
                             handleSocketError(e)
                         }
                         break
@@ -109,49 +127,57 @@ class NodeSocket : ISocket {
                 }
             } catch (e: Exception) {
                 if (!isDisposed.get()) {
-                    logger.error("Socket[$debugLabel] Unhandled exception in receive thread", e)
+                    logger.error("Socket[$debugLabel] 수신 스레드에서 처리되지 않은 예외 발생", e)
                     handleSocketError(e)
                 }
             } finally {
-                // Ensure Socket is closed
+                // 수신 스레드 종료 시 소켓이 닫히도록 보장합니다.
                 closeSocket(false)
             }
         }
     }
 
+    /**
+     * 스트림 종료(END) 신호를 수신했을 때 호출됩니다.
+     * 쓰기 작업을 비활성화하고 지연 종료 타이머를 설정합니다.
+     */
     private fun onEndReceived() {
         traceSocketEvent(SocketDiagnosticsEventType.NODE_END_RECEIVED)
-        logger.info("Socket[$debugLabel] Received END event, disabling write operations")
+        logger.info("Socket[$debugLabel] END 이벤트 수신, 쓰기 작업 비활성화")
         canWrite.set(false)
 
-        // Notify all end listeners
+        // 모든 end 리스너에게 알립니다.
         endListeners.keys.forEach { listener ->
             try {
                 listener.invoke()
             } catch (e: Exception) {
-                logger.error("Socket[$debugLabel] END event listener processing exception", e)
+                logger.error("Socket[$debugLabel] END 이벤트 리스너 처리 중 예외 발생", e)
             }
         }
 
-        // Set delayed close timer
-        logger.info("Socket[$debugLabel] Will execute delayed close after ${socketEndTimeoutMs}ms")
+        // 지연 종료 타이머를 설정합니다.
+        logger.info("Socket[$debugLabel] ${socketEndTimeoutMs}ms 후 지연 종료 실행 예정")
         endTimeoutHandle = thread(start = true, name = "NodeSocket-EndTimeout-$debugLabel") {
             try {
                 Thread.sleep(socketEndTimeoutMs)
                 if (!isDisposed.get()) {
-                    logger.info("Socket[$debugLabel] Executing delayed close")
+                    logger.info("Socket[$debugLabel] 지연 종료 실행")
                     closeAction()
                 }
             } catch (e: InterruptedException) {
-                logger.info("Socket[$debugLabel] Delayed close thread interrupted")
+                logger.info("Socket[$debugLabel] 지연 종료 스레드 중단됨")
             } catch (e: Exception) {
-                logger.error("Socket[$debugLabel] Delayed close processing exception", e)
+                logger.error("Socket[$debugLabel] 지연 종료 처리 중 예외 발생", e)
             }
         }
     }
 
+    /**
+     * 소켓 오류를 처리합니다.
+     * @param error 발생한 예외
+     */
     private fun handleSocketError(error: Exception) {
-        // Filter out EPIPE errors, which are common connection disconnect errors
+        // 일반적인 연결 끊김 오류(EPIPE, ECONNRESET)를 필터링합니다.
         val errorCode = when {
             error.message?.contains("Broken pipe") == true -> "EPIPE"
             error.message?.contains("Connection reset") == true -> "ECONNRESET"
@@ -165,77 +191,79 @@ class NodeSocket : ISocket {
             )
         )
 
-        // EPIPE errors don't need additional handling, socket will close itself
+        // EPIPE 오류는 추가적인 처리 없이 소켓이 스스로 닫히도록 합니다.
         if (errorCode != "EPIPE") {
-            logger.warn("Socket[$debugLabel] Error: ${error.message}", error)
+            logger.warn("Socket[$debugLabel] 오류: ${error.message}", error)
         }
 
-        // Close Socket
+        // 소켓을 닫습니다.
         closeSocket(true)
     }
 
+    /**
+     * 소켓 연결을 닫습니다.
+     * @param hadError 오류로 인해 닫혔는지 여부
+     */
     private fun closeSocket(hadError: Boolean) {
         if (isDisposed.get()) return
-        logger.info("Socket[$debugLabel] Closing connection, hadError=$hadError")
+        logger.info("Socket[$debugLabel] 연결 닫는 중, hadError=$hadError")
         try {
             if (!isClosed()) {
-                logger.info("Socket[$debugLabel] Closing connection")
+                logger.info("Socket[$debugLabel] 연결 닫기")
                 closeAction()
             }
         } catch (e: Exception) {
-            logger.warn("Socket[$debugLabel] Exception occurred while closing connection", e)
+            logger.warn("Socket[$debugLabel] 연결 닫기 중 예외 발생", e)
         }
 
-        // Stop end timeout thread
+        // 지연 종료 스레드를 중단합니다.
         endTimeoutHandle?.interrupt()
         endTimeoutHandle = null
 
         canWrite.set(false)
         traceSocketEvent(SocketDiagnosticsEventType.CLOSE, mapOf("hadError" to hadError))
 
-        // Notify all close listeners
+        // 모든 close 리스너에게 알립니다.
         val closeEvent = SocketCloseEvent.NodeSocketCloseEvent(hadError, null)
         closeListeners.keys.forEach { listener ->
             try {
                 listener.onClose(closeEvent)
             } catch (e: Exception) {
-                logger.error("Socket[$debugLabel] Close listener processing exception", e)
+                logger.error("Socket[$debugLabel] Close 리스너 처리 중 예외 발생", e)
             }
         }
     }
 
     override fun onData(listener: ISocket.DataListener): Disposable {
         dataListeners[listener] = Unit
-        return Disposable {
-            dataListeners.remove(listener)
-        }
+        return Disposable { dataListeners.remove(listener) }
     }
 
     override fun onClose(listener: ISocket.CloseListener): Disposable {
         closeListeners[listener] = Unit
-        return Disposable {
-            closeListeners.remove(listener)
-        }
+        return Disposable { closeListeners.remove(listener) }
     }
 
     override fun onEnd(listener: () -> Unit): Disposable {
         endListeners[listener] = Unit
-        return Disposable {
-            endListeners.remove(listener)
-        }
+        return Disposable { endListeners.remove(listener) }
     }
 
+    /**
+     * 데이터를 소켓에 씁니다.
+     * @param buffer 쓸 데이터 (바이트 배열)
+     */
     override fun write(buffer: ByteArray) {
         if (isDisposed.get()) {
-            logger.debug("Socket[$debugLabel] Write ignored: Socket disposed")
+            logger.debug("Socket[$debugLabel] 쓰기 무시됨: 소켓 해제됨")
             return
         }
         if (isClosed()) {
-            logger.info("Socket[$debugLabel] Write ignored: Socket closed")
+            logger.info("Socket[$debugLabel] 쓰기 무시됨: 소켓 닫힘")
             return
         }
         if (!canWrite.get()) {
-            logger.info("Socket[$debugLabel] Write ignored: canWrite=false")
+            logger.info("Socket[$debugLabel] 쓰기 무시됨: canWrite=false")
             return
         }
 
@@ -243,92 +271,97 @@ class NodeSocket : ISocket {
             traceSocketEvent(SocketDiagnosticsEventType.WRITE, buffer)
             writeAction(buffer)
         } catch (e: java.nio.channels.ClosedChannelException) {
-            logger.warn("Socket[$debugLabel] ClosedChannelException detected during write, connection closed")
+            logger.warn("Socket[$debugLabel] 쓰기 중 ClosedChannelException 감지, 연결 닫힘")
             handleSocketError(e)
         } catch (e: IOException) {
-            logger.error("Socket[$debugLabel] IO exception occurred during write", e)
-            // Filter out EPIPE errors
+            logger.error("Socket[$debugLabel] 쓰기 중 IO 예외 발생", e)
             if (e.message?.contains("Broken pipe") == true) {
-                logger.warn("Socket[$debugLabel] Broken pipe detected during write")
+                logger.warn("Socket[$debugLabel] 쓰기 중 Broken pipe 감지")
                 return
             }
             handleSocketError(e)
         } catch (e: Exception) {
-            logger.error("Socket[$debugLabel] Unknown exception occurred during write", e)
+            logger.error("Socket[$debugLabel] 쓰기 중 알 수 없는 예외 발생", e)
             handleSocketError(e)
         }
     }
 
+    /**
+     * 소켓 연결의 출력 스트림을 종료합니다.
+     */
     override fun end() {
         if (isDisposed.get() || isClosed()) {
             return
         }
 
         traceSocketEvent(SocketDiagnosticsEventType.NODE_END_SENT)
-        logger.info("Socket[$debugLabel] Sending END signal")
+        logger.info("Socket[$debugLabel] END 신호 전송 중")
         try {
             if (isSocket && socket != null) {
                 socket.shutdownOutput()
             } else channel?.shutdownOutput()
         } catch (e: Exception) {
-            logger.error("Socket[$debugLabel] Exception occurred while sending END signal", e)
+            logger.error("Socket[$debugLabel] END 신호 전송 중 예외 발생", e)
             handleSocketError(e)
         }
     }
 
+    /**
+     * 모든 데이터가 전송될 때까지 기다립니다.
+     */
     override suspend fun drain(): Unit {
         traceSocketEvent(SocketDiagnosticsEventType.NODE_DRAIN_BEGIN)
-
         try {
-            // Send an empty packet to trigger flush (TCP will flush, UDS writes directly)
+            // 플러시를 트리거하기 위해 빈 패킷을 보냅니다.
             writeAction(ByteArray(0))
         } catch (e: Exception) {
-            logger.error("Socket[$debugLabel] Exception occurred while executing drain", e)
+            logger.error("Socket[$debugLabel] drain 실행 중 예외 발생", e)
             handleSocketError(e)
         }
-
         traceSocketEvent(SocketDiagnosticsEventType.NODE_DRAIN_END)
     }
 
+    /**
+     * 소켓 이벤트를 추적하여 디버그 로그에 기록합니다.
+     */
     override fun traceSocketEvent(type: SocketDiagnosticsEventType, data: Any?) {
-        // Actual debug log logic
         if (logger.isDebugEnabled) {
-            logger.debug("Socket[$debugLabel] Event: $type, Data: $data")
+            logger.debug("Socket[$debugLabel] 이벤트: $type, 데이터: $data")
         }
     }
 
+    /**
+     * 리소스를 해제합니다.
+     */
     override fun dispose() {
         if (isDisposed.getAndSet(true)) {
             return
         }
 
         traceSocketEvent(SocketDiagnosticsEventType.CLOSE)
-        logger.info("Socket[$debugLabel] Releasing resources")
+        logger.info("Socket[$debugLabel] 리소스 해제 중")
 
-        // Clean up listeners
         dataListeners.clear()
         closeListeners.clear()
         endListeners.clear()
 
-        // Close Socket
         try {
             if (!isClosed()) {
                 closeAction()
             }
         } catch (e: Exception) {
-            logger.warn("Socket[$debugLabel] Exception occurred while closing Socket during resource release", e)
+            logger.warn("Socket[$debugLabel] 리소스 해제 중 연결 닫기 예외 발생", e)
         }
 
-        // Interrupt threads
         receiveThread?.interrupt()
         receiveThread = null
         endTimeoutHandle?.interrupt()
         endTimeoutHandle = null
 
-        logger.info("Socket[$debugLabel] Resource release completed")
+        logger.info("Socket[$debugLabel] 리소스 해제 완료")
     }
 
-    // State exposure method
+    // --- 소켓 상태 확인 메소드 ---
     fun isClosed(): Boolean {
         return when {
             socket != null -> socket.isClosed
@@ -340,7 +373,7 @@ class NodeSocket : ISocket {
     fun isInputClosed(): Boolean {
         return when {
             socket != null -> socket.isClosed || socket.isInputShutdown
-            channel != null -> !channel.isOpen // NIO doesn't have direct input shutdown flag, can only use isOpen
+            channel != null -> !channel.isOpen
             else -> true
         }
     }
@@ -348,10 +381,10 @@ class NodeSocket : ISocket {
     fun isOutputClosed(): Boolean {
         return when {
             socket != null -> socket.isClosed || socket.isOutputShutdown
-            channel != null -> !channel.isOpen // NIO doesn't have direct output shutdown flag, can only use isOpen
+            channel != null -> !channel.isOpen
             else -> true
         }
     }
 
     fun isDisposed(): Boolean = isDisposed.get()
-} 
+}

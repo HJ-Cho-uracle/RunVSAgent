@@ -4,3 +4,6 @@
 [submodule "deps/vscode"]
 	path = deps/vscode
 	url = https://github.com/microsoft/vscode.git
+[submodule "deps/athena"]
+	path = deps/athena
+	url = https://gitlab.morpheus.kr/lab/athena/code-assistant/roo-code.git

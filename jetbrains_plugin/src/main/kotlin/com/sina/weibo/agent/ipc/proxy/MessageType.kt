@@ -5,74 +5,76 @@
 package com.sina.weibo.agent.ipc.proxy
 
 /**
- * RPC message type
- * Corresponds to MessageType enum in VSCode
+ * RPC 메시지 타입(Message Type)을 정의하는 열거형입니다.
+ * VSCode의 `MessageType` 열거형에 해당하며, RPC 통신에서 메시지의 종류를 식별하는 데 사용됩니다.
  */
 enum class MessageType(val value: Int) {
     /**
-    * Request with JSON arguments
-    */
+     * JSON 인자를 포함하는 요청 메시지입니다.
+     */
     RequestJSONArgs(1),
 
     /**
-    * Request with JSON arguments and cancellation token
-    */
+     * JSON 인자와 취소 토큰을 포함하는 요청 메시지입니다.
+     */
     RequestJSONArgsWithCancellation(2),
 
     /**
-    * Request with mixed arguments
-    */
+     * 혼합된 인자(문자열, 버퍼 등)를 포함하는 요청 메시지입니다.
+     */
     RequestMixedArgs(3),
 
     /**
-    * Request with mixed arguments and cancellation token
-    */
+     * 혼합된 인자와 취소 토큰을 포함하는 요청 메시지입니다.
+     */
     RequestMixedArgsWithCancellation(4),
 
     /**
-    * Acknowledged message
-    */
+     * 메시지 수신 확인 응답(Acknowledged) 메시지입니다.
+     */
     Acknowledged(5),
 
     /**
-    * Cancel message
-    */
+     * 작업 취소 메시지입니다.
+     */
     Cancel(6),
 
     /**
-    * Empty OK reply
-    */
+     * 빈 성공 응답 메시지입니다.
+     */
     ReplyOKEmpty(7),
 
     /**
-    * OK reply with binary buffer
-    */
+     * 바이너리 버퍼를 포함하는 성공 응답 메시지입니다.
+     */
     ReplyOKVSBuffer(8),
 
     /**
-    * OK reply in JSON format
-    */
+     * JSON 형식의 성공 응답 메시지입니다.
+     */
     ReplyOKJSON(9),
 
     /**
-    * OK reply in JSON format with buffers
-    */
+     * JSON 형식과 버퍼를 포함하는 성공 응답 메시지입니다.
+     */
     ReplyOKJSONWithBuffers(10),
 
     /**
-    * Error reply
-    */
+     * 오류 정보를 포함하는 오류 응답 메시지입니다.
+     */
     ReplyErrError(11),
 
     /**
-    * Empty error reply
-    */
+     * 빈 오류 응답 메시지입니다.
+     */
     ReplyErrEmpty(12);
     
     companion object {
         /**
-        * Get type by value
-        */
+         * 정수 값으로부터 해당하는 `MessageType`을 가져옵니다.
+         * @param value 정수 값
+         * @return 해당하는 `MessageType` 또는 찾지 못하면 null
+         */
         fun fromValue(value: Int): MessageType? = values().find { it.value == value }
     }
 }

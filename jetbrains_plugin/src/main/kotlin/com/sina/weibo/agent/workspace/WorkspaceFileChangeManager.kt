@@ -20,148 +20,150 @@ import com.sina.weibo.agent.core.PluginContext
 import com.sina.weibo.agent.core.ServiceProxyRegistry
 import com.sina.weibo.agent.core.WorkspaceManager
 import com.sina.weibo.agent.events.*
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostFileSystemEventServiceProxy
 import com.sina.weibo.agent.ipc.proxy.interfaces.FileSystemEvents
 import java.util.concurrent.ConcurrentHashMap
 
 
 /**
- * Workspace file change manager
- * Listens for creation, modification, deletion, and other changes of files in the workspace, and sends corresponding events
+ * 작업 공간 파일 변경 관리자입니다.
+ * 작업 공간 내 파일의 생성, 수정, 삭제 및 기타 변경 사항을 감시하고, 해당 이벤트를 전송합니다.
+ * `@Service(Service.Level.PROJECT)` 어노테이션을 통해 IntelliJ에 프로젝트 서비스로 등록됩니다.
  */
 @Service(Service.Level.PROJECT)
 class WorkspaceFileChangeManager(val project: Project) : Disposable {
     private val logger = Logger.getInstance(WorkspaceFileChangeManager::class.java)
 
-    // Record registered file listener connections
+    // 등록된 파일 리스너 연결을 기록합니다.
     private val vfsConnections = ConcurrentHashMap<Project, MessageBusConnection>()
     
-    // Record project workspace directory paths
+    // 프로젝트별 작업 공간 디렉터리 경로를 기록합니다.
     private val projectWorkspacePaths = ConcurrentHashMap<Project, String>()
 
-    // Project connection
+    // 프로젝트 리스너 연결
     private var projectConnection: MessageBusConnection? = null
 
-    // Project listener
+    // 프로젝트 열기/닫기 이벤트를 처리하는 리스너
     private val projectListener = object : ProjectManagerListener {
+        /**
+         * 프로젝트가 열렸을 때 호출됩니다.
+         * 파일 리스너를 등록하고, 작업 공간 루트 변경 이벤트를 트리거합니다.
+         */
         override fun projectOpened(project: Project) {
             registerFileListener(project)
-            // Record initial project workspace directory
             project.basePath?.let { projectWorkspacePaths[project] = it }
-            // Trigger workspace root change event
             triggerWorkspaceRootChangeEvent(project, null, project.basePath ?: "")
         }
 
+        /**
+         * 프로젝트가 닫혔을 때 호출됩니다.
+         * 파일 리스너를 등록 해제하고, 프로젝트 작업 공간 경로 기록을 제거합니다.
+         */
         override fun projectClosed(project: Project) {
             unregisterFileListener(project)
-            // Remove project workspace directory record
             projectWorkspacePaths.remove(project)
         }
     }
 
     init {
-        logger.info("Initialize workspace file change manager")
+        logger.info("작업 공간 파일 변경 관리자 초기화 중")
 
-        // Listen for project open/close events
+        // 프로젝트 열기/닫기 이벤트를 수신하기 위한 리스너 등록
         projectConnection = ApplicationManager.getApplication().messageBus.connect(this)
         projectConnection?.subscribe(ProjectManager.TOPIC, projectListener)
 
-        // Register file listeners for already opened projects
+        // 이미 열려있는 프로젝트들에 대해 파일 리스너를 등록합니다.
         val openProjects = ProjectManager.getInstance().openProjects
         for (project in openProjects) {
             registerFileListener(project)
-            // Record workspace directory for opened projects
             project.basePath?.let { projectWorkspacePaths[project] = it }
         }
     }
 
     /**
-     * Trigger workspace root change event
-     * @param project Project
-     * @param oldPath Old workspace directory path
-     * @param newPath New workspace directory path
+     * 작업 공간 루트 변경 이벤트를 트리거합니다.
+     * @param project 이벤트가 발생한 프로젝트
+     * @param oldPath 이전 작업 공간 디렉터리 경로
+     * @param newPath 새 작업 공간 디렉터리 경로
      */
     private fun triggerWorkspaceRootChangeEvent(project: Project, oldPath: String?, newPath: String) {
-        logger.debug("Trigger workspace root change event: ${project.name}, old path: $oldPath, new path: $newPath")
+        logger.debug("작업 공간 루트 변경 이벤트 트리거: ${project.name}, 이전 경로: $oldPath, 새 경로: $newPath")
         
-        // Create workspace root change data
         val workspaceChangeData = WorkspaceRootChangeData(project, oldPath, newPath)
         
-        // Send workspace root change event via EventBus
+        // EventBus를 통해 작업 공간 루트 변경 이벤트를 전송합니다.
         project.getService(ProjectEventBus::class.java).emitInApplication(WorkspaceRootChangeEvent, workspaceChangeData)
         
-        // Get ExtHostWorkspace proxy
+        // ExtHostWorkspace 프록시를 통해 Extension Host에 작업 공간 데이터 변경을 알립니다.
         val extHostWorkspace = PluginContext.getInstance(project).getRPCProtocol()?.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostWorkspace)
 
-        // Get current workspace data
         val workspaceData = project.getService(WorkspaceManager::class.java).getProjectWorkspaceData(project)
 
         extHostWorkspace?.let {
-            if(workspaceData != null) {
-                logger.debug("Send workspace root change to extension process: ${workspaceData.name}, folders: ${workspaceData.folders.size}")
+            if (workspaceData != null) {
+                logger.debug("확장 프로세스로 작업 공간 루트 변경 전송: ${workspaceData.name}, 폴더: ${workspaceData.folders.size}")
                 it.acceptWorkspaceData(workspaceData)
             }
         }
     }
 
     /**
-     * Register file listener
-     * @param project Project to listen to
+     * 파일 리스너를 등록합니다.
+     * @param project 리스너를 등록할 프로젝트
      */
     private fun registerFileListener(project: Project) {
         if (vfsConnections.containsKey(project)) {
-            logger.info("File listener for project ${project.name} already exists, skip registration")
+            logger.info("프로젝트 '${project.name}'에 대한 파일 리스너가 이미 존재하여 등록을 건너뜁니다.")
             return
         }
 
-        logger.info("Register file listener for project ${project.name}")
+        logger.info("프로젝트 '${project.name}'에 대한 파일 리스너 등록")
 
         try {
-            // Create connection and subscribe to VFS change events
             val connection = project.messageBus.connect()
 
-            // Add virtual file system listener
+            // 가상 파일 시스템(VFS) 변경 이벤트를 구독합니다.
             connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
                     processBulkFileEvents(events, project)
                 }
             })
 
-            // Save connection for later cleanup
+            // 나중에 정리하기 위해 연결을 저장합니다.
             vfsConnections[project] = connection
 
         } catch (e: Exception) {
-            logger.error("Failed to register file listener for project ${project.name}", e)
+            logger.error("프로젝트 '${project.name}'에 대한 파일 리스너 등록 실패", e)
         }
     }
 
     /**
-     * Unregister file listener
-     * @param project Project to unregister listener from
+     * 파일 리스너를 등록 해제합니다.
+     * @param project 리스너를 등록 해제할 프로젝트
      */
     private fun unregisterFileListener(project: Project) {
         val connection = vfsConnections.remove(project)
         if (connection != null) {
-            logger.info("Unregister file listener for project ${project.name}")
+            logger.info("프로젝트 '${project.name}'에 대한 파일 리스너 등록 해제")
 
             try {
                 connection.disconnect()
             } catch (e: Exception) {
-                logger.error("Failed to unregister file listener for project ${project.name}", e)
+                logger.error("프로젝트 '${project.name}'에 대한 파일 리스너 등록 해제 실패", e)
             }
         }
     }
 
     /**
-     * Process bulk file events
-     * @param events List of file events
-     * @param project Related project
+     * 대량 파일 이벤트를 처리합니다.
+     * @param events 파일 이벤트 목록
+     * @param project 관련 프로젝트
      */
     private fun processBulkFileEvents(events: List<VFileEvent>, project: Project) {
         if (events.isEmpty()) {
             return
         }
 
-        // Collect all file changes
         val fileChanges = mutableListOf<WorkspaceFileChangeData>()
         val directoryChanges = mutableListOf<WorkspaceFileChangeData>()
 
@@ -177,79 +179,76 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
             }
 
             if (file != null) {
-                // Determine change type
+                // 변경 유형 결정
                 val changeType = when (event) {
                     is VFileCreateEvent -> FileChangeType.CREATED
                     is VFileDeleteEvent -> FileChangeType.DELETED
                     else -> FileChangeType.UPDATED
                 }
 
-                // Skip irrelevant files or directories
+                // 프로젝트와 관련 없는 파일 또는 디렉터리 건너뛰기
                 if (isRelevantFileSystemItem(file, project)) {
                     val changeData = WorkspaceFileChangeData(file, changeType)
 
-                    // Store by type
+                    // 유형별로 변경 사항 저장
                     if (file.isDirectory) {
                         directoryChanges.add(changeData)
-                        // Trigger event for each directory change
-                        triggerDirectoryChangeEvent(changeData)
+                        triggerDirectoryChangeEvent(changeData) // 각 디렉터리 변경에 대한 이벤트 트리거
                     } else {
                         fileChanges.add(changeData)
-                        // Trigger event for each file change
-                        triggerFileChangeEvent(changeData)
+                        triggerFileChangeEvent(changeData) // 각 파일 변경에 대한 이벤트 트리거
                     }
                 }
             }
         }
 
-        // Trigger bulk file change event
+        // 대량 파일 변경 이벤트 트리거
         if (fileChanges.isNotEmpty()) {
-            triggerBulkFileChangeEvent(fileChanges,project)
+            triggerBulkFileChangeEvent(fileChanges, project)
         }
 
-        // Trigger bulk directory change event
+        // 대량 디렉터리 변경 이벤트 트리거
         if (directoryChanges.isNotEmpty()) {
-            triggerBulkDirectoryChangeEvent(directoryChanges,project)
+            triggerBulkDirectoryChangeEvent(directoryChanges, project)
         }
     }
 
     /**
-     * Trigger file change event
-     * @param fileChangeData File change data
+     * 단일 파일 변경 이벤트를 트리거합니다.
+     * @param fileChangeData 파일 변경 데이터
      */
     private fun triggerFileChangeEvent(fileChangeData: WorkspaceFileChangeData) {
-        logger.debug("File changed: ${fileChangeData.file.path}, type: ${fileChangeData.changeType}")
+        logger.debug("파일 변경됨: ${fileChangeData.file.path}, 유형: ${fileChangeData.changeType}")
 
-        // Send single file change event via EventBus
+        // EventBus를 통해 단일 파일 변경 이벤트를 전송합니다.
         project.getService(ProjectEventBus::class.java).emitInApplication(WorkspaceFileChangeEvent, fileChangeData)
     }
 
     /**
-     * Trigger directory change event
-     * @param directoryChangeData Directory change data
+     * 단일 디렉터리 변경 이벤트를 트리거합니다.
+     * @param directoryChangeData 디렉터리 변경 데이터
      */
     private fun triggerDirectoryChangeEvent(directoryChangeData: WorkspaceFileChangeData) {
-        logger.debug("Directory changed: ${directoryChangeData.file.path}, type: ${directoryChangeData.changeType}")
+        logger.debug("디렉터리 변경됨: ${directoryChangeData.file.path}, 유형: ${directoryChangeData.changeType}")
 
-        // Send single directory change event via EventBus
+        // EventBus를 통해 단일 디렉터리 변경 이벤트를 전송합니다.
         project.getService(ProjectEventBus::class.java).emitInApplication(WorkspaceDirectoryChangeEvent, directoryChangeData)
     }
 
     /**
-     * Trigger bulk file change event
-     * @param fileChanges List of file changes
+     * 대량 파일 변경 이벤트를 트리거하고 Extension Host에 알립니다.
+     * @param fileChanges 파일 변경 목록
+     * @param project 관련 프로젝트
      */
     private fun triggerBulkFileChangeEvent(fileChanges: List<WorkspaceFileChangeData>, project: Project) {
-        logger.debug("Bulk file change, total ${fileChanges.size} files")
+        logger.debug("대량 파일 변경, 총 ${fileChanges.size}개 파일")
 
         val proxy = PluginContext.getInstance(project).getRPCProtocol()?.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostFileSystemEventService)
         proxy?.let {
-            // Convert file change data to FileSystemEvents format
             val createdFiles = mutableListOf<Map<String, Any?>>()
             val changedFiles = mutableListOf<Map<String, Any?>>()
             val deletedFiles = mutableListOf<Map<String, Any?>>()
 
-            // Classify files by change type
             fileChanges.forEach { fileChange ->
                 val uriComponents = fileToUriComponents(fileChange.file)
                 when (fileChange.changeType) {
@@ -259,7 +258,6 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
                 }
             }
 
-            // Create FileSystemEvents object and send
             val fileSystemEvents = FileSystemEvents(
                 session = fileChanges[0].timestamp.toString(),
                 created = createdFiles,
@@ -267,30 +265,27 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
                 deleted = deletedFiles
             )
 
-            // Call onFileEvent method of extension host file system event service
-            it.onFileEvent(fileSystemEvents)
+            it.onFileEvent(fileSystemEvents) // Extension Host에 파일 이벤트 전송
         }
 
-        // Send bulk file change event via EventBus
         val bulkChangeData = WorkspaceFilesChangeData(fileChanges)
         project.getService(ProjectEventBus::class.java).emitInApplication(WorkspaceFilesChangeEvent, bulkChangeData)
     }
 
     /**
-     * Trigger bulk directory change event
-     * @param directoryChanges List of directory changes
+     * 대량 디렉터리 변경 이벤트를 트리거하고 Extension Host에 알립니다.
+     * @param directoryChanges 디렉터리 변경 목록
+     * @param project 관련 프로젝트
      */
     private fun triggerBulkDirectoryChangeEvent(directoryChanges: List<WorkspaceFileChangeData>, project: Project) {
-        logger.debug("Bulk directory change, total ${directoryChanges.size} directories")
+        logger.debug("대량 디렉터리 변경, 총 ${directoryChanges.size}개 디렉터리")
 
         val proxy = PluginContext.getInstance(project).getRPCProtocol()?.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostFileSystemEventService)
         proxy?.let {
-            // Convert directory change data to FileSystemEvents format
             val createdDirs = mutableListOf<Map<String, Any?>>()
             val changedDirs = mutableListOf<Map<String, Any?>>()
             val deletedDirs = mutableListOf<Map<String, Any?>>()
 
-            // Classify directories by change type
             directoryChanges.forEach { dirChange ->
                 val uriComponents = fileToUriComponents(dirChange.file)
                 when (dirChange.changeType) {
@@ -300,7 +295,6 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
                 }
             }
 
-            // Create FileSystemEvents object and send
             val fileSystemEvents = FileSystemEvents(
                 session = directoryChanges[0].timestamp.toString(),
                 created = createdDirs,
@@ -308,22 +302,19 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
                 deleted = deletedDirs
             )
 
-            // Call onFileEvent method of extension host file system event service
-            it.onFileEvent(fileSystemEvents)
+            it.onFileEvent(fileSystemEvents) // Extension Host에 파일 이벤트 전송
         }
 
-        // Send bulk directory change event via EventBus
         val bulkChangeData = WorkspaceFilesChangeData(directoryChanges)
         project.getService(ProjectEventBus::class.java).emitInApplication(WorkspaceDirectoriesChangeEvent, bulkChangeData)
     }
 
     /**
-     * Convert VirtualFile to URI components map
-     * @param file Virtual file
-     * @return URI components map
+     * `VirtualFile`을 URI 구성 요소 맵으로 변환합니다.
+     * @param file `VirtualFile` 객체
+     * @return URI 구성 요소 맵
      */
     private fun fileToUriComponents(file: VirtualFile): Map<String, Any?> {
-        // Build component map conforming to VSCode URI format
         return mapOf(
             "scheme" to "file",
             "path" to file.path,
@@ -334,18 +325,19 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
     }
 
     /**
-     * Check if file or directory is relevant to the project
-     * @param file File or directory to check
-     * @param project Project
-     * @return Whether the file or directory is relevant to the project
+     * 파일 또는 디렉터리가 프로젝트와 관련이 있는지 확인합니다.
+     * 숨김 파일, 임시 파일 등을 제외합니다.
+     * @param file 확인할 파일 또는 디렉터리
+     * @param project 프로젝트
+     * @return 파일 또는 디렉터리가 프로젝트와 관련이 있으면 true
      */
     private fun isRelevantFileSystemItem(file: VirtualFile, project: Project): Boolean {
-        // Ignore hidden files and directories
+        // 숨김 파일 및 디렉터리 무시
         if (file.name.startsWith(".") || file.path.contains("/.")) {
             return false
         }
 
-        // For files, ignore temporary files
+        // 파일인 경우 임시 파일 무시
         if (!file.isDirectory && (file.name.endsWith("~") || file.name.endsWith(".tmp"))) {
             return false
         }
@@ -354,27 +346,26 @@ class WorkspaceFileChangeManager(val project: Project) : Disposable {
     }
 
     override fun dispose() {
-        logger.info("Release workspace file change manager resources")
+        logger.info("작업 공간 파일 변경 관리자 리소스 해제")
 
         try {
-            // Disconnect project listener connection
-            projectConnection?.disconnect()
+            projectConnection?.disconnect() // 프로젝트 리스너 연결 해제
             projectConnection = null
 
-            // Release all file listener connections
+            // 모든 파일 리스너 연결 해제
             vfsConnections.forEach { (project, connection) ->
                 try {
-                    logger.info("Unregister file listener for project ${project.name}")
+                    logger.info("프로젝트 '${project.name}'에 대한 파일 리스너 등록 해제")
                     connection.disconnect()
                 } catch (e: Exception) {
-                    logger.error("Failed to unregister file listener for project ${project.name}", e)
+                    logger.error("프로젝트 '${project.name}'에 대한 파일 리스너 등록 해제 실패", e)
                 }
             }
 
             vfsConnections.clear()
 
         } catch (e: Exception) {
-            logger.error("Failed to release workspace file change manager resources", e)
+            logger.error("작업 공간 파일 변경 관리자 리소스 해제 실패", e)
         }
     }
 

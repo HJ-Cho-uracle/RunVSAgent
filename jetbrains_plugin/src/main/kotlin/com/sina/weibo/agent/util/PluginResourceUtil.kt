@@ -17,57 +17,61 @@ import java.nio.file.Paths
 import kotlin.io.path.pathString
 
 /**
- * Plugin resource utility class
- * Used to obtain resource file paths in the plugin
+ * 플러그인 리소스 유틸리티 클래스입니다.
+ * 플러그인 내의 리소스 파일 경로를 얻는 데 사용됩니다.
  */
 object PluginResourceUtil {
     private val LOG = Logger.getInstance(PluginResourceUtil::class.java)
 
     /**
-     * Get resource path
+     * 지정된 플러그인 ID와 리소스 이름에 해당하는 리소스 경로를 가져옵니다.
      *
-     * @param pluginId Plugin ID
-     * @param resourceName Resource name
-     * @return Resource path, or null if failed to get
+     * @param pluginId 플러그인 ID
+     * @param resourceName 리소스 이름 (예: "runtime/extension.js")
+     * @return 리소스 경로 문자열, 가져오기 실패 시 null
      */
     fun getResourcePath(pluginId: String, resourceName: String): String? {
         return try {
-            if(WecoderPluginService.getDebugMode() == DEBUG_MODE.IDEA) {
-                // Debug mode: directly use plugin service to get resource path
+            // 디버그 모드인 경우, 디버그 리소스 경로를 직접 사용합니다.
+            if (WecoderPluginService.getDebugMode() == DEBUG_MODE.IDEA) {
                 return WecoderPluginService.getDebugResource() + "/$resourceName"
             }
-            val plugin = PluginManagerCore.getPlugin(PluginId.getId(pluginId))
-                ?: throw IllegalStateException("Cannot find plugin: $pluginId")
 
-            // Determine whether it is development mode or production mode
+            val plugin = PluginManagerCore.getPlugin(PluginId.getId(pluginId))
+                ?: throw IllegalStateException("플러그인을 찾을 수 없습니다: $pluginId")
+
+            // 개발 모드인지 프로덕션 모드인지 확인합니다.
             val isDevMode = checkDevMode(plugin)
 
             if (isDevMode) {
-                // Development mode: load from classpath or project resource directory
+                // 개발 모드: 클래스패스 또는 프로젝트 리소스 디렉터리에서 로드합니다.
                 loadDevResource(resourceName, plugin)
             } else {
-                // Production mode: load from plugin JAR or installation directory
+                // 프로덕션 모드: 플러그인 JAR 또는 설치 디렉터리에서 로드합니다.
                 loadProdResource(resourceName, plugin)
             }
         } catch (e: Exception) {
-            LOG.error("Failed to get plugin resource path: $resourceName", e)
+            LOG.error("플러그인 리소스 경로 가져오기 실패: $resourceName", e)
             null
         }
     }
 
     /**
-     * Load resources in development mode
+     * 개발 모드에서 리소스를 로드합니다.
+     * `debug-resources` 디렉터리에서 리소스를 찾습니다.
      */
     private fun loadDevResource(resourceName: String, plugin: IdeaPluginDescriptor): String {
+        // 플러그인 경로를 기반으로 `debug-resources` 디렉터리 내의 리소스 경로를 구성합니다.
         val resourcePath = Paths.get(plugin.pluginPath.parent.parent.parent.parent.parent.pathString, "debug-resources/$resourceName")
         return resourcePath.toString()
     }
 
     /**
-     * Load resources in production mode
+     * 프로덕션 모드에서 리소스를 로드합니다.
+     * 플러그인 설치 디렉터리 내에서 리소스를 찾습니다.
      */
     private fun loadProdResource(resourceName: String, plugin: IdeaPluginDescriptor): String? {
-        // Load from plugin installation directory (compatible with old version)
+        // 플러그인 설치 디렉터리 내에서 리소스를 찾습니다.
         val pluginDir = plugin.pluginPath.toFile()
         val resourceDir = pluginDir.resolve(resourceName)
         if (resourceDir.exists()) {
@@ -77,39 +81,40 @@ object PluginResourceUtil {
     }
 
     /**
-     * Check whether it is in development mode
+     * 현재 플러그인이 개발 모드인지 확인합니다.
+     * `WecoderPluginService.getDebugMode()`를 통해 디버그 모드 설정을 확인합니다.
      */
     private fun checkDevMode(plugin: IdeaPluginDescriptor): Boolean {
         return try {
             WecoderPluginService.getDebugMode() != DEBUG_MODE.NONE
-        }catch (e: Exception){
+        } catch (e: Exception) {
             false
         }
     }
 
     /**
-     * Extract resource from URL to temporary file
+     * URL에서 리소스를 읽어 임시 파일로 추출합니다.
      *
-     * @param resourceUrl Resource URL
-     * @param filename File name
-     * @return Temporary file path, or null if extraction fails
+     * @param resourceUrl 리소스의 URL
+     * @param filename 생성할 임시 파일의 이름
+     * @return 임시 파일의 절대 경로, 또는 추출 실패 시 null
      */
     fun extractResourceToTempFile(resourceUrl: java.net.URL, filename: String): String? {
         return try {
             val tempFile = File.createTempFile("roo-cline-", "-$filename")
-            tempFile.deleteOnExit()
-            
+            tempFile.deleteOnExit() // JVM 종료 시 임시 파일 삭제
+
             resourceUrl.openStream().use { input ->
                 tempFile.outputStream().use { output ->
-                    input.copyTo(output)
+                    input.copyTo(output) // 스트림 복사
                 }
             }
             
-            LOG.info("Resource extracted to temporary file: ${tempFile.absolutePath}")
+            LOG.info("리소스를 임시 파일로 추출: ${tempFile.absolutePath}")
             tempFile.absolutePath
         } catch (e: Exception) {
-            LOG.error("Failed to extract resource to temporary file: $filename", e)
+            LOG.error("리소스를 임시 파일로 추출 실패: $filename", e)
             null
         }
     }
-} 
+}

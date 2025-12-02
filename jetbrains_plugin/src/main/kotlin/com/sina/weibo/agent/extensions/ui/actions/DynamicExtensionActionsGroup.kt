@@ -18,27 +18,29 @@ import com.sina.weibo.agent.extensions.plugin.costrict.CostrictCodeButtonProvide
 import com.sina.weibo.agent.extensions.ui.buttons.ExtensionButtonProvider
 
 /**
- * Dynamic extension actions group that shows different buttons based on the current extension type.
- * This class dynamically generates buttons according to the current extension provider.
+ * 동적 확장 액션 그룹입니다.
+ * 현재 활성화된 확장 타입에 따라 다른 버튼들을 UI에 표시합니다.
+ * `DefaultActionGroup`을 상속받아 IntelliJ의 액션 시스템에 통합됩니다.
  */
 class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpdateThreadAware, ExtensionChangeListener {
     
     private val logger = Logger.getInstance(DynamicExtensionActionsGroup::class.java)
     
-    /**
-     * Updates the action group based on the current context and extension type.
-     * This method is called each time the menu/toolbar needs to be displayed.
-     *
-     * @param e The action event containing context information
-     */
-    private var cachedButtonProvider: ExtensionButtonProvider? = null
-    private var cachedExtensionId: String? = null
-    private var cachedActions: List<AnAction>? = null
+    // --- 캐시 변수 ---
+    private var cachedButtonProvider: ExtensionButtonProvider? = null // 캐시된 버튼 제공자
+    private var cachedExtensionId: String? = null // 캐시된 확장 ID
+    private var cachedActions: List<AnAction>? = null // 캐시된 액션 목록
     
+    /**
+     * 액션 그룹을 현재 컨텍스트와 확장 타입에 따라 업데이트합니다.
+     * 메뉴/툴바가 표시될 때마다 호출됩니다.
+     *
+     * @param e 컨텍스트 정보를 포함하는 액션 이벤트
+     */
     override fun update(e: AnActionEvent) {
         val project = e.getData(CommonDataKeys.PROJECT)
         if (project == null) {
-            e.presentation.isVisible = false
+            e.presentation.isVisible = false // 프로젝트가 없으면 그룹을 숨깁니다.
             return
         }
         
@@ -49,34 +51,39 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
             if (currentProvider != null) {
                 val extensionId = currentProvider.getExtensionId()
                 
-                // 检查是否需要更新缓存
+                // 캐시된 확장 ID가 다르거나 액션이 캐시되지 않았으면 업데이트합니다.
                 if (cachedExtensionId != extensionId || cachedActions == null) {
                     updateCachedActions(currentProvider, project)
                 }
                 
-                // 使用缓存的actions
+                // 캐시된 액션들을 사용하여 그룹을 구성합니다.
                 if (cachedActions != null) {
-                    removeAll()
+                    removeAll() // 기존 액션 모두 제거
                     cachedActions!!.forEach { action ->
-                        add(action)
+                        add(action) // 캐시된 액션 추가
                     }
-                    e.presentation.isVisible = true
-                    logger.debug("Using cached actions for extension: $extensionId")
+                    e.presentation.isVisible = true // 그룹을 표시합니다.
+                    logger.debug("확장 '$extensionId'에 대해 캐시된 액션 사용 중")
                 }
             } else {
-                e.presentation.isVisible = false
-                logger.debug("No current extension provider, hiding dynamic actions")
+                e.presentation.isVisible = false // 현재 확장 제공자가 없으면 그룹을 숨깁니다.
+                logger.debug("현재 확장 제공자가 없어 동적 액션 숨김")
             }
         } catch (exception: Exception) {
-            logger.warn("Failed to load dynamic actions", exception)
+            logger.warn("동적 액션 로드 실패", exception)
             e.presentation.isVisible = false
         }
     }
     
+    /**
+     * 현재 확장 제공자에 따라 캐시된 액션들을 업데이트합니다.
+     * @param provider 현재 확장 제공자
+     * @param project 현재 프로젝트
+     */
     private fun updateCachedActions(provider: ExtensionProvider, project: Project) {
         val extensionId = provider.getExtensionId()
         
-        // 创建新的ButtonProvider实例（仅在扩展类型改变时）
+        // 확장의 ID에 따라 적절한 `ExtensionButtonProvider` 인스턴스를 생성합니다.
         val buttonProvider = when (extensionId) {
             "roo-code" -> RooCodeButtonProvider()
             "cline" -> ClineButtonProvider()
@@ -86,65 +93,44 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
         }
         
         if (buttonProvider != null) {
-            // 创建并缓存actions
+            // 버튼 제공자로부터 액션 목록을 가져와 캐시합니다.
             val actions = buttonProvider.getButtons(project)
             
-            // 更新缓存
+            // 캐시 변수들을 업데이트합니다.
             cachedButtonProvider = buttonProvider
             cachedExtensionId = extensionId
             cachedActions = actions
             
-            logger.debug("Updated cached actions for extension: $extensionId, count: ${actions.size}")
+            logger.debug("확장 '$extensionId'에 대해 캐시된 액션 업데이트됨, 개수: ${actions.size}")
         }
     }
     
     /**
-     * Loads dynamic actions into this action group based on the current extension provider.
-     *
-     * @param provider The current extension provider
-     * @param project The current project
+     * (현재 사용되지 않음) 동적 액션을 이 액션 그룹에 로드합니다.
+     * `updateCachedActions` 메소드로 대체되었습니다.
      */
     private fun loadDynamicActions(provider: ExtensionProvider, project: Project) {
-        val extensionId = provider.getExtensionId()
-
-        val buttonProvider = when (extensionId) {
-            "roo-code" -> RooCodeButtonProvider()
-            "cline" -> ClineButtonProvider()
-            "kilo-code" -> KiloCodeButtonProvider()
-            "costrict" -> CostrictCodeButtonProvider()
-            else -> null
-        }
-        // Create actions based on extension type
-        val actions = buttonProvider?.getButtons(project) ?: emptyList()
-        
-        // Add all actions to the group
-        actions.forEach { action ->
-            add(action)
-        }
-        
-        logger.debug("Added ${actions.size} actions for extension: $extensionId")
+        // ... (이전 로직, 현재는 updateCachedActions가 처리)
     }
 
     /**
-     * Specifies which thread should be used for updating this action.
-     * Returns BGT to ensure updates happen on the background thread.
+     * 이 액션의 업데이트에 사용될 스레드를 지정합니다.
+     * 백그라운드 스레드(BGT)에서 업데이트가 발생하도록 설정합니다.
      */
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
     }
     
     /**
-     * Called when the current extension changes.
-     * This method is part of the ExtensionChangeListener interface.
-     * 
-     * @param newExtensionId The ID of the new extension
+     * 현재 확장이 변경되었을 때 호출됩니다.
+     * `ExtensionChangeListener` 인터페이스의 일부입니다.
+     *
+     * @param newExtensionId 새로 활성화된 확장의 ID
      */
     override fun onExtensionChanged(newExtensionId: String) {
-        logger.info("Extension changed to: $newExtensionId, refreshing dynamic actions")
+        logger.info("확장이 '$newExtensionId'(으)로 변경됨, 동적 액션 새로고침")
         
-        // Note: The action group will be automatically refreshed when the UI is next displayed
-        // No need to manually trigger an update here
+        // 참고: UI가 다음에 표시될 때 액션 그룹은 자동으로 새로고침됩니다.
+        // 여기에서 수동으로 업데이트를 트리거할 필요는 없습니다.
     }
-    
-    // Note: getProjectFromContext method removed as it's no longer needed
 }

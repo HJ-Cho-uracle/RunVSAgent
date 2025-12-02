@@ -14,67 +14,68 @@ import com.sina.weibo.agent.extensions.plugin.kilo.KiloCodeContextMenuProvider
 import com.sina.weibo.agent.extensions.plugin.costrict.CostrictCodeContextMenuProvider
 
 /**
- * Dynamic context menu manager that controls which context menu actions are available
- * based on the current extension type.
- * This manager works in conjunction with DynamicExtensionContextMenuGroup to provide
- * dynamic context menu functionality.
+ * 동적 컨텍스트 메뉴 관리자입니다.
+ * 현재 활성화된 확장 타입에 따라 어떤 컨텍스트 메뉴 액션을 사용할 수 있는지 제어합니다.
+ * `DynamicExtensionContextMenuGroup`과 함께 동적 컨텍스트 메뉴 기능을 제공합니다.
  */
 @Service(Service.Level.PROJECT)
 class DynamicContextMenuManager(private val project: Project) {
     
     private val logger = Logger.getInstance(DynamicContextMenuManager::class.java)
-    private val extensionManager = ExtensionManager.Companion.getInstance(project)
+    private val extensionManager = ExtensionManager.getInstance(project)
 
-    // Current extension ID
+    // 현재 활성화된 확장의 ID
     @Volatile
     private var currentExtensionId: String? = null
     
     companion object {
         /**
-         * Get dynamic context menu manager instance
+         * `DynamicContextMenuManager`의 싱글톤 인스턴스를 가져옵니다.
          */
         fun getInstance(project: Project): DynamicContextMenuManager {
             return project.getService(DynamicContextMenuManager::class.java)
-                ?: error("DynamicContextMenuManager not found")
+                ?: error("DynamicContextMenuManager 서비스를 찾을 수 없습니다.")
         }
     }
     
     /**
-     * Initialize the dynamic context menu manager
+     * 동적 컨텍스트 메뉴 관리자를 초기화합니다.
+     * `ExtensionManager`로부터 현재 활성화된 확장을 가져와 `currentExtensionId`를 설정합니다.
      */
     fun initialize() {
-        logger.info("Initializing dynamic context menu manager")
+        logger.info("동적 컨텍스트 메뉴 관리자 초기화 중")
         
-        // Get current extension from extension manager
         try {
             val currentProvider = extensionManager.getCurrentProvider()
             currentExtensionId = currentProvider?.getExtensionId()
-            logger.info("Dynamic context menu manager initialized with extension: $currentExtensionId")
+            logger.info("확장 '$currentExtensionId'로 동적 컨텍스트 메뉴 관리자 초기화됨")
         } catch (e: Exception) {
-            logger.warn("Failed to initialize dynamic context menu manager", e)
+            logger.warn("동적 컨텍스트 메뉴 관리자 초기화 실패", e)
         }
     }
     
     /**
-     * Set the current extension and update context menu configuration
+     * 현재 확장을 설정하고 컨텍스트 메뉴 구성을 업데이트합니다.
+     * @param extensionId 새로 설정할 확장의 ID
      */
     fun setCurrentExtension(extensionId: String) {
-        logger.info("Setting current extension to: $extensionId")
+        logger.info("현재 확장을 '$extensionId'(으)로 설정 중")
         currentExtensionId = extensionId
         
-        // Refresh all context menus to reflect the change
+        // 모든 컨텍스트 메뉴를 새로고침하여 변경사항을 반영합니다.
         refreshContextMenus()
     }
     
     /**
-     * Get the current extension ID
+     * 현재 활성화된 확장의 ID를 가져옵니다.
      */
     fun getCurrentExtensionId(): String? {
         return extensionManager.getCurrentProvider()?.getExtensionId()
     }
     
     /**
-     * Get context menu configuration for the current extension
+     * 현재 확장에 대한 컨텍스트 메뉴 구성(`ContextMenuConfiguration`)을 가져옵니다.
+     * @return 현재 확장의 `ContextMenuConfiguration` 객체, 없으면 기본 구성 반환
      */
     fun getContextMenuConfiguration(): ContextMenuConfiguration {
         val contextMenuProvider = getContextMenuProvider(getCurrentExtensionId())
@@ -82,7 +83,8 @@ class DynamicContextMenuManager(private val project: Project) {
     }
     
     /**
-     * Get context menu actions for the current extension
+     * 현재 확장에 대한 컨텍스트 메뉴 액션 목록을 가져옵니다.
+     * @return `AnAction` 객체 리스트 형태의 컨텍스트 메뉴 액션 목록
      */
     fun getContextMenuActions(): List<com.intellij.openapi.actionSystem.AnAction> {
         val contextMenuProvider = getContextMenuProvider(getCurrentExtensionId())
@@ -90,10 +92,9 @@ class DynamicContextMenuManager(private val project: Project) {
     }
     
     /**
-     * Get context menu provider for the specified extension.
-     *
-     * @param extensionId The extension ID
-     * @return Context menu provider instance or null if not found
+     * 지정된 확장에 대한 `ExtensionContextMenuProvider` 인스턴스를 가져옵니다.
+     * @param extensionId 확장의 ID
+     * @return `ExtensionContextMenuProvider` 인스턴스 또는 찾지 못하면 null
      */
     private fun getContextMenuProvider(extensionId: String?): ExtensionContextMenuProvider? {
         if (extensionId == null) return null
@@ -103,15 +104,15 @@ class DynamicContextMenuManager(private val project: Project) {
             "cline" -> ClineContextMenuProvider()
             "kilo-code" -> KiloCodeContextMenuProvider()
             "costrict" -> CostrictCodeContextMenuProvider()
-            // TODO: Add other context menu providers as they are implemented
-            // "copilot" -> CopilotContextMenuProvider()
-            // "claude" -> ClaudeContextMenuProvider()
+            // TODO: 다른 컨텍스트 메뉴 제공자 구현 시 여기에 추가
             else -> null
         }
     }
     
     /**
-     * Check if a specific context menu action should be visible for the current extension
+     * 현재 확장에 대해 특정 컨텍스트 메뉴 액션이 표시되어야 하는지 확인합니다.
+     * @param actionType 확인할 컨텍스트 메뉴 액션의 타입
+     * @return 액션이 표시되어야 하면 true
      */
     fun isActionVisible(actionType: ContextMenuActionType): Boolean {
         val config = getContextMenuConfiguration()
@@ -119,56 +120,55 @@ class DynamicContextMenuManager(private val project: Project) {
     }
     
     /**
-     * Refresh all context menus to reflect current configuration
+     * 모든 컨텍스트 메뉴를 새로고침하여 현재 구성을 반영합니다.
+     * IntelliJ 플랫폼의 UI 새로고침 메커니즘을 사용합니다.
      */
     private fun refreshContextMenus() {
         try {
-            // Use IntelliJ Platform's proper mechanism to refresh UI on EDT thread
-            // This avoids calling @ApiStatus.OverrideOnly methods directly
             com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
                 try {
-                    // Get the action manager
                     val actionManager = com.intellij.openapi.actionSystem.ActionManager.getInstance()
                     
-                    // Get the dynamic context menu actions group
+                    // 동적 컨텍스트 메뉴 액션 그룹을 가져옵니다.
                     val dynamicGroup = actionManager.getAction("RunVSAgent.DynamicExtensionContextMenu")
                     dynamicGroup?.let { group ->
-                        // Trigger UI refresh by notifying the platform
-                        // The platform will automatically call the appropriate update methods
-                        logger.debug("Triggering UI refresh for dynamic context menu group")
+                        // 플랫폼에 UI 새로고침을 알립니다.
+                        // 플랫폼은 자동으로 적절한 업데이트 메소드를 호출합니다.
+                        logger.debug("동적 컨텍스트 메뉴 그룹에 대한 UI 새로고침 트리거")
                     }
                     
-                    logger.debug("Context menus refresh scheduled for extension: $currentExtensionId")
+                    logger.debug("확장 '$currentExtensionId'에 대한 컨텍스트 메뉴 새로고침 예약됨")
                 } catch (e: Exception) {
-                    logger.warn("Failed to schedule context menu refresh", e)
+                    logger.warn("컨텍스트 메뉴 새로고침 예약 실패", e)
                 }
             }
         } catch (e: Exception) {
-            logger.warn("Failed to refresh context menus", e)
+            logger.warn("컨텍스트 메뉴 새로고침 실패", e)
         }
     }
     
     /**
-     * Dispose the dynamic context menu manager
+     * 동적 컨텍스트 메뉴 관리자를 해제합니다.
      */
     fun dispose() {
-        logger.info("Disposing dynamic context menu manager")
+        logger.info("동적 컨텍스트 메뉴 관리자 해제 중")
         currentExtensionId = null
     }
 }
 
 /**
- * Default context menu configuration - shows minimal actions
+ * 기본 컨텍스트 메뉴 구성 클래스입니다.
+ * 최소한의 액션만 표시되도록 설정합니다.
  */
 class DefaultContextMenuConfiguration : ContextMenuConfiguration {
     override fun isActionVisible(actionType: ContextMenuActionType): Boolean {
         return when (actionType) {
             ContextMenuActionType.EXPLAIN_CODE,
-            ContextMenuActionType.ADD_TO_CONTEXT -> true
+            ContextMenuActionType.ADD_TO_CONTEXT -> true // 이 액션들은 표시
             ContextMenuActionType.FIX_CODE,
             ContextMenuActionType.FIX_LOGIC,
             ContextMenuActionType.IMPROVE_CODE,
-            ContextMenuActionType.NEW_TASK -> false
+            ContextMenuActionType.NEW_TASK -> false // 이 액션들은 숨김
         }
     }
     

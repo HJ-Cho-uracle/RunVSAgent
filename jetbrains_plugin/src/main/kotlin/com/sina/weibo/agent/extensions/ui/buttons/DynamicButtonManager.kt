@@ -17,65 +17,68 @@ import com.sina.weibo.agent.extensions.plugin.kilo.KiloCodeButtonProvider
 import com.sina.weibo.agent.extensions.plugin.costrict.CostrictCodeButtonProvider
 
 /**
- * Dynamic button manager that controls which buttons are visible based on the current extension type.
- * This manager works in conjunction with DynamicExtensionActionsGroup to provide dynamic button functionality.
+ * 동적 버튼 관리자입니다.
+ * 현재 활성화된 확장 타입에 따라 어떤 버튼이 표시될지 제어합니다.
+ * `DynamicExtensionActionsGroup`과 함께 동적 버튼 기능을 제공합니다.
  */
 @Service(Service.Level.PROJECT)
 class DynamicButtonManager(private val project: Project) {
     
     private val logger = Logger.getInstance(DynamicButtonManager::class.java)
     
-    // Current extension ID
+    // 현재 활성화된 확장의 ID
     @Volatile
     private var currentExtensionId: String? = null
     
     companion object {
         /**
-         * Get dynamic button manager instance
+         * `DynamicButtonManager`의 싱글톤 인스턴스를 가져옵니다.
          */
         fun getInstance(project: Project): DynamicButtonManager {
             return project.getService(DynamicButtonManager::class.java)
-                ?: error("DynamicButtonManager not found")
+                ?: error("DynamicButtonManager 서비스를 찾을 수 없습니다.")
         }
     }
     
     /**
-     * Initialize the dynamic button manager
+     * 동적 버튼 관리자를 초기화합니다.
+     * `ExtensionManager`로부터 현재 활성화된 확장을 가져와 `currentExtensionId`를 설정합니다.
      */
     fun initialize() {
-        logger.info("Initializing dynamic button manager")
+        logger.info("동적 버튼 관리자 초기화 중")
         
-        // Get current extension from extension manager
         try {
-            val extensionManager = ExtensionManager.Companion.getInstance(project)
+            val extensionManager = ExtensionManager.getInstance(project)
             val currentProvider = extensionManager.getCurrentProvider()
             currentExtensionId = currentProvider?.getExtensionId()
-            logger.info("Dynamic button manager initialized with extension: $currentExtensionId")
+            logger.info("확장 '$currentExtensionId'로 동적 버튼 관리자 초기화됨")
         } catch (e: Exception) {
-            logger.warn("Failed to initialize dynamic button manager", e)
+            logger.warn("동적 버튼 관리자 초기화 실패", e)
         }
     }
     
     /**
-     * Set the current extension and update button configuration
+     * 현재 확장을 설정하고 버튼 구성을 업데이트합니다.
+     * @param extensionId 새로 설정할 확장의 ID
      */
     fun setCurrentExtension(extensionId: String) {
-        logger.info("Setting current extension to: $extensionId")
+        logger.info("현재 확장을 '$extensionId'(으)로 설정 중")
         currentExtensionId = extensionId
         
-        // Refresh all action toolbars to reflect the change
+        // 모든 액션 툴바를 새로고침하여 변경사항을 반영합니다.
         refreshActionToolbars()
     }
     
     /**
-     * Get the current extension ID
+     * 현재 활성화된 확장의 ID를 가져옵니다.
      */
     fun getCurrentExtensionId(): String? {
         return currentExtensionId
     }
     
     /**
-     * Get button configuration for the current extension
+     * 현재 확장에 대한 버튼 구성(`ButtonConfiguration`)을 가져옵니다.
+     * @return 현재 확장의 `ButtonConfiguration` 객체, 없으면 기본 구성 반환
      */
     fun getButtonConfiguration(): ButtonConfiguration {
         val buttonProvider = getButtonProvider(currentExtensionId)
@@ -83,10 +86,9 @@ class DynamicButtonManager(private val project: Project) {
     }
     
     /**
-     * Get button provider for the specified extension.
-     *
-     * @param extensionId The extension ID
-     * @return Button provider instance or null if not found
+     * 지정된 확장에 대한 `ExtensionButtonProvider` 인스턴스를 가져옵니다.
+     * @param extensionId 확장의 ID
+     * @return `ExtensionButtonProvider` 인스턴스 또는 찾지 못하면 null
      */
     private fun getButtonProvider(extensionId: String?): ExtensionButtonProvider? {
         if (extensionId == null) return null
@@ -96,15 +98,15 @@ class DynamicButtonManager(private val project: Project) {
             "cline" -> ClineButtonProvider()
             "kilo-code" -> KiloCodeButtonProvider()
             "costrict" -> CostrictCodeButtonProvider()
-            // TODO: Add other button providers as they are implemented
-            // "copilot" -> CopilotButtonProvider()
-            // "claude" -> ClaudeButtonProvider()
+            // TODO: 다른 버튼 제공자 구현 시 여기에 추가
             else -> null
         }
     }
     
     /**
-     * Check if a specific button should be visible for the current extension
+     * 현재 확장에 대해 특정 버튼이 표시되어야 하는지 확인합니다.
+     * @param buttonType 확인할 버튼의 타입
+     * @return 버튼이 표시되어야 하면 true
      */
     fun isButtonVisible(buttonType: ButtonType): Boolean {
         val config = getButtonConfiguration()
@@ -112,78 +114,82 @@ class DynamicButtonManager(private val project: Project) {
     }
     
     /**
-     * Refresh all action toolbars to reflect current button configuration
+     * 모든 액션 툴바를 새로고침하여 현재 버튼 구성을 반영합니다.
+     * IntelliJ 플랫폼의 UI 새로고침 메커니즘을 사용합니다.
      */
     private fun refreshActionToolbars() {
         try {
-            // Use IntelliJ Platform's proper mechanism to refresh UI on EDT thread
-            // This avoids calling @ApiStatus.OverrideOnly methods directly
             com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
                 try {
-                    // Get the action manager
                     val actionManager = ActionManager.getInstance()
                     
-                    // Get the dynamic actions group
+                    // 동적 액션 그룹을 가져옵니다.
                     val dynamicGroup = actionManager.getAction("RunVSAgent.DynamicExtensionActions")
                     dynamicGroup?.let { group ->
-                        // Trigger UI refresh by notifying the platform
-                        // The platform will automatically call the appropriate update methods
-                        logger.debug("Triggering UI refresh for dynamic actions group")
+                        // 플랫폼에 UI 새로고침을 알립니다.
+                        // 플랫폼은 자동으로 적절한 업데이트 메소드를 호출합니다.
+                        logger.debug("동적 액션 그룹에 대한 UI 새로고침 트리거")
                     }
                     
-                    logger.debug("Action toolbars refresh scheduled for extension: $currentExtensionId")
+                    logger.debug("확장 '$currentExtensionId'에 대한 액션 툴바 새로고침 예약됨")
                 } catch (e: Exception) {
-                    logger.warn("Failed to schedule action toolbar refresh", e)
+                    logger.warn("액션 툴바 새로고침 예약 실패", e)
                 }
             }
         } catch (e: Exception) {
-            logger.warn("Failed to refresh action toolbars", e)
+            logger.warn("액션 툴바 새로고침 실패", e)
         }
     }
     
     /**
-     * Dispose the dynamic button manager
+     * 동적 버튼 관리자를 해제합니다.
      */
     fun dispose() {
-        logger.info("Disposing dynamic button manager")
+        logger.info("동적 버튼 관리자 해제 중")
         currentExtensionId = null
     }
 }
 
 /**
- * Button types that can be configured
+ * 구성 가능한 버튼의 타입을 정의하는 열거형입니다.
  */
 enum class ButtonType {
-    PLUS,
-    PROMPTS,
-    MCP,
-    HISTORY,
-    MARKETPLACE,
-    SETTINGS
+    PLUS,       // 새 작업/추가 버튼
+    PROMPTS,    // 프롬프트 버튼
+    MCP,        // MCP (Multi-Cloud Platform) 버튼
+    HISTORY,    // 기록 버튼
+    MARKETPLACE,// 마켓플레이스 버튼
+    SETTINGS    // 설정 버튼
 }
 
 /**
- * Button configuration interface
+ * 버튼 구성 인터페이스입니다.
+ * 어떤 버튼이 표시되어야 하는지 정의합니다.
  */
 interface ButtonConfiguration {
+    /**
+     * 특정 버튼 타입이 현재 구성에서 표시되어야 하는지 여부를 반환합니다.
+     */
     fun isButtonVisible(buttonType: ButtonType): Boolean
+    /**
+     * 현재 구성에서 표시될 버튼 타입 목록을 반환합니다.
+     */
     fun getVisibleButtons(): List<ButtonType>
 }
 
-// Note: Button configurations are now provided by individual ExtensionButtonProvider implementations
-
 /**
- * Default button configuration - shows minimal buttons
+ * 기본 버튼 구성 클래스입니다.
+ * 최소한의 버튼만 표시되도록 설정합니다.
  */
 class DefaultButtonConfiguration : ButtonConfiguration {
     override fun isButtonVisible(buttonType: ButtonType): Boolean {
         return when (buttonType) {
             ButtonType.PLUS,
             ButtonType.PROMPTS,
-            ButtonType.SETTINGS -> true
+            ButtonType.SETTINGS -> true // 이 버튼들은 표시
             ButtonType.MCP,
             ButtonType.HISTORY,
-            ButtonType.MARKETPLACE -> false
+            ButtonType.MARKETPLACE -> false // 이 버튼들은 숨김
         }
     }
     

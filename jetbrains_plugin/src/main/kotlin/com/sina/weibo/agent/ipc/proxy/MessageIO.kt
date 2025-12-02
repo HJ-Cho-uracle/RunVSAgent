@@ -9,94 +9,97 @@ import com.google.gson.reflect.TypeToken
 import com.intellij.openapi.diagnostic.Logger
 import java.lang.Exception
 
- // Symbol name for buffer reference during serialization
+// 직렬화 중 버퍼 참조를 위한 심볼 이름
 private const val REF_SYMBOL_NAME = "\$\$ref\$\$"
 
-// Undefined reference
+// 정의되지 않은 참조를 나타내는 맵
 private val UNDEFINED_REF = mapOf(REF_SYMBOL_NAME to -1)
 
 /**
- * JSON string with buffer references
+ * 버퍼 참조를 포함하는 JSON 문자열을 나타내는 데이터 클래스입니다.
+ * @property jsonString 버퍼 참조가 플레이스홀더로 대체된 JSON 문자열
+ * @property referencedBuffers JSON 문자열에서 참조된 실제 바이너리 버퍼 목록
  */
 data class StringifiedJsonWithBufferRefs(
     val jsonString: String,
     val referencedBuffers: List<ByteArray>
 ) {
-    // data class auto-generates component1() and component2() functions, supports destructuring
+    // data class는 component1(), component2() 함수를 자동으로 생성하여 구조 분해 할당을 지원합니다.
 }
 
 /**
- * Serialize JSON to string with buffer references
+ * 객체를 JSON 문자열로 직렬화하고, 포함된 바이너리 버퍼를 별도로 추출합니다.
+ * @param obj 직렬화할 객체
+ * @param replacer 직렬화 중 값을 대체할 함수 (선택 사항)
+ * @param useSafeStringify 안전한 직렬화 사용 여부 (오류 발생 시 "null" 반환)
+ * @return `StringifiedJsonWithBufferRefs` 객체
  */
 fun stringifyJsonWithBufferRefs(obj: Any?, replacer: ((String, Any?) -> Any?)? = null, useSafeStringify: Boolean = false): StringifiedJsonWithBufferRefs {
-    val foundBuffers = mutableListOf<ByteArray>()
+    val foundBuffers = mutableListOf<ByteArray>() // 발견된 버퍼들을 저장할 리스트
     
-    // Process object recursively, identify and replace buffers
+    // 객체를 재귀적으로 처리하여 버퍼를 식별하고 대체합니다.
     fun processObject(value: Any?): Any? {
         return when (value) {
             null -> null
             is ByteArray -> {
                 val bufferIndex = foundBuffers.size
                 foundBuffers.add(value)
+                // 버퍼를 참조 심볼과 인덱스로 대체합니다.
                 mapOf(REF_SYMBOL_NAME to bufferIndex)
             }
             is Map<*, *> -> {
                 val result = mutableMapOf<String, Any?>()
                 value.forEach { (k, v) ->
                     val key = k.toString()
-                    val processedValue = processObject(v)
+                    val processedValue = processObject(v) // 재귀 호출
                     val finalValue = replacer?.invoke(key, processedValue) ?: processedValue
                     result[key] = finalValue
                 }
                 result
             }
             is List<*> -> {
-                value.map { processObject(it) }
+                value.map { processObject(it) } // 리스트의 각 요소를 재귀 처리
             }
             is Array<*> -> {
-                value.map { processObject(it) }
+                value.map { processObject(it) } // 배열의 각 요소를 재귀 처리
             }
             is SerializableObjectWithBuffers<*> -> {
-                // Process serializable object
+                // `SerializableObjectWithBuffers` 객체의 실제 값을 처리합니다.
                 processObject(value.value)
             }
             else -> {
-                // If it is other basic types, return directly
+                // 다른 기본 타입은 그대로 반환합니다.
                 value
             }
         }
     }
     
-    // Process object, collect buffers
+    // 객체를 처리하고 버퍼를 수집합니다.
     val processedObj = processObject(obj)
     
-        // Use GSON for serialization
-        val gson = Gson()
+    // GSON을 사용하여 직렬화합니다.
+    val gson = Gson()
     val serialized = try {
         gson.toJson(processedObj)
     } catch (e: Exception) {
-        if (useSafeStringify) "null" else throw e
+        if (useSafeStringify) "null" else throw e // 안전 모드에서는 "null" 반환
     }
     
     return StringifiedJsonWithBufferRefs(serialized, foundBuffers)
 }
 
 /**
- * Request argument serialization type
+ * 요청 인자 직렬화 타입입니다.
  */
 sealed class SerializedRequestArguments {
-    /**
-     * Simple type argument
-     */
+    /** 간단한 타입의 인자 */
     data class Simple(val args: String) : SerializedRequestArguments(){
         override fun toString(): String {
             return args
         }
     }
     
-    /**
-     * Mixed type argument
-     */
+    /** 혼합된 타입의 인자 */
     data class Mixed(val args: List<MixedArg>) : SerializedRequestArguments(){
         override fun toString(): String {
             return args.joinToString { "\n" }
@@ -105,12 +108,14 @@ sealed class SerializedRequestArguments {
 }
 
 /**
- * Message IO utility class
- * Corresponds to MessageIO in VSCode
+ * 메시지 IO 유틸리티 클래스입니다.
+ * RPC 통신을 위한 메시지 직렬화/역직렬화 기능을 제공합니다.
+ * VSCode의 `MessageIO`에 해당합니다.
  */
 object MessageIO {
     /**
-     * Check whether to use mixed argument serialization
+     * 혼합된 인자 직렬화를 사용할지 여부를 확인합니다.
+     * 인자 목록에 `ByteArray`, `SerializableObjectWithBuffers`, `null`이 포함되어 있으면 혼합 직렬화를 사용합니다.
      */
     private fun useMixedArgSerialization(arr: List<Any?>): Boolean {
         for (arg in arr) {
@@ -122,7 +127,10 @@ object MessageIO {
     }
     
     /**
-     * Serialize request arguments
+     * 요청 인자를 직렬화합니다.
+     * @param args 직렬화할 인자 목록
+     * @param replacer 직렬화 중 값을 대체할 함수 (선택 사항)
+     * @return 직렬화된 요청 인자
      */
     fun serializeRequestArguments(args: List<Any?>, replacer: ((String, Any?) -> Any?)? = null): SerializedRequestArguments {
         if (useMixedArgSerialization(args)) {
@@ -130,10 +138,8 @@ object MessageIO {
             for (i in args.indices) {
                 val arg = args[i]
                 when {
-                    arg is ByteArray ->
-                        massagedArgs.add(MixedArg.VSBufferArg(arg))
-                    arg == null ->
-                        massagedArgs.add(MixedArg.UndefinedArg)
+                    arg is ByteArray -> massagedArgs.add(MixedArg.VSBufferArg(arg))
+                    arg == null -> massagedArgs.add(MixedArg.UndefinedArg)
                     arg is SerializableObjectWithBuffers<*> -> {
                         val result = stringifyJsonWithBufferRefs(arg.value, replacer)
                         massagedArgs.add(MixedArg.SerializedObjectWithBuffersArg(
@@ -155,7 +161,13 @@ object MessageIO {
     }
     
     /**
-     * Serialize request
+     * 요청 메시지를 직렬화합니다.
+     * @param req 요청 ID
+     * @param rpcId RPC ID
+     * @param method 호출할 메소드 이름
+     * @param serializedArgs 직렬화된 인자
+     * @param usesCancellationToken 취소 토큰 사용 여부
+     * @return 직렬화된 요청 메시지 (바이트 배열)
      */
     fun serializeRequest(
         req: Int,
@@ -173,7 +185,7 @@ object MessageIO {
     }
     
     /**
-     * Serialize JSON argument request
+     * JSON 인자 요청을 직렬화합니다.
      */
     private fun requestJSONArgs(
         req: Int,
@@ -186,9 +198,9 @@ object MessageIO {
         val argsBuff = args.toByteArray()
         
         var len = 0
-        len += MessageBuffer.sizeUInt8 // use constant directly, not function call
-        len += MessageBuffer.sizeShortString(methodBuff)
-        len += MessageBuffer.sizeLongString(argsBuff)
+        len += MessageBuffer.sizeUInt8 // 메시지 타입
+        len += MessageBuffer.sizeShortString(methodBuff) // 메소드 이름
+        len += MessageBuffer.sizeLongString(argsBuff) // 인자
         
         val messageType = if (usesCancellationToken)
             MessageType.RequestJSONArgsWithCancellation
@@ -203,7 +215,7 @@ object MessageIO {
     }
     
     /**
-     * Deserialize JSON argument request
+     * JSON 인자 요청을 역직렬화합니다.
      */
     fun deserializeRequestJSONArgs(buff: MessageBuffer): Triple<Int, String, List<Any?>> {
         val rpcId = buff.readUInt8()
@@ -220,7 +232,7 @@ object MessageIO {
     }
     
     /**
-     * Serialize mixed argument request
+     * 혼합된 인자 요청을 직렬화합니다.
      */
     private fun requestMixedArgs(
         req: Int,
@@ -232,9 +244,9 @@ object MessageIO {
         val methodBuff = method.toByteArray()
         
         var len = 0
-        len += MessageBuffer.sizeUInt8 // use constant directly, not function call
-        len += MessageBuffer.sizeShortString(methodBuff)
-        len += MessageBuffer.sizeMixedArray(args)
+        len += MessageBuffer.sizeUInt8 // 메시지 타입
+        len += MessageBuffer.sizeShortString(methodBuff) // 메소드 이름
+        len += MessageBuffer.sizeMixedArray(args) // 혼합 인자
         
         val messageType = if (usesCancellationToken)
             MessageType.RequestMixedArgsWithCancellation
@@ -249,7 +261,7 @@ object MessageIO {
     }
     
     /**
-     * Deserialize mixed argument request
+     * 혼합된 인자 요청을 역직렬화합니다.
      */
     fun deserializeRequestMixedArgs(buff: MessageBuffer): Triple<Int, String, List<Any?>> {
         val rpcId = buff.readUInt8()
@@ -272,21 +284,21 @@ object MessageIO {
     }
     
     /**
-     * Serialize acknowledged message
+     * 확인 응답(Acknowledged) 메시지를 직렬화합니다.
      */
     fun serializeAcknowledged(req: Int): ByteArray {
         return MessageBuffer.alloc(MessageType.Acknowledged, req, 0).bytes
     }
     
     /**
-     * Serialize cancel message
+     * 취소(Cancel) 메시지를 직렬화합니다.
      */
     fun serializeCancel(req: Int): ByteArray {
         return MessageBuffer.alloc(MessageType.Cancel, req, 0).bytes
     }
     
     /**
-     * Serialize OK reply
+     * 성공 응답(OK Reply)을 직렬화합니다.
      */
     fun serializeReplyOK(req: Int, res: Any?, replacer: ((String, Any?) -> Any?)? = null): ByteArray {
         return when {
@@ -309,14 +321,14 @@ object MessageIO {
     }
     
     /**
-     * Serialize empty OK reply
+     * 빈 성공 응답을 직렬화합니다.
      */
     private fun serializeReplyOKEmpty(req: Int): ByteArray {
         return MessageBuffer.alloc(MessageType.ReplyOKEmpty, req, 0).bytes
     }
     
     /**
-     * Serialize OK reply with binary buffer
+     * 바이너리 버퍼를 포함하는 성공 응답을 직렬화합니다.
      */
     private fun serializeReplyOKVSBuffer(req: Int, res: ByteArray): ByteArray {
         var len = 0
@@ -328,14 +340,14 @@ object MessageIO {
     }
     
     /**
-     * Deserialize OK reply with binary buffer
+     * 바이너리 버퍼를 포함하는 성공 응답을 역직렬화합니다.
      */
     fun deserializeReplyOKVSBuffer(buff: MessageBuffer): ByteArray {
         return buff.readVSBuffer()
     }
     
     /**
-     * Serialize OK reply with JSON
+     * JSON을 포함하는 성공 응답을 직렬화합니다.
      */
     private fun serializeReplyOKJSON(req: Int, res: String): ByteArray {
         val resBuff = res.toByteArray()
@@ -349,16 +361,16 @@ object MessageIO {
     }
     
     /**
-     * Serialize OK reply with JSON and buffers
+     * JSON과 버퍼를 포함하는 성공 응답을 직렬화합니다.
      */
     private fun serializeReplyOKJSONWithBuffers(req: Int, res: String, buffers: List<ByteArray>): ByteArray {
         val resBuff = res.toByteArray()
         
         var len = 0
-        len += MessageBuffer.sizeUInt32 // use constant directly, not function call
-        len += MessageBuffer.sizeLongString(resBuff)
+        len += MessageBuffer.sizeUInt32 // 버퍼 개수
+        len += MessageBuffer.sizeLongString(resBuff) // JSON 문자열
         for (buffer in buffers) {
-            len += MessageBuffer.sizeVSBuffer(buffer)
+            len += MessageBuffer.sizeVSBuffer(buffer) // 각 버퍼
         }
         
         val result = MessageBuffer.alloc(MessageType.ReplyOKJSONWithBuffers, req, len)
@@ -372,7 +384,7 @@ object MessageIO {
     }
     
     /**
-     * Deserialize OK reply with JSON
+     * JSON을 포함하는 성공 응답을 역직렬화합니다.
      */
     fun deserializeReplyOKJSON(buff: MessageBuffer): Any? {
         val res = buff.readLongString()
@@ -381,7 +393,7 @@ object MessageIO {
     }
     
     /**
-     * Deserialize OK reply with JSON and buffers
+     * JSON과 버퍼를 포함하는 성공 응답을 역직렬화합니다.
      */
     fun deserializeReplyOKJSONWithBuffers(buff: MessageBuffer, uriTransformer: ((String, Any?) -> Any?)? = null): SerializableObjectWithBuffers<*> {
         val bufferCount = buff.readUInt32()
@@ -396,7 +408,7 @@ object MessageIO {
     }
     
     /**
-     * Serialize error reply
+     * 오류 응답을 직렬화합니다.
      */
     fun serializeReplyErr(req: Int, err: Throwable?): ByteArray {
         val errStr = if (err != null) {
@@ -423,34 +435,32 @@ object MessageIO {
     }
     
     /**
-     * Deserialize error reply
+     * 오류 응답을 역직렬화합니다.
      */
     fun deserializeReplyErrError(buff: MessageBuffer): Throwable {
         val err = buff.readLongString()
         val gson = Gson()
         val errorMap = gson.fromJson(err, Map::class.java)
         
-        // Create custom exception
-        val exception = Exception(errorMap["message"] as? String ?: "Unknown error")
+        val exception = Exception(errorMap["message"] as? String ?: "알 수 없는 오류")
         
-        // Set stack and other properties
+        // 스택 트레이스 등 추가 정보 설정 (Java/Kotlin에서는 직접 스택 설정이 어려움)
         if (errorMap.containsKey("stack")) {
-            // Note: Java/Kotlin cannot directly set stack, this is just a demonstration
-            // In actual implementation, may need custom exception type or other methods
+            // 실제 구현에서는 사용자 정의 예외 타입이나 다른 방법을 사용할 수 있습니다.
         }
         
         return exception
     }
     
     /**
-     * Serialize empty error reply
+     * 빈 오류 응답을 직렬화합니다.
      */
     private fun serializeReplyErrEmpty(req: Int): ByteArray {
         return MessageBuffer.alloc(MessageType.ReplyErrEmpty, req, 0).bytes
     }
     
     /**
-     * Transform error for serialization
+     * 직렬화를 위해 오류 객체를 변환합니다.
      */
     private fun transformErrorForSerialization(error: Throwable): Map<String, Any?> {
         return mapOf(

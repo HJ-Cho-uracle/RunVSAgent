@@ -10,14 +10,18 @@ import java.net.URI
 import java.net.URISyntaxException
 
 /**
- * Proxy configuration utility class
- * Responsible for getting proxy configuration with priority: IDE settings > environment variables
+ * 프록시 설정 유틸리티 클래스입니다.
+ * IDE 설정 또는 환경 변수로부터 프록시 설정을 가져오는 역할을 합니다.
  */
 object ProxyConfigUtil {
     private val logger = Logger.getInstance(ProxyConfigUtil::class.java)
     
     /**
-     * Proxy configuration data class
+     * 프록시 설정 데이터를 담는 데이터 클래스입니다.
+     * @property proxyUrl HTTP/HTTPS 프록시 URL
+     * @property proxyExceptions 프록시를 사용하지 않을 예외 호스트 목록
+     * @property pacUrl PAC(Proxy Auto-Configuration) 파일 URL
+     * @property source 프록시 설정의 출처 (예: "ide-http", "env")
      */
     data class ProxyConfig(
         val proxyUrl: String?,
@@ -25,42 +29,44 @@ object ProxyConfigUtil {
         val pacUrl: String?,
         val source: String
     ) {
+        /** 프록시 설정이 유효한지 여부 */
         val hasProxy: Boolean
             get() = !proxyUrl.isNullOrEmpty() || !pacUrl.isNullOrEmpty()
     }
     
     /**
-     * Get proxy configuration
-     * Priority: IDE settings > environment variables
+     * 시스템의 프록시 설정을 가져옵니다.
+     * 우선순위: IntelliJ IDE 설정 > 환경 변수
+     * @return `ProxyConfig` 객체
      */
     fun getProxyConfig(): ProxyConfig {
-        // First check IDE proxy settings
+        // 1. IntelliJ IDE 프록시 설정 확인
         val ideProxyConfig = getIDEProxyConfig()
         if (ideProxyConfig.hasProxy) {
-            logger.info("Using IDE proxy configuration: ${ideProxyConfig.proxyUrl ?: ideProxyConfig.pacUrl}")
+            logger.info("IDE 프록시 설정 사용: ${ideProxyConfig.proxyUrl ?: ideProxyConfig.pacUrl}")
             return ideProxyConfig
         }
         
-        // Then check environment variable proxy settings
+        // 2. 환경 변수 프록시 설정 확인
         val envProxyConfig = getEnvironmentProxyConfig()
         if (envProxyConfig.hasProxy) {
-            logger.info("Using environment variable proxy configuration: ${envProxyConfig.proxyUrl}")
+            logger.info("환경 변수 프록시 설정 사용: ${envProxyConfig.proxyUrl}")
             return envProxyConfig
         }
         
-        // No proxy configuration
-        logger.info("No proxy configuration found")
+        // 3. 프록시 설정 없음
+        logger.info("프록시 설정을 찾을 수 없습니다.")
         return ProxyConfig(null, null, null, "none")
     }
     
     /**
-     * Get IDE proxy configuration
+     * IntelliJ IDE의 프록시 설정을 가져옵니다.
      */
     private fun getIDEProxyConfig(): ProxyConfig {
         return try {
             val proxyConfig = HttpConfigurable.getInstance()
             
-            // Check PAC proxy
+            // PAC 프록시 설정 확인
             if (proxyConfig.USE_PROXY_PAC) {
                 val pacUrl = proxyConfig.PAC_URL
                 if (!pacUrl.isNullOrEmpty()) {
@@ -68,7 +74,7 @@ object ProxyConfigUtil {
                 }
             }
             
-            // Check HTTP proxy
+            // HTTP 프록시 설정 확인
             if (proxyConfig.USE_HTTP_PROXY) {
                 val proxyHost = proxyConfig.PROXY_HOST
                 val proxyPort = proxyConfig.PROXY_PORT
@@ -82,13 +88,14 @@ object ProxyConfigUtil {
             
             ProxyConfig(null, null, null, "ide-none")
         } catch (e: Exception) {
-            logger.warn("Failed to get IDE proxy configuration", e)
+            logger.warn("IDE 프록시 설정 가져오기 실패", e)
             ProxyConfig(null, null, null, "ide-error")
         }
     }
     
     /**
-     * Get environment variable proxy configuration
+     * 환경 변수로부터 프록시 설정을 가져옵니다.
+     * `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` 환경 변수를 확인합니다.
      */
     private fun getEnvironmentProxyConfig(): ProxyConfig {
         return try {
@@ -96,7 +103,7 @@ object ProxyConfigUtil {
             val httpsProxy = System.getenv("HTTPS_PROXY") ?: System.getenv("https_proxy")
             val noProxy = System.getenv("NO_PROXY") ?: System.getenv("no_proxy")
             
-            // Prefer HTTPS_PROXY, then HTTP_PROXY
+            // HTTPS_PROXY를 우선하고, 없으면 HTTP_PROXY를 사용합니다.
             val proxyUrl = when {
                 !httpsProxy.isNullOrEmpty() -> normalizeProxyUrl(httpsProxy)
                 !httpProxy.isNullOrEmpty() -> normalizeProxyUrl(httpProxy)
@@ -105,31 +112,32 @@ object ProxyConfigUtil {
             
             ProxyConfig(proxyUrl, noProxy, null, "env")
         } catch (e: Exception) {
-            logger.warn("Failed to get environment proxy configuration", e)
+            logger.warn("환경 변수 프록시 설정 가져오기 실패", e)
             ProxyConfig(null, null, null, "env-error")
         }
     }
     
     /**
-     * Normalize proxy URL
+     * 프록시 URL을 정규화합니다.
+     * 스키마가 없으면 "http://"를 추가하고, 유효하지 않은 URL은 "http://"를 가정합니다.
      */
     private fun normalizeProxyUrl(url: String): String {
         return try {
             val uri = URI(url)
             when {
-                uri.scheme.isNullOrEmpty() -> "http://$url"
-                uri.scheme == "http" || uri.scheme == "https" -> url
-                else -> "http://$url"
+                uri.scheme.isNullOrEmpty() -> "http://$url" // 스키마가 없으면 http:// 추가
+                uri.scheme == "http" || uri.scheme == "https" -> url // http 또는 https 스키마는 그대로 사용
+                else -> "http://$url" // 다른 스키마는 http://를 가정
             }
         } catch (e: URISyntaxException) {
-            // If URL parsing fails, assume HTTP protocol
+            // URL 파싱 실패 시, http:// 프로토콜을 가정합니다.
             "http://$url"
         }
     }
     
     /**
-     * Get HTTP proxy configuration for initializeConfiguration
-     * If using PAC, set http.proxy to pacUrl
+     * `initializeConfiguration` 메소드를 위한 HTTP 프록시 설정을 Map 형태로 가져옵니다.
+     * PAC 프록시인 경우 `proxy` 키에 PAC URL을 설정합니다.
      */
     fun getHttpProxyConfigForInitialization(): Map<String, Any>? {
         val proxyConfig = getProxyConfig()
@@ -140,18 +148,15 @@ object ProxyConfigUtil {
         val configMap = mutableMapOf<String, Any>()
         
         if (!proxyConfig.pacUrl.isNullOrEmpty()) {
-            // For PAC proxy, set http.proxy to pacUrl
             configMap["proxy"] = proxyConfig.pacUrl
             configMap["proxySupport"] = "on"
         } else if (!proxyConfig.proxyUrl.isNullOrEmpty()) {
-            // For HTTP proxy
             configMap["proxy"] = proxyConfig.proxyUrl
             configMap["proxySupport"] = "on"
         }
         
-        // Add noProxy configuration if proxyExceptions is not null or empty
+        // `noProxy` 설정 추가
         if (!proxyConfig.proxyExceptions.isNullOrEmpty()) {
-            // Split proxyExceptions string by comma and trim each entry
             val noProxyList = proxyConfig.proxyExceptions
                 .split(",")
                 .map { it.trim() }
@@ -166,8 +171,8 @@ object ProxyConfigUtil {
     }
     
     /**
-     * Get proxy configuration for process startup
-     * Only set environment variables, no command line arguments
+     * 프로세스 시작을 위한 프록시 환경 변수를 가져옵니다.
+     * `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` 환경 변수를 설정합니다.
      */
     fun getProxyEnvVarsForProcessStart(): Map<String, String> {
         val proxyConfig = getProxyConfig()
@@ -178,15 +183,15 @@ object ProxyConfigUtil {
         }
         
         if (!proxyConfig.pacUrl.isNullOrEmpty()) {
-            // For PAC proxy, set PROXY_PAC_URL environment variable
+            // PAC 프록시인 경우 `PROXY_PAC_URL` 환경 변수를 설정합니다.
             envVars["PROXY_PAC_URL"] = proxyConfig.pacUrl
         } else if (!proxyConfig.proxyUrl.isNullOrEmpty()) {
-            // For HTTP proxy, set HTTP_PROXY and HTTPS_PROXY environment variables
+            // HTTP 프록시인 경우 `HTTP_PROXY` 및 `HTTPS_PROXY` 환경 변수를 설정합니다.
             envVars["HTTP_PROXY"] = proxyConfig.proxyUrl
             envVars["HTTPS_PROXY"] = proxyConfig.proxyUrl
         }
         
-        // Add NO_PROXY environment variable if proxyExceptions is not null or empty
+        // `NO_PROXY` 환경 변수 설정
         if (!proxyConfig.proxyExceptions.isNullOrEmpty()) {
             envVars["NO_PROXY"] = proxyConfig.proxyExceptions
         }

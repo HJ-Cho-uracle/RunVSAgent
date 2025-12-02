@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Shell integration event types
+ * 셸 통합 이벤트 타입을 나타내는 봉인된(sealed) 클래스입니다.
  */
 sealed class ShellEvent {
     data class ShellExecutionStart(val commandLine: String, val cwd: String) : ShellEvent()
@@ -21,7 +21,7 @@ sealed class ShellEvent {
 }
 
 /**
- * Shell integration event listener
+ * 셸 이벤트 리스너 인터페이스입니다.
  */
 interface ShellEventListener {
     fun onShellExecutionStart(commandLine: String, cwd: String)
@@ -31,52 +31,52 @@ interface ShellEventListener {
 }
 
 /**
- * Shell integration output state manager
- * Refer to VSCode Shell Integration implementation
- * Reference: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/common/terminalShellIntegration.ts
+ * 셸 통합 출력 상태 관리자입니다.
+ * VSCode 셸 통합 구현을 참조하여 터미널 출력에서 셸 통합 마커를 파싱하고 상태를 관리합니다.
+ * 참조: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/common/terminalShellIntegration.ts
  */
 class ShellIntegrationOutputState {
     private val logger = Logger.getInstance(ShellIntegrationOutputState::class.java)
     
-    // Event listeners
+    // 이벤트 리스너 목록
     private val listeners = mutableListOf<ShellEventListener>()
     
-    // State properties
+    // --- 상태 속성 ---
     @Volatile
-    var isCommandRunning: Boolean = false
+    var isCommandRunning: Boolean = false // 명령어가 실행 중인지 여부
         private set
     
     @Volatile
-    var currentCommand: String = ""
+    var currentCommand: String = "" // 현재 실행 중인 명령어
         private set
     
     @Volatile
-    var currentNonce: String = ""
+    var currentNonce: String = "" // 현재 명령어의 Nonce (고유 식별자)
         private set
     
     @Volatile
-    var commandStatus: Int? = null
+    var commandStatus: Int? = null // 명령어의 종료 코드
         private set
     
     @Volatile
-    var currentDirectory: String = ""
+    var currentDirectory: String = "" // 현재 작업 디렉터리
         private set
     
     @Volatile
-    var output: String = ""
+    var output: String = "" // 터미널 출력 내용
         private set
     
-    // Pending output buffer
-    private val pendingOutput = StringBuilder()
-    private val pendingOutputLock = Any()
-    private val lastAppendTime = AtomicLong(0)
-    private val isFlushScheduled = AtomicBoolean(false)
+    // --- 출력 버퍼링 관련 ---
+    private val pendingOutput = StringBuilder() // 보류 중인 출력 버퍼
+    private val pendingOutputLock = Any() // 버퍼 동기화를 위한 락 객체
+    private val lastAppendTime = AtomicLong(0) // 마지막으로 출력 데이터가 추가된 시간
+    private val isFlushScheduled = AtomicBoolean(false) // 플러시 작업이 예약되었는지 여부
     
-    // Coroutine scope
+    // 코루틴 스코프
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /**
-     * Add event listener
+     * 이벤트 리스너를 추가합니다.
      */
     fun addListener(listener: ShellEventListener) {
         synchronized(listeners) {
@@ -85,7 +85,7 @@ class ShellIntegrationOutputState {
     }
     
     /**
-     * Remove event listener
+     * 이벤트 리스너를 제거합니다.
      */
     fun removeListener(listener: ShellEventListener) {
         synchronized(listeners) {
@@ -94,7 +94,7 @@ class ShellIntegrationOutputState {
     }
     
     /**
-     * Notify all listeners of an event
+     * 모든 리스너에게 이벤트를 알립니다.
      */
     private fun notifyListeners(event: ShellEvent) {
         synchronized(listeners) {
@@ -111,65 +111,64 @@ class ShellIntegrationOutputState {
                             listener.onCwdChange(event.cwd)
                     }
                 } catch (e: Exception) {
-                    logger.warn("Failed to notify Shell event listener", e)
+                    logger.warn("셸 이벤트 리스너 알림 실패", e)
                 }
             }
         }
     }
     
     /**
-     * Append output data (with buffering and delayed sending)
+     * 출력 데이터를 버퍼에 추가하고, 지연된 플러시를 스케줄링합니다.
      */
     private fun appendOutput(text: String) {
-        logger.debug("📝 appendOutput called: '${text}', length=${text.length}")
+        logger.debug("📝 appendOutput 호출됨: '${text}', 길이=${text.length}")
         synchronized(pendingOutputLock) {
             pendingOutput.append(text)
-            logger.debug("📝 pendingOutput updated length: ${pendingOutput.length}")
+            logger.debug("📝 pendingOutput 업데이트됨, 길이: ${pendingOutput.length}")
         }
         
-        val currentTime = System.currentTimeMillis()
-        lastAppendTime.set(currentTime)
+        lastAppendTime.set(System.currentTimeMillis())
         
-        // If no flush task is scheduled, schedule one
+        // 플러시 작업이 예약되어 있지 않으면 새로 스케줄링합니다.
         if (isFlushScheduled.compareAndSet(false, true)) {
-            logger.debug("📝 Scheduling flush task, will execute after 50ms")
+            logger.debug("📝 플러시 작업 스케줄링 중, 50ms 후 실행 예정")
             scope.launch {
-                delay(50) // 50ms delay
+                delay(50) // 50ms 지연
                 flushPendingOutput()
             }
         } else {
-            logger.debug("📝 Flush task already scheduled, skipping")
+            logger.debug("📝 플러시 작업이 이미 예약되어 있어 건너뜀")
         }
     }
     
     /**
-     * Flush pending output
+     * 보류 중인 출력을 플러시하고 리스너들에게 알립니다.
      */
     private fun flushPendingOutput() {
-        logger.debug("🚀 flushPendingOutput called")
+        logger.debug("🚀 flushPendingOutput 호출됨")
         val textToFlush = synchronized(pendingOutputLock) {
             if (pendingOutput.isNotEmpty()) {
                 val text = pendingOutput.toString()
                 pendingOutput.clear()
-                logger.debug("🚀 Ready to flush text: '${text}', length=${text.length}")
+                logger.debug("🚀 플러시할 텍스트 준비: '${text}', 길이=${text.length}")
                 text
             } else {
-                logger.debug("🚀 pendingOutput is empty, no need to flush")
+                logger.debug("🚀 pendingOutput이 비어 있어 플러시할 내용 없음")
                 null
             }
         }
         
-        isFlushScheduled.set(false)
+        isFlushScheduled.set(false) // 플러시 스케줄링 상태 초기화
         
         textToFlush?.let { text ->
-            output += text
-            logger.info("🚀 Sending ShellExecutionData event: '${text}', length=${text.length}")
+            output += text // 전체 출력에 추가
+            logger.info("🚀 ShellExecutionData 이벤트 전송: '${text}', 길이=${text.length}")
             notifyListeners(ShellEvent.ShellExecutionData(text))
         }
     }
     
     /**
-     * Clear output
+     * 출력을 지우고 상태를 초기화합니다.
      */
     fun clearOutput() {
         synchronized(pendingOutputLock) {
@@ -181,59 +180,59 @@ class ShellIntegrationOutputState {
     }
     
     /**
-     * Terminate current state
+     * 현재 상태를 종료합니다.
      */
     fun terminate() {
         isCommandRunning = false
-        flushPendingOutput()
+        flushPendingOutput() // 종료 전에 보류 중인 출력 플러시
     }
     
     /**
-     * Process raw output data
-     * Parse Shell Integration markers and extract clean content
+     * 터미널의 원시 출력 데이터를 처리합니다.
+     * 셸 통합 마커를 파싱하고 깨끗한 내용을 추출합니다.
      */
     fun appendRawOutput(output: String) {
-        logger.debug("📥 Processing raw output: ${output.length} chars, isCommandRunning=$isCommandRunning")
-        logger.debug("📥 Raw output content: '${output.replace("\u001b", "\\u001b").replace("\u0007", "\\u0007")}'")
+        logger.debug("📥 원시 출력 처리 중: ${output.length} 문자, isCommandRunning=$isCommandRunning")
+        logger.debug("📥 원시 출력 내용: '${output.replace("\u001b", "\\u001b").replace("\u0007", "\\u0007")}'")
         
         var currentIndex = 0
         var hasShellIntegrationMarkers = false
         
         while (currentIndex < output.length) {
-            // Find Shell Integration marker: \u001b]633;
+            // 셸 통합 마커 찾기: \u001b]633;
             val markerIndex = output.indexOf("\u001b]633;", currentIndex)
             
             if (markerIndex == -1) {
-                // No marker found
+                // 마커를 찾지 못함
                 val remainingContent = output.substring(currentIndex)
-                logger.debug("📤 No Shell Integration marker found, remaining content: '${remainingContent}', isCommandRunning=$isCommandRunning")
+                logger.debug("📤 셸 통합 마커를 찾지 못함, 남은 내용: '${remainingContent}', isCommandRunning=$isCommandRunning")
                 
                 if (!hasShellIntegrationMarkers && remainingContent.isNotEmpty()) {
-                    // If there is no Shell Integration marker in the entire output, treat all content as command output
-                    logger.debug("📤 No Shell Integration marker, treat all content as command output")
+                    // 전체 출력에 셸 통합 마커가 없으면 모든 내용을 명령어 출력으로 간주
+                    logger.debug("📤 셸 통합 마커 없음, 모든 내용을 명령어 출력으로 처리")
                     appendOutput(remainingContent)
                 } else if (isCommandRunning && currentIndex < output.length) {
-                    logger.debug("📤 Append remaining content to output: '${remainingContent}'")
+                    logger.debug("📤 남은 내용을 출력에 추가: '${remainingContent}'")
                     appendOutput(remainingContent)
                 } else if (!isCommandRunning) {
-                    logger.debug("⚠️ Command not running, ignore output: '${remainingContent}'")
+                    logger.debug("⚠️ 명령어가 실행 중이 아님, 출력 무시: '${remainingContent}'")
                 }
                 break
             }
             
             hasShellIntegrationMarkers = true
             
-            // If command is running, append content before marker
+            // 마커 이전의 내용을 출력에 추가
             if (isCommandRunning && currentIndex < markerIndex) {
                 val beforeMarker = output.substring(currentIndex, markerIndex)
-                logger.debug("📤 Append content before marker: '${beforeMarker}'")
+                logger.debug("📤 마커 이전 내용 추가: '${beforeMarker}'")
                 appendOutput(beforeMarker)
             } else if (!isCommandRunning && currentIndex < markerIndex) {
                 val beforeMarker = output.substring(currentIndex, markerIndex)
-                logger.debug("⚠️ Command not running, ignore content before marker: '${beforeMarker}'")
+                logger.debug("⚠️ 명령어가 실행 중이 아님, 마커 이전 내용 무시: '${beforeMarker}'")
             }
             
-            // Parse marker
+            // 마커 파싱
             val typeStart = markerIndex + 6 // "\u001b]633;".length
             if (typeStart >= output.length) {
                 if (isCommandRunning && currentIndex < output.length) {
@@ -242,18 +241,18 @@ class ShellIntegrationOutputState {
                 break
             }
             
-            val type = MarkerType.fromChar(output[typeStart])
+            val type = MarkerType.fromChar(output[typeStart]) // 마커 타입 추출
             val paramStart = typeStart + 1
             
-            // Find marker end: \u0007
+            // 마커 끝 찾기: \u0007 (BEL 문자)
             val paramEnd = output.indexOf('\u0007', paramStart)
             if (paramEnd == -1) {
-                logger.debug("⚠️ Marker end not found, skip")
+                logger.debug("⚠️ 마커 끝을 찾지 못함, 건너뜀")
                 currentIndex = typeStart
                 continue
             }
             
-            // Extract parameters
+            // 파라미터 추출
             val params = if (paramStart < paramEnd) {
                 output.substring(paramStart, paramEnd)
             } else {
@@ -266,39 +265,37 @@ class ShellIntegrationOutputState {
                 listOf(params)
             }
             
-            logger.debug("🔍 Parse Shell Integration marker: type=$type, params='$params', components=$components")
+            logger.debug("🔍 셸 통합 마커 파싱: 타입=$type, 파라미터='$params', 구성요소=$components")
             
-            // Handle different marker types
+            // 마커 타입에 따른 처리
             when (type) {
                 MarkerType.COMMAND_LINE -> {
-                    logger.info("🎯 Shell Integration - Detected command line marker")
+                    logger.info("🎯 셸 통합 - 명령어 라인 마커 감지")
                     if (components.isNotEmpty() && components[0].isNotEmpty()) {
                         currentCommand = components[0]
                         currentNonce = if (components.size >= 2) components[1] else ""
-                        logger.info("🎯 Shell Integration - Command line: '$currentCommand'")
+                        logger.info("🎯 셸 통합 - 명령어 라인: '$currentCommand'")
                     }
                 }
                 
                 MarkerType.COMMAND_EXECUTED -> {
-                    logger.info("🚀 Shell Integration - Detected command executed marker")
+                    logger.info("🚀 셸 통합 - 명령어 실행 마커 감지")
                     isCommandRunning = true
                     if (currentCommand.isNotEmpty()) {
-                        logger.info("🚀 Shell Integration - Command started: '$currentCommand', isCommandRunning=$isCommandRunning")
+                        logger.info("🚀 셸 통합 - 명령어 시작: '$currentCommand', isCommandRunning=$isCommandRunning")
                         notifyListeners(ShellEvent.ShellExecutionStart(currentCommand, currentDirectory))
-                        // Include marker itself in output
-                        appendOutput(output.substring(markerIndex, paramEnd + 1))
+                        appendOutput(output.substring(markerIndex, paramEnd + 1)) // 마커 자체도 출력에 포함
                     }
                 }
                 
                 MarkerType.COMMAND_FINISHED -> {
-                    logger.info("🏁 Shell Integration - Detected command finished marker")
+                    logger.info("🏁 셸 통합 - 명령어 종료 마커 감지")
                     if (currentCommand.isNotEmpty()) {
-                        // Include marker itself in output
-                        appendOutput(output.substring(markerIndex, paramEnd + 1))
-                        flushPendingOutput() // Ensure all pending data is sent before command ends
+                        appendOutput(output.substring(markerIndex, paramEnd + 1)) // 마커 자체도 출력에 포함
+                        flushPendingOutput() // 명령어 종료 전에 보류 중인 출력 플러시
                         
                         commandStatus = components.firstOrNull()?.toIntOrNull()
-                        logger.info("🏁 Shell Integration - Command finished: '$currentCommand' (exit code: $commandStatus)")
+                        logger.info("🏁 셸 통합 - 명령어 종료: '$currentCommand' (종료 코드: $commandStatus)")
                         notifyListeners(ShellEvent.ShellExecutionEnd(currentCommand, commandStatus))
                         currentCommand = ""
                     }
@@ -306,44 +303,37 @@ class ShellIntegrationOutputState {
                 }
                 
                 MarkerType.PROPERTY -> {
-                    logger.debug("📋 Shell Integration - Detected property marker")
+                    logger.debug("📋 셸 통합 - 속성 마커 감지")
                     if (components.isNotEmpty()) {
                         val property = components[0]
                         if (property.startsWith("Cwd=")) {
                             val cwdValue = property.substring(4) // "Cwd=".length
                             if (cwdValue != currentDirectory) {
                                 currentDirectory = cwdValue
-                                logger.info("📁 Shell Integration - Directory changed: '$cwdValue'")
+                                logger.info("📁 셸 통합 - 디렉터리 변경됨: '$cwdValue'")
                                 notifyListeners(ShellEvent.CwdChange(cwdValue))
                             }
                         }
                     }
                 }
                 
-                MarkerType.PROMPT_START -> {
-                    logger.debug("🎯 Shell Integration - Prompt start")
-                }
+                MarkerType.PROMPT_START -> { logger.debug("🎯 셸 통합 - 프롬프트 시작") }
+                MarkerType.COMMAND_START -> { logger.debug("🎯 셸 통합 - 명령어 입력 시작") }
                 
-                MarkerType.COMMAND_START -> {
-                    logger.debug("🎯 Shell Integration - Command input start")
-                }
-                
-                else -> {
-                    logger.debug("🔍 Shell Integration - Unhandled marker type: $type")
-                }
+                else -> { logger.debug("🔍 셸 통합 - 처리되지 않은 마커 타입: $type") }
             }
             
-            currentIndex = paramEnd + 1
+            currentIndex = paramEnd + 1 // 다음 마커 검색을 위해 인덱스 업데이트
         }
     }
     
     /**
-     * Get clean output with Shell Integration markers removed
+     * 셸 통합 마커가 제거된 깨끗한 출력 문자열을 가져옵니다.
      */
     fun getCleanOutput(rawOutput: String): String {
         var result = rawOutput
         
-        // Remove all Shell Integration markers
+        // 모든 셸 통합 마커를 제거합니다.
         val markerPattern = Regex("\u001b\\]633;[^\\u0007]*\\u0007")
         result = markerPattern.replace(result, "")
         
@@ -351,39 +341,39 @@ class ShellIntegrationOutputState {
     }
     
     /**
-     * Dispose resources
+     * 리소스를 해제합니다.
      */
     fun dispose() {
-        scope.cancel()
+        scope.cancel() // 코루틴 스코프 취소
         synchronized(listeners) {
-            listeners.clear()
+            listeners.clear() // 리스너 목록 비우기
         }
     }
     
     /**
-     * VSCode Shell Integration marker types
-     * Reference: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/common/terminalShellIntegration.ts
+     * VSCode 셸 통합 마커 타입을 정의하는 열거형입니다.
+     * 참조: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/common/terminalShellIntegration.ts
      */
     private enum class MarkerType(val char: Char) {
-        // Implemented types
-        COMMAND_LINE('E'),      // Command line content, format: OSC 633 ; E ; <CommandLine> [; <Nonce>] ST
-        COMMAND_FINISHED('D'),  // Command finished, format: OSC 633 ; D [; <ExitCode>] ST
-        COMMAND_EXECUTED('C'),  // Command output started, format: OSC 633 ; C ST
-        PROPERTY('P'),          // Property set, format: OSC 633 ; P ; <Property>=<Value> ST
+        // 구현된 타입
+        COMMAND_LINE('E'),      // 명령어 라인 내용
+        COMMAND_FINISHED('D'),  // 명령어 종료
+        COMMAND_EXECUTED('C'),  // 명령어 출력 시작
+        PROPERTY('P'),          // 속성 설정 (예: Cwd)
 
-        // Prompt related
-        PROMPT_START('A'),      // Prompt start, format: OSC 633 ; A ST
-        COMMAND_START('B'),     // Command input start, format: OSC 633 ; B ST
+        // 프롬프트 관련
+        PROMPT_START('A'),      // 프롬프트 시작
+        COMMAND_START('B'),     // 명령어 입력 시작
 
-        // Line continuation related (not completed)
-        CONTINUATION_START('F'),  // Line continuation start, format: OSC 633 ; F ST
-        CONTINUATION_END('G'),    // Line continuation end, format: OSC 633 ; G ST
+        // 라인 연속 관련 (아직 구현되지 않음)
+        CONTINUATION_START('F'),
+        CONTINUATION_END('G'),
 
-        // Right prompt related (not completed)
-        RIGHT_PROMPT_START('H'),   // Right prompt start, format: OSC 633 ; H ST
-        RIGHT_PROMPT_END('I'),     // Right prompt end, format: OSC 633 ; I ST
+        // 오른쪽 프롬프트 관련 (아직 구현되지 않음)
+        RIGHT_PROMPT_START('H'),
+        RIGHT_PROMPT_END('I'),
 
-        UNKNOWN('?');
+        UNKNOWN('?'); // 알 수 없는 마커 타입
         
         companion object {
             fun fromChar(char: Char): MarkerType {
@@ -391,4 +381,4 @@ class ShellIntegrationOutputState {
             }
         }
     }
-} 
+}
