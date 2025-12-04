@@ -6,13 +6,6 @@ package com.sina.weibo.agent.actors
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
-import com.sina.weibo.agent.plugin.SystemObjectProvider
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.future.future
-import java.util.concurrent.CompletableFuture
 
 /**
  * IntelliJ 메인 스레드에서 백그라운드 태스크(Task) 관련 서비스를 처리하기 위한 인터페이스입니다.
@@ -26,61 +19,61 @@ interface MainThreadTaskShape : Disposable {
      * @return 생성된 태스크 ID
      */
     fun createTaskId(task: Map<String, Any?>): String
-    
+
     /**
      * 특정 타입의 태스크를 제공하는 `TaskProvider`를 등록합니다.
      * @param handle 제공자의 고유 식별자
      * @param type 이 제공자가 처리할 태스크 타입 (예: "shell", "process")
      */
     fun registerTaskProvider(handle: Int, type: String)
-    
+
     /**
      * 등록된 태스크 제공자를 해제합니다.
      * @param handle 해제할 제공자의 고유 식별자
      */
     fun unregisterTaskProvider(handle: Int)
-    
+
     /**
      * 현재 실행 가능한 태스크 목록을 가져옵니다.
      * @param filter 특정 조건에 맞는 태스크만 필터링하기 위한 정보
      * @return 태스크 정보 DTO의 리스트
      */
     fun fetchTasks(filter: Map<String, Any?>?): List<Map<String, Any?>>
-    
+
     /**
      * 특정 태스크의 실행 인스턴스 정보를 가져옵니다.
      * @param value 태스크 핸들 또는 태스크 DTO
      * @return 태스크 실행 정보를 담은 DTO
      */
     fun getTaskExecution(value: Map<String, Any?>): Map<String, Any?>
-    
+
     /**
      * 지정된 태스크를 실행합니다.
      * @param task 실행할 태스크 핸들 또는 태스크 DTO
      * @return 태스크 실행 정보를 담은 DTO
      */
     fun executeTask(task: Map<String, Any?>): Map<String, Any?>
-    
+
     /**
      * 실행 중인 태스크를 종료합니다.
      * @param id 종료할 태스크의 ID
      */
     fun terminateTask(id: String)
-    
+
     /**
      * 새로운 태스크 시스템을 등록합니다.
      * @param scheme 태스크 시스템이 사용하는 스키마
      * @param info 태스크 시스템에 대한 정보
      */
     fun registerTaskSystem(scheme: String, info: Map<String, Any?>)
-    
+
     /**
      * 사용자 정의 실행(Custom Execution)이 완료되었음을 알립니다.
      * @param id 완료된 태스크의 ID
      * @param result 실행 결과 코드
      */
     fun customExecutionComplete(id: String, result: Int?)
-    
+
     /**
      * 이 플러그인이 지원하는 태스크 실행 유형을 등록합니다.
      * @param custom 사용자 정의 실행 지원 여부
@@ -97,12 +90,14 @@ interface MainThreadTaskShape : Disposable {
  */
 class MainThreadTask : MainThreadTaskShape {
     private val logger = Logger.getInstance(MainThreadTask::class.java)
+
     // 등록된 태스크 제공자들을 저장하는 맵 (핸들 -> 타입)
     private val taskProviders = mutableMapOf<Int, String>()
+
     // 실행 중인 태스크 정보를 저장하는 맵 (태스크 ID -> 실행 정보 DTO)
     private val taskExecutions = mutableMapOf<String, Map<String, Any?>>()
-    
-    override fun createTaskId(task: Map<String, Any?>):String {
+
+    override fun createTaskId(task: Map<String, Any?>): String {
         try {
             logger.info("태스크 ID 생성 중: $task")
             val id = "task-${System.currentTimeMillis()}-${task.hashCode()}"
@@ -147,12 +142,12 @@ class MainThreadTask : MainThreadTaskShape {
         try {
             val taskId = value["id"] as? String ?: value["taskId"] as? String
             logger.info("태스크 실행 정보 가져오기: $taskId")
-            
+
             // 간단한 태스크 실행 DTO를 생성하여 반환합니다.
             return mapOf(
                 "id" to (taskId ?: "unknown-task"),
                 "task" to value,
-                "active" to false
+                "active" to false,
             )
         } catch (e: Exception) {
             logger.error("태스크 실행 정보 가져오기 실패", e)
@@ -160,18 +155,18 @@ class MainThreadTask : MainThreadTaskShape {
         }
     }
 
-    override fun executeTask(task: Map<String, Any?>):Map<String, Any?> {
+    override fun executeTask(task: Map<String, Any?>): Map<String, Any?> {
         try {
             val taskId = task["id"] as? String ?: task["taskId"] as? String ?: "unknown-task"
             logger.info("태스크 실행: $taskId")
-            
+
             // '실행 중' 상태의 태스크 실행 DTO를 생성합니다.
             val execution = mapOf(
                 "id" to taskId,
                 "task" to task,
-                "active" to true
+                "active" to true,
             )
-            
+
             // 태스크 실행 정보를 맵에 저장합니다.
             taskExecutions[taskId] = execution
             return execution

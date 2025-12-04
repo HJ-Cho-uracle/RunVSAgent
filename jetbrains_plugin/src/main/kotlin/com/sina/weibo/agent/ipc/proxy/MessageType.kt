@@ -67,8 +67,9 @@ enum class MessageType(val value: Int) {
     /**
      * 빈 오류 응답 메시지입니다.
      */
-    ReplyErrEmpty(12);
-    
+    ReplyErrEmpty(12),
+    ;
+
     companion object {
         /**
          * 정수 값으로부터 해당하는 `MessageType`을 가져옵니다.

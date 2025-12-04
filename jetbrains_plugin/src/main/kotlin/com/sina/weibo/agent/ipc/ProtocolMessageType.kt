@@ -13,52 +13,53 @@ enum class ProtocolMessageType(val value: Int) {
      * 정의되지 않은 메시지 타입입니다.
      */
     NONE(0),
-    
+
     /**
      * 일반적인 데이터 메시지입니다.
      */
     REGULAR(1),
-    
+
     /**
      * 프로토콜 제어를 위한 메시지입니다.
      */
     CONTROL(2),
-    
+
     /**
      * 메시지 수신 확인 응답(Acknowledgment) 메시지입니다.
      */
     ACK(3),
-    
+
     /**
      * 연결 끊기(Disconnect) 메시지입니다.
      */
     DISCONNECT(5),
-    
+
     /**
      * 메시지 재전송 요청(Replay Request) 메시지입니다.
      */
     REPLAY_REQUEST(6),
-    
+
     /**
      * 메시지 쓰기 일시 중지(Pause) 메시지입니다.
      */
     PAUSE(7),
-    
+
     /**
      * 메시지 쓰기 재개(Resume) 메시지입니다.
      */
     RESUME(8),
-    
+
     /**
      * 연결 유지(Keep-Alive) 메시지입니다.
      */
-    KEEP_ALIVE(9);
-    
+    KEEP_ALIVE(9),
+    ;
+
     /**
      * 열거형 타입의 문자열 설명을 반환합니다. (디버깅 및 로깅용)
      * @return 문자열 설명
      */
-    fun toTypeString(): String = when(this) {
+    fun toTypeString(): String = when (this) {
         NONE -> "None"
         REGULAR -> "Regular"
         CONTROL -> "Control"
@@ -69,7 +70,7 @@ enum class ProtocolMessageType(val value: Int) {
         RESUME -> "ResumeWriting"
         KEEP_ALIVE -> "KeepAlive"
     }
-    
+
     companion object {
         /**
          * 정수 값으로부터 해당하는 열거형 상수를 가져옵니다.

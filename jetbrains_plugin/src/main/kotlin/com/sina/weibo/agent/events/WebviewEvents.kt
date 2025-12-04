@@ -19,7 +19,7 @@ object WebviewViewProviderRegisterEvent : EventType<WebviewViewProviderData>
 data class WebviewViewProviderData(
     val extension: Map<String, Any?>,
     val viewType: String,
-    val options: Map<String, Any?>
+    val options: Map<String, Any?>,
 )
 
 /**
@@ -35,5 +35,5 @@ object WebviewHtmlUpdateEvent : EventType<WebviewHtmlUpdateData>
  */
 data class WebviewHtmlUpdateData(
     val handle: String,
-    var htmlContent: String
+    var htmlContent: String,
 )

@@ -6,7 +6,6 @@ package com.sina.weibo.agent.ipc.proxy.interfaces
 
 import com.sina.weibo.agent.model.WorkspaceData
 import com.sina.weibo.agent.util.URIComponents
-import java.net.URI
 
 /**
  * Extension Host 작업 공간(Workspace) 서비스 프록시 인터페이스입니다.

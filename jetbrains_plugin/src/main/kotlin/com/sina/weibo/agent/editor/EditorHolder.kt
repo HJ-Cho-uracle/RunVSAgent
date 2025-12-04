@@ -12,7 +12,11 @@ import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.vfs.LocalFileSystem
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.max
 import kotlin.math.min
@@ -164,62 +168,62 @@ class EditorHolder(
         val lines = content.lines()
         val lineCount = lines.size
 
-            // Calculate range
-            val startLine = max(0, edit.textEdit.range.startLineNumber - 1)
-            val startColumn = max(0, edit.textEdit.range.startColumn - 1)
-            val endLine = min(lineCount - 1, edit.textEdit.range.endLineNumber - 1)
-            val endColumn = min(lines[endLine].length, edit.textEdit.range.endColumn - 1)
+        // Calculate range
+        val startLine = max(0, edit.textEdit.range.startLineNumber - 1)
+        val startColumn = max(0, edit.textEdit.range.startColumn - 1)
+        val endLine = min(lineCount - 1, edit.textEdit.range.endLineNumber - 1)
+        val endColumn = min(lines[endLine].length, edit.textEdit.range.endColumn - 1)
 
-            // Calculate offsets
-            var startOffset = 0
-            var endOffset = 0
-            for (i in 0 until lineCount) {
-                if (i < startLine) {
-                    startOffset += lines[i].length + 1 // +1 for newline
-                } else if (i == startLine) {
-                    startOffset += min(startColumn, lines[i].length)
-                }
-
-                if (i < endLine) {
-                    endOffset += lines[i].length + 1 // +1 for newline
-                } else if (i == endLine) {
-                    endOffset += min(endColumn, lines[i].length)
-                }
+        // Calculate offsets
+        var startOffset = 0
+        var endOffset = 0
+        for (i in 0 until lineCount) {
+            if (i < startLine) {
+                startOffset += lines[i].length + 1 // +1 for newline
+            } else if (i == startLine) {
+                startOffset += min(startColumn, lines[i].length)
             }
 
-            // Ensure range is valid
-            val textLength = content.length
-            if (startOffset < 0 || endOffset > textLength || startOffset > endOffset) {
-                return false
+            if (i < endLine) {
+                endOffset += lines[i].length + 1 // +1 for newline
+            } else if (i == endLine) {
+                endOffset += min(endColumn, lines[i].length)
             }
-            val end = (endLine < (edit.textEdit.range.endLineNumber - 1))
-            val newText = edit.textEdit.text.replace("\r\n", "\n")
-            val newContent = content.substring(0, startOffset) + newText + (if (!end) content.substring(endOffset) else "")
-            ApplicationManager.getApplication().invokeAndWait {
-                ApplicationManager.getApplication().runWriteAction {
-                    editorDocument?.setText(newContent)
-                }
-            }
-            CoroutineScope(Dispatchers.IO).launch {
-                delay(1000)
-                val file = File(document.uri.path).parentFile
-                if(file.exists()){
-                    LocalFileSystem.getInstance().refreshIoFiles(listOf(file))
-                }
-            }
-            val newDoc = ModelAddedData(
-                uri = document.uri,
-                versionId = document.versionId + 1,
-                lines = newContent.lines(),
-                EOL = document.EOL,
-                languageId = document.languageId,
-                isDirty = true,
-                encoding = document.encoding
-            )
-            document = newDoc
-            stateManager.updateDocumentAsync(newDoc)
-            return true;
         }
+
+        // Ensure range is valid
+        val textLength = content.length
+        if (startOffset < 0 || endOffset > textLength || startOffset > endOffset) {
+            return false
+        }
+        val end = (endLine < (edit.textEdit.range.endLineNumber - 1))
+        val newText = edit.textEdit.text.replace("\r\n", "\n")
+        val newContent = content.substring(0, startOffset) + newText + (if (!end) content.substring(endOffset) else "")
+        ApplicationManager.getApplication().invokeAndWait {
+            ApplicationManager.getApplication().runWriteAction {
+                editorDocument?.setText(newContent)
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(1000)
+            val file = File(document.uri.path).parentFile
+            if (file.exists()) {
+                LocalFileSystem.getInstance().refreshIoFiles(listOf(file))
+            }
+        }
+        val newDoc = ModelAddedData(
+            uri = document.uri,
+            versionId = document.versionId + 1,
+            lines = newContent.lines(),
+            EOL = document.EOL,
+            languageId = document.languageId,
+            isDirty = true,
+            encoding = document.encoding,
+        )
+        document = newDoc
+        stateManager.updateDocumentAsync(newDoc)
+        return true
+    }
 
     /**
      * 문서를 저장합니다.
@@ -241,7 +245,7 @@ class EditorHolder(
             EOL = document.EOL,
             languageId = document.languageId,
             isDirty = false,
-            encoding = document.encoding
+            encoding = document.encoding,
         )
         document = newDoc
         stateManager.updateDocumentAsync(newDoc)
@@ -291,7 +295,7 @@ class EditorHolder(
             EOL = document.EOL,
             languageId = document.languageId,
             isDirty = isDirty,
-            encoding = document.encoding
+            encoding = document.encoding,
         )
         document = newDoc
         // IntelliJ의 FileDocumentManager를 통해 문서 저장

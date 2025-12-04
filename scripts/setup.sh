@@ -183,7 +183,7 @@ setup_git_lfs() {
         local lfs_files
         lfs_files=$(grep -c "filter=lfs" .gitattributes 2>/dev/null || echo "0")
         if [[ "$lfs_files" -gt 0 ]]; then
-            log_info ".gitattributes에서 $lfs_files개의 LFS 파일 패턴 찾음"
+            log_info ".gitattributes에서 $lfs_files 개의 LFS 파일 패턴 찾음"
             
             # LFS 파일 풀 (다운로드)
             log_info "LFS 파일 풀링 중..."
@@ -195,7 +195,7 @@ setup_git_lfs() {
                 local lfs_file_count
                 lfs_file_count=$(git lfs ls-files | wc -l | tr -d ' ')
                 if [[ "$lfs_file_count" -gt 0 ]]; then
-                    log_success "$lfs_file_count개의 LFS 파일 성공적으로 풀링됨"
+                    log_success "$lfs_file_count 개의 LFS 파일 성공적으로 풀링됨"
                     git lfs ls-files | while read -r line; do
                         log_debug "LFS 파일: $line"
                     done
@@ -248,7 +248,7 @@ setup_submodules() {
         elif git show-ref --verify --quiet "refs/remotes/origin/$VSCODE_BRANCH"; then
             execute_cmd "git checkout -b $VSCODE_BRANCH origin/$VSCODE_BRANCH" "$VSCODE_BRANCH 브랜치 체크아웃"
         else
-            log_warn "브랜치 $VSCODE_BRANCH를 찾을 수 없습니다. 현재 브랜치 유지"
+            log_warn "브랜치 $VSCODE_BRANCH 를 찾을 수 없습니다. 현재 브랜치 유지"
         fi
     fi
     
@@ -261,7 +261,7 @@ setup_submodules() {
         elif git show-ref --verify --quiet "refs/remotes/origin/$VSCODE_BRANCH"; then
             execute_cmd "git checkout -b $VSCODE_BRANCH origin/$VSCODE_BRANCH" "$VSCODE_BRANCH 브랜치 체크아웃"
         else
-            log_warn "브랜치 $VSCODE_BRANCH를 찾을 수 없습니다. 현재 브랜치 유지"
+            log_warn "브랜치 $VSCODE_BRANCH 를 찾을 수 없습니다. 현재 브랜치 유지"
         fi
     fi
 
@@ -511,7 +511,7 @@ verify_setup() {
     fi
     
     if [[ $errors -gt 0 ]]; then
-        log_error "설정 확인 실패 ($errors개 오류 발생)"
+        log_error "설정 확인 실패 ($errors 개 오류 발생)"
         exit 3
     fi
     

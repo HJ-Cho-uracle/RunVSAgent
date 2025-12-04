@@ -18,7 +18,7 @@ interface MainThreadErrorsShape : Disposable {
      * @param err 오류 정보를 담고 있는 객체 (보통 Map 또는 문자열 형태)
      */
     fun onUnexpectedError(err: Any?)
-    
+
     /**
      * 리소스를 해제합니다. (Disposable 인터페이스 구현)
      */

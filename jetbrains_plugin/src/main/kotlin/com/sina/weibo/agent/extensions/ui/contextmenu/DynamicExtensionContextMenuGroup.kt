@@ -4,7 +4,11 @@
 
 package com.sina.weibo.agent.extensions.ui.contextmenu
 
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.ActionUpdateThreadAware
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.DumbAware
 
 /**
@@ -47,7 +51,7 @@ class DynamicExtensionContextMenuGroup : DefaultActionGroup(), DumbAware, Action
      */
     private fun loadDynamicContextMenuActions(e: AnActionEvent) {
         val project = e.project ?: return // 프로젝트가 없으면 반환
-        
+
         // 컨텍스트 메뉴 관리자를 가져오거나 초기화합니다.
         if (contextMenuManager == null) {
             try {

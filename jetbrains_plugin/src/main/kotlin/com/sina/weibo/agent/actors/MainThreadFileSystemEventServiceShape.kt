@@ -27,7 +27,7 @@ interface MainThreadFileSystemEventServiceShape : Disposable {
         session: Int,
         resource: Map<String, Any?>,
         opts: Map<String, Any?>,
-        correlate: Boolean
+        correlate: Boolean,
     )
 
     /**
@@ -54,7 +54,7 @@ class MainThreadFileSystemEventService : MainThreadFileSystemEventServiceShape {
         session: Int,
         resource: Map<String, Any?>,
         opts: Map<String, Any?>,
-        correlate: Boolean
+        correlate: Boolean,
     ) {
         logger.info("파일 시스템 감시 시작: extensionId=$extensionId, session=$session, resource=$resource, opts=$opts, correlate=$correlate")
     }

@@ -107,6 +107,8 @@ SPDX-License-Identifier: Apache-2.0
          자세한 내용은 다음을 참조하세요: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
 <!--        <projectService serviceImplementation="com.sina.weibo.agent.plugin.WecoderPluginService"/>-->
+        <postStartupActivity implementation="com.sina.weibo.agent.PluginStartupActivity"/>
+
         <!-- 에디터 팩토리 리스너 등록: 에디터 생성/해제 이벤트 감지 -->
         <editorFactoryListener implementation="com.sina.weibo.agent.editor.EditorListener"/>
         <!-- 툴 윈도우 등록: RunVSAgent 툴 윈도우 생성 -->

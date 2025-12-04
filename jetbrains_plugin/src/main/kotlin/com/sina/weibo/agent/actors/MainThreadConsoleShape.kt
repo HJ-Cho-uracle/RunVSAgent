@@ -25,7 +25,7 @@ data class RemoteConsoleLog(
     /** 소스 파일의 컬럼 번호 (선택 사항) */
     val columnNumber: Int? = null,
     /** 로그가 발생한 시간의 타임스탬프 */
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
 )
 
 /**
@@ -39,7 +39,7 @@ interface MainThreadConsoleShape : Disposable {
      * @param msg 로그 메시지 정보를 담고 있는 Map 객체
      */
     fun logExtensionHostMessage(msg: Map<String, Any>)
-    
+
     /**
      * 리소스를 해제합니다. (Disposable 인터페이스 구현)
      */

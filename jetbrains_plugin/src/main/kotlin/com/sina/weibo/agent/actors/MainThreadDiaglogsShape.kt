@@ -5,14 +5,14 @@
 package com.sina.weibo.agent.actors
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
-import com.sina.weibo.agent.util.URI
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.fileChooser.FileSaverDescriptor
+import com.sina.weibo.agent.util.URI
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.nio.file.Path
@@ -77,26 +77,32 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
      * 이 메소드는 IntelliJ의 `invokeLater`를 사용하여 모든 UI 작업을 메인 스레드에서 실행하도록 보장합니다.
      * 코루틴을 사용하여 비동기적인 다이얼로그 결과를 동기적인 코드처럼 처리할 수 있게 합니다.
      *
-     * @param map 다이얼로그 옵션을 담고 있는 Map
+     * @param options 다이얼로그 옵션을 담고 있는 Map
      * @return 선택된 파일 URI의 변경 가능한 리스트, 또는 취소 시 null
      */
-    override suspend fun showOpenDialog(map: Map<String, Any?>?): MutableList<URI>? {
-        val options = create(map)
-        
+    override suspend fun showOpenDialog(options: Map<String, Any?>?): MutableList<URI>? {
+        val openOptions = create(options)
+
         // 파일 선택기의 동작을 정의하는 디스크립터를 생성합니다.
         val descriptor = FileChooserDescriptor(
-            /* chooseFiles = */ options?.canSelectFiles ?: true,
-            /* chooseFolders = */ options?.canSelectFolders ?: true,
-            /* chooseJars = */ false,
-            /* chooseJarsAsFiles = */ false,
-            /* chooseMultipleJars = */ false,
-            /* chooseMultiple = */ options?.canSelectMany ?: true
+            /* chooseFiles = */
+            openOptions?.canSelectFiles ?: true,
+            /* chooseFolders = */
+            openOptions?.canSelectFolders ?: true,
+            /* chooseJars = */
+            false,
+            /* chooseJarsAsFiles = */
+            false,
+            /* chooseJarContents = */
+            false,
+            /* chooseMultiple = */
+            openOptions?.canSelectMany ?: true,
         )
-            .withTitle(options?.title ?: "Open")
-            .withDescription(options?.openLabel ?: "Select files")
-        
+            .withTitle(openOptions?.title ?: "Open")
+            .withDescription(openOptions?.openLabel ?: "Select files")
+
         // 파일 확장자 필터를 적용합니다.
-        options?.filters?.forEach { (name, extensions) ->
+        openOptions?.filters?.forEach { (name, extensions) ->
             descriptor.withFileFilter { file ->
                 extensions.any { file.extension?.equals(it, true) ?: false }
             }
@@ -109,12 +115,12 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
                 try {
                     // IntelliJ 파일 선택 다이얼로그를 띄웁니다.
                     val files = FileChooser.chooseFiles(descriptor, null, null)
-                    
+
                     // 선택된 VirtualFile 객체를 우리가 사용하는 URI 객체로 변환합니다.
                     val result = files.map { file ->
                         URI.file(file.path)
                     }.toMutableList()
-                    
+
                     // 코루틴을 결과와 함께 재개합니다.
                     continuation.resume(result)
                 } catch (e: Exception) {
@@ -128,24 +134,24 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
     /**
      * 지정된 옵션으로 파일 저장 다이얼로그를 보여줍니다.
      *
-     * @param map 다이얼로그 옵션을 담고 있는 Map
+     * @param options 다이얼로그 옵션을 담고 있는 Map
      * @return 저장 위치의 URI, 또는 취소 시 null
      */
-    override suspend fun showSaveDialog(map: Map<String, Any?>?): URI? {
-        val options = create(map)
-        
-        val descriptor = FileSaverDescriptor("Save", options?.openLabel ?: "Select save location")
+    override suspend fun showSaveDialog(options: Map<String, Any?>?): URI? {
+        val openOptions = create(options)
 
-        options?.filters?.forEach { (name, extensions) ->
+        val descriptor = FileSaverDescriptor("Save", openOptions?.openLabel ?: "Select save location")
+
+        openOptions?.filters?.forEach { (name, extensions) ->
             descriptor.withFileFilter { file ->
                 extensions.any { file.extension?.equals(it, true) ?: false }
             }
         }
 
         // 옵션에서 기본 경로와 파일 이름을 추출합니다.
-        val path = options?.defaultUri?.get("path")
+        val path = openOptions?.defaultUri?.get("path")
         var fileName: String? = null
-        
+
         val virtualFile = path?.let { filePath ->
             val file = File(filePath)
             fileName = file.name
@@ -159,9 +165,9 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
                     val file = FileChooserFactory.getInstance()
                         .createSaveFileDialog(descriptor, null)
                         .save(virtualFile, fileName)
-                    
+
                     val result = file?.let { URI.file(it.file.absolutePath) }
-                    
+
                     continuation.resume(result)
                 } catch (e: Exception) {
                     continuation.resumeWithException(e)
@@ -179,16 +185,59 @@ class MainThreadDiaglogs : MainThreadDiaglogsShape {
     private fun create(map: Map<String, Any?>?): MainThreadDialogOpenOptions? {
         map?.let {
             return MainThreadDialogOpenOptions(
-                defaultUri = it["defaultUri"] as? Map<String, String?>,
+                defaultUri = parseDefaultUri(it["defaultUri"]),
                 openLabel = it["openLabel"] as? String,
                 canSelectFiles = it["canSelectFiles"] as? Boolean,
                 canSelectFolders = it["canSelectFolders"] as? Boolean,
                 canSelectMany = it["canSelectMany"] as? Boolean,
-                filters = it["filters"] as? MutableMap<String, MutableList<String>>,
+                filters = parseFilters(it["filters"]),
                 title = it["title"] as? String,
-                allowUIResources = it["allowUIResources"] as? Boolean
+                allowUIResources = it["allowUIResources"] as? Boolean,
             )
         } ?: return null
+    }
+
+    /**
+     * `Any?` 타입의 default URI 정보를 안전하게 `Map<String, String?>`으로 변환합니다.
+     *
+     * @param value 변환할 URI 객체
+     * @return 변환된 맵 또는 변환이 불가능한 경우 null
+     */
+    private fun parseDefaultUri(value: Any?): Map<String, String?>? {
+        if (value !is Map<*, *>) {
+            return null
+        }
+
+        val resultMap = mutableMapOf<String, String?>()
+        for ((key, v) in value) {
+            if (key !is String) continue
+            if (v != null && v !is String) continue
+            resultMap[key] = v as String?
+        }
+        return resultMap
+    }
+
+    /**
+     * `Any?` 타입의 필터 정보를 안전하게 `MutableMap<String, MutableList<String>>`으로 변환합니다.
+     *
+     * @param value 변환할 필터 객체
+     * @return 변환된 맵 또는 변환이 불가능한 경우 null
+     */
+    private fun parseFilters(value: Any?): MutableMap<String, MutableList<String>>? {
+        if (value !is Map<*, *>) {
+            return null
+        }
+
+        val resultMap = mutableMapOf<String, MutableList<String>>()
+        for ((key, list) in value) {
+            if (key is String && list is List<*>) {
+                val stringList = list.mapNotNull { it as? String }.toMutableList()
+                if (stringList.size == list.size) { // 모든 항목이 성공적으로 변환되었는지 확인
+                    resultMap[key] = stringList
+                }
+            }
+        }
+        return if (resultMap.isNotEmpty()) resultMap else null
     }
 
     /**

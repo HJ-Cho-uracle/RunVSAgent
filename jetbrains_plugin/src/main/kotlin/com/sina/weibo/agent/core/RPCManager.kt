@@ -6,7 +6,38 @@ package com.sina.weibo.agent.core
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.sina.weibo.agent.actors.*
+import com.sina.weibo.agent.actors.MainThreadBulkEdits
+import com.sina.weibo.agent.actors.MainThreadClipboard
+import com.sina.weibo.agent.actors.MainThreadCommands
+import com.sina.weibo.agent.actors.MainThreadConfiguration
+import com.sina.weibo.agent.actors.MainThreadConsole
+import com.sina.weibo.agent.actors.MainThreadDebugService
+import com.sina.weibo.agent.actors.MainThreadDiaglogs
+import com.sina.weibo.agent.actors.MainThreadDocumentContentProviders
+import com.sina.weibo.agent.actors.MainThreadDocuments
+import com.sina.weibo.agent.actors.MainThreadEditorTabs
+import com.sina.weibo.agent.actors.MainThreadErrors
+import com.sina.weibo.agent.actors.MainThreadExtensionService
+import com.sina.weibo.agent.actors.MainThreadFileSystem
+import com.sina.weibo.agent.actors.MainThreadFileSystemEventService
+import com.sina.weibo.agent.actors.MainThreadLanguageFeatures
+import com.sina.weibo.agent.actors.MainThreadLanguageModelTools
+import com.sina.weibo.agent.actors.MainThreadLogger
+import com.sina.weibo.agent.actors.MainThreadMessageService
+import com.sina.weibo.agent.actors.MainThreadOutputService
+import com.sina.weibo.agent.actors.MainThreadSearch
+import com.sina.weibo.agent.actors.MainThreadSecretState
+import com.sina.weibo.agent.actors.MainThreadStatusBar
+import com.sina.weibo.agent.actors.MainThreadStorage
+import com.sina.weibo.agent.actors.MainThreadTask
+import com.sina.weibo.agent.actors.MainThreadTelemetry
+import com.sina.weibo.agent.actors.MainThreadTerminalService
+import com.sina.weibo.agent.actors.MainThreadTerminalShellIntegration
+import com.sina.weibo.agent.actors.MainThreadTextEditors
+import com.sina.weibo.agent.actors.MainThreadUrls
+import com.sina.weibo.agent.actors.MainThreadWebviewViews
+import com.sina.weibo.agent.actors.MainThreadWebviews
+import com.sina.weibo.agent.actors.MainThreadWindow
 import com.sina.weibo.agent.ipc.IMessagePassingProtocol
 import com.sina.weibo.agent.ipc.proxy.IRPCProtocol
 import com.sina.weibo.agent.ipc.proxy.RPCProtocol
@@ -30,9 +61,10 @@ class RPCManager(
     private val protocol: IMessagePassingProtocol,
     private val extensionManager: ExtensionManager,
     private val uriTransformer: IURITransformer? = null,
-    private val project: Project
+    private val project: Project,
 ) {
     private val logger = Logger.getInstance(RPCManager::class.java)
+
     // 실제 RPC 통신을 처리하는 프로토콜 인스턴스
     private val rpcProtocol: IRPCProtocol = RPCProtocol(protocol, FileRPCProtocolLogger(), uriTransformer)
 
@@ -45,7 +77,6 @@ class RPCManager(
         setupKiloCodeFunctionProtocols()
         setupWebviewProtocols()
     }
-
 
     /**
      * 플러그인 환경 초기화를 시작합니다.
@@ -68,7 +99,7 @@ class RPCManager(
 
                 // 기본 설정 내용을 구성합니다.
                 val contentsBuilder = mutableMapOf<String, Any>(
-                    "workbench.colorTheme" to themeName
+                    "workbench.colorTheme" to themeName,
                 )
 
                 // 프록시 설정이 있으면 추가합니다.
@@ -81,15 +112,15 @@ class RPCManager(
                 val emptyMap = mapOf(
                     "contents" to emptyMap<String, Any>(),
                     "keys" to emptyList<String>(),
-                    "overrides" to emptyList<String>()
+                    "overrides" to emptyList<String>(),
                 )
-                
+
                 // Extension Host에 전달할 전체 설정 모델을 구성합니다.
                 val emptyConfigModel = mapOf(
                     "defaults" to mapOf(
                         "contents" to contentsBuilder,
                         "keys" to emptyList<String>(),
-                        "overrides" to emptyList<String>()
+                        "overrides" to emptyList<String>(),
                     ),
                     "policy" to emptyMap,
                     "application" to emptyMap,
@@ -97,7 +128,7 @@ class RPCManager(
                     "userRemote" to emptyMap,
                     "workspace" to emptyMap,
                     "folders" to emptyList<Any>(),
-                    "configurationScopes" to emptyList<Any>()
+                    "configurationScopes" to emptyList<Any>(),
                 )
 
                 // ExtHostConfiguration 서비스의 `initializeConfiguration` 메소드를 호출하여 설정 정보를 전달합니다.

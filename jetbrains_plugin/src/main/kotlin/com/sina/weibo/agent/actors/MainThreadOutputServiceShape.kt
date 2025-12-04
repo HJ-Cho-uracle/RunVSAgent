@@ -6,7 +6,6 @@ package com.sina.weibo.agent.actors
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
-import com.sina.weibo.agent.util.URI
 
 /**
  * IntelliJ 메인 스레드에서 출력(Output) 채널 관련 서비스를 처리하기 위한 인터페이스입니다.
@@ -23,7 +22,7 @@ interface MainThreadOutputServiceShape : Disposable {
      * @return 생성된 채널의 고유 ID
      */
     suspend fun register(label: String, file: Map<String, Any>, languageId: String?, extensionId: String): String
-    
+
     /**
      * 출력 채널의 내용을 업데이트합니다.
      * @param channelId 업데이트할 채널의 ID
@@ -31,20 +30,20 @@ interface MainThreadOutputServiceShape : Disposable {
      * @param till 특정 위치까지 업데이트할 때 사용 (선택 사항)
      */
     suspend fun update(channelId: String, mode: Int, till: Int? = null)
-    
+
     /**
      * 지정된 출력 채널을 사용자에게 보여줍니다. (예: 해당 탭을 활성화)
      * @param channelId 보여줄 채널의 ID
      * @param preserveFocus 채널을 보여준 후에도 현재 포커스를 유지할지 여부
      */
     suspend fun reveal(channelId: String, preserveFocus: Boolean)
-    
+
     /**
      * 지정된 출력 채널을 닫습니다.
      * @param channelId 닫을 채널의 ID
      */
     suspend fun close(channelId: String)
-    
+
     /**
      * 지정된 출력 채널과 관련된 리소스를 해제합니다.
      * @param channelId 해제할 채널의 ID
@@ -65,19 +64,19 @@ class MainThreadOutputService : MainThreadOutputServiceShape {
         // 현재는 채널의 레이블을 ID로 사용합니다.
         return label
     }
-    
+
     override suspend fun update(channelId: String, mode: Int, till: Int?) {
         logger.info("출력 채널 업데이트: channelId=$channelId, mode=$mode, till=$till")
     }
-    
+
     override suspend fun reveal(channelId: String, preserveFocus: Boolean) {
         logger.info("출력 채널 표시: channelId=$channelId, preserveFocus=$preserveFocus")
     }
-    
+
     override suspend fun close(channelId: String) {
         logger.info("출력 채널 닫기: channelId=$channelId")
     }
-    
+
     override suspend fun dispose(channelId: String) {
         logger.info("출력 채널 리소스 해제: channelId=$channelId")
     }

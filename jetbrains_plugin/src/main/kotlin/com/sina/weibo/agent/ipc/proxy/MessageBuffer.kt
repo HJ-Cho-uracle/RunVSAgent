@@ -22,7 +22,8 @@ enum class ArgType(val value: Int) {
     SerializedObjectWithBuffers(3),
 
     /** 정의되지 않은 타입 (null과 유사) */
-    Undefined(4);
+    Undefined(4),
+    ;
 
     companion object {
         /**
@@ -56,7 +57,7 @@ sealed class MixedArg {
  * VSCode의 `MessageBuffer`에 해당합니다.
  */
 class MessageBuffer private constructor(
-    private val buffer: ByteBuffer
+    private val buffer: ByteBuffer,
 ) {
     companion object {
         /**
@@ -67,8 +68,7 @@ class MessageBuffer private constructor(
          * @return 할당된 `MessageBuffer` 인스턴스
          */
         fun alloc(type: MessageType, req: Int, messageSize: Int): MessageBuffer {
-            // 메시지 타입(1바이트) + 요청 ID(4바이트) + 메시지 본문 크기
-            val totalSize = messageSize + 1 /* type */ + 4 /* req */
+            val totalSize = messageSize + 1 + 4 // type + req
             val buffer = ByteBuffer.allocate(totalSize).order(ByteOrder.BIG_ENDIAN) // 빅 엔디안으로 설정
             val result = MessageBuffer(buffer)
             result.writeUInt8(type.value) // 메시지 타입 쓰기
@@ -94,17 +94,17 @@ class MessageBuffer private constructor(
 
         /** 짧은 문자열의 크기를 계산합니다. */
         fun sizeShortString(str: ByteArray): Int {
-            return sizeUInt8 /* 문자열 길이 */ + str.size /* 실제 문자열 */
+            return sizeUInt8 + str.size // 문자열 길이 + 실제 문자열
         }
 
         /** 긴 문자열의 크기를 계산합니다. */
         fun sizeLongString(str: ByteArray): Int {
-            return sizeUInt32 /* 문자열 길이 */ + str.size /* 실제 문자열 */
+            return sizeUInt32 + str.size // 문자열 길이 + 실제 문자열
         }
 
         /** 바이너리 버퍼의 크기를 계산합니다. */
         fun sizeVSBuffer(buff: ByteArray): Int {
-            return sizeUInt32 /* 버퍼 길이 */ + buff.size /* 실제 버퍼 */
+            return sizeUInt32 + buff.size // 버퍼 길이 + 실제 버퍼
         }
 
         /** 혼합된 배열의 크기를 계산합니다. */
@@ -145,10 +145,22 @@ class MessageBuffer private constructor(
     // --- 쓰기 메소드 ---
     fun writeUInt8(n: Int) { buffer.put(n.toByte()) }
     fun writeUInt32(n: Int) { buffer.putInt(n) }
-    fun writeShortString(str: ByteArray) { buffer.put(str.size.toByte()); buffer.put(str) }
-    fun writeLongString(str: ByteArray) { buffer.putInt(str.size); buffer.put(str) }
-    fun writeBuffer(buff: ByteArray) { buffer.putInt(buff.size); buffer.put(buff) }
-    fun writeVSBuffer(buff: ByteArray) { buffer.putInt(buff.size); buffer.put(buff) }
+    fun writeShortString(str: ByteArray) {
+        buffer.put(str.size.toByte())
+        buffer.put(str)
+    }
+    fun writeLongString(str: ByteArray) {
+        buffer.putInt(str.size)
+        buffer.put(str)
+    }
+    fun writeBuffer(buff: ByteArray) {
+        buffer.putInt(buff.size)
+        buffer.put(buff)
+    }
+    fun writeVSBuffer(buff: ByteArray) {
+        buffer.putInt(buff.size)
+        buffer.put(buff)
+    }
 
     /**
      * 혼합된 인자 배열을 버퍼에 씁니다.
@@ -208,7 +220,7 @@ class MessageBuffer private constructor(
     fun readMixedArray(): List<Any?> {
         val arrLen = readUInt8() // 배열의 길이 읽기
         val arr = ArrayList<Any?>(arrLen)
-        
+
         for (i in 0 until arrLen) {
             val argType = ArgType.fromValue(readUInt8()) ?: ArgType.Undefined // 인자 타입 읽기
             when (argType) {
@@ -241,7 +253,7 @@ class MessageBuffer private constructor(
 fun parseJsonAndRestoreBufferRefs(
     jsonString: String,
     buffers: List<ByteArray>,
-    uriTransformer: ((String, Any?) -> Any?)? = null
+    uriTransformer: ((String, Any?) -> Any?)? = null,
 ): Any {
     // 실제 프로젝트에서는 더 완전한 기능이 구현되어야 합니다.
     // JSON 문자열을 파싱하고, 버퍼 참조를 복원하며, URI 변환을 적용해야 합니다.

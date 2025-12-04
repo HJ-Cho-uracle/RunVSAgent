@@ -82,7 +82,7 @@ fun Sync.prepareSandbox() {
         src: Any,
         dest: String,
         createDestIfMissing: Boolean = false,
-        configure: CopySpec.() -> Unit = {}
+        configure: CopySpec.() -> Unit = {},
     ) {
         if (createDestIfMissing) {
             val destFile = resolvedDestPath(dest, destinationDir)
@@ -120,7 +120,7 @@ fun Sync.prepareSandbox() {
     }
 
     doFirst {
-        logger.lifecycle("[prepareSandbox] Starting with debugMode='${debugMode}'")
+        logger.lifecycle("[prepareSandbox] Starting with debugMode='$debugMode'")
     }
 
     // Set duplicate strategy to include files, with later sources taking precedence
@@ -135,7 +135,7 @@ fun Sync.prepareSandbox() {
     }
 
     // Common
-    val vscodePluginDir = File("./plugins/${vsCodePluginName}")
+    val vscodePluginDir = File("./plugins/$vsCodePluginName")
     if (!vscodePluginDir.exists()) {
         throw IllegalStateException("missing plugin dir")
     }
@@ -157,24 +157,23 @@ fun Sync.prepareSandbox() {
             mkdir(debugResourceDir)
         }
         val debugDir = debugResourceDir.asFile.absolutePath
-        copyAndTrack("${vscodePluginDir.path}/extension","${debugDir}/${vsCodePluginName}", createDestIfMissing = true)
-        if (File("${debugDir}/${vsCodePluginName}/src").exists()) {
-            copyAndTrack(themesDir, "${debugDir}/${vsCodePluginName}/src/integrations/theme/default-themes/")
+        copyAndTrack("${vscodePluginDir.path}/extension", "$debugDir/$vsCodePluginName", createDestIfMissing = true)
+        if (File("$debugDir/$vsCodePluginName/src").exists()) {
+            copyAndTrack(themesDir, "$debugDir/$vsCodePluginName/src/integrations/theme/default-themes/")
         } else {
-            copyAndTrack(themesDir, "${debugDir}/${vsCodePluginName}/integrations/theme/default-themes/")
-
+            copyAndTrack(themesDir, "$debugDir/$vsCodePluginName/integrations/theme/default-themes/")
         }
-        copyAndTrack(themesDir, "${debugDir}/themes/", createDestIfMissing = true)
-        copyAndTrack("../extension_host/dist", "${debugDir}/runtime/", createDestIfMissing = true)
-        copyAndTrack("../extension_host/package.json", "${debugDir}/runtime/")
-        copyNodeModulesFiltered("../extension_host/node_modules", "${debugDir}/node_modules/", depPatterns)
+        copyAndTrack(themesDir, "$debugDir/themes/", createDestIfMissing = true)
+        copyAndTrack("../extension_host/dist", "$debugDir/runtime/", createDestIfMissing = true)
+        copyAndTrack("../extension_host/package.json", "$debugDir/runtime/")
+        copyNodeModulesFiltered("../extension_host/node_modules", "$debugDir/node_modules/", depPatterns)
     } else {
-        copyAndTrack("../extension_host/dist", "${sandboxDir}/runtime/")
-        copyAndTrack("../extension_host/package.json", "${sandboxDir}/runtime/")
-        copyNodeModulesFiltered("../extension_host/node_modules", "${sandboxDir}/node_modules/", depPatterns)
-        copyAndTrack("${vscodePluginDir.path}/extension", "${sandboxDir}/${vsCodePluginName}")
-        copyAndTrack("src/main/resources/themes/", "${sandboxDir}/${vsCodePluginName}/integrations/theme/default-themes/")
-        copyAndTrack("src/main/resources/themes/", "${sandboxDir}/themes/")
+        copyAndTrack("../extension_host/dist", "$sandboxDir/runtime/")
+        copyAndTrack("../extension_host/package.json", "$sandboxDir/runtime/")
+        copyNodeModulesFiltered("../extension_host/node_modules", "$sandboxDir/node_modules/", depPatterns)
+        copyAndTrack("${vscodePluginDir.path}/extension", "$sandboxDir/$vsCodePluginName")
+        copyAndTrack("src/main/resources/themes/", "$sandboxDir/$vsCodePluginName/integrations/theme/default-themes/")
+        copyAndTrack("src/main/resources/themes/", "$sandboxDir/themes/")
 
         // The platform.zip file required for release mode is associated with the code in ../base/vscode, currently using version 1.100.0. If upgrading this code later
         // Need to modify the vscodeVersion value in gradle.properties, then execute the task named genPlatform, which will generate a new platform.zip file for submission
@@ -196,25 +195,27 @@ fun Sync.prepareSandbox() {
                 throw IllegalStateException("platform.zip file does not exist or is smaller than 1MB. This file is supported through git lfs and needs to be obtained through git lfs")
             }
 
-            copyAndTrack(File(project.buildDir, "platform/platform.txt"), "${sandboxDir}/")
+            copyAndTrack(File(project.buildDir, "platform/platform.txt"), "$sandboxDir/")
             // Copy platform node_modules last to ensure it takes precedence over extension_host node_modules
-            copyAndTrack(File(project.buildDir, "platform/node_modules"), "${sandboxDir}/node_modules")
+            copyAndTrack(File(project.buildDir, "platform/node_modules"), "$sandboxDir/node_modules")
         }
 
         doLast {
-            File("${destinationDir}/${sandboxDir}/${vsCodePluginName}/.env").createNewFile()
+            File("$destinationDir/$sandboxDir/$vsCodePluginName/.env").createNewFile()
         }
     }
 
     doLast {
-        logger.lifecycle("[prepareSandbox] Completed with debugMode='${debugMode}'. Summary:")
+        logger.lifecycle("[prepareSandbox] Completed with debugMode='$debugMode'. Summary:")
         copyOps.forEach { (src, dest) ->
             val target = resolvedDestPath(dest, destinationDir)
             val ok = if (target.exists()) {
                 if (target.isDirectory) target.list()?.isNotEmpty() == true else true
-            } else false
+            } else {
+                false
+            }
             val status = if (ok) "SUCCESS" else "FAIL"
-            logger.lifecycle("[prepareSandbox] ${status}: ${src} -> ${target.absolutePath}")
+            logger.lifecycle("[prepareSandbox] $status: $src -> ${target.absolutePath}")
         }
     }
 }
@@ -243,8 +244,8 @@ intellij {
         listOf(
             "com.intellij.java",
             // Add JCEF support
-            "org.jetbrains.plugins.terminal"
-        )
+            "org.jetbrains.plugins.terminal",
+        ),
     )
 }
 

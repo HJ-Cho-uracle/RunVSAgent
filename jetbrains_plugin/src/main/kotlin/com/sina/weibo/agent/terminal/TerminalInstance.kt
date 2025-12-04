@@ -9,7 +9,6 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.terminal.JBTerminalWidget
 import com.intellij.terminal.ui.TerminalWidget
@@ -47,7 +46,7 @@ class TerminalInstance(
     val numericId: Int,
     val project: Project,
     private val config: TerminalConfig,
-    private val rpcProtocol: IRPCProtocol
+    private val rpcProtocol: IRPCProtocol,
 ) : Disposable {
 
     companion object {
@@ -148,7 +147,7 @@ class TerminalInstance(
 
         // 🎯 터미널 위젯을 터미널 툴 윈도우에 추가합니다.
         addToTerminalToolWindow()
-        
+
         notifyTerminalOpened() // ExtHost에 터미널이 열렸음을 알립니다.
         notifyShellIntegrationChange() // ExtHost에 셸 통합 변경을 알립니다.
         handleInitialText() // 초기 텍스트 처리
@@ -176,7 +175,7 @@ class TerminalInstance(
             terminalWidget = customRunner.startShellTerminalWidget(
                 this, // 부모 Disposable
                 startupOptions,
-                false  // deferSessionStartUntilUiShown - 세션을 즉시 시작 (false로 설정해야 함)
+                false, // deferSessionStartUntilUiShown - 세션을 즉시 시작 (false로 설정해야 함)
             )
 
             logger.info("✅ startShellTerminalWidget 호출 완료, 반환된 위젯: ${terminalWidget?.javaClass?.name}")
@@ -185,7 +184,6 @@ class TerminalInstance(
             setupTerminalCloseListener() // 터미널 닫힘 리스너 설정
 
             logger.info("✅ 터미널 위젯 생성 성공")
-
         } catch (e: Exception) {
             logger.error("❌ 터미널 위젯 생성 실패", e)
             throw e
@@ -209,7 +207,7 @@ class TerminalInstance(
 
             override fun createShellTerminalWidget(
                 parent: Disposable,
-                startupOptions: ShellStartupOptions
+                startupOptions: ShellStartupOptions,
             ): TerminalWidget {
                 logger.info("🔧 커스텀 createShellTerminalWidget 메소드 호출됨...")
                 return super.createShellTerminalWidget(parent, startupOptions)
@@ -312,7 +310,7 @@ class TerminalInstance(
             rpcProtocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostTerminalService)
         extHostTerminalServiceProxy.acceptTerminalProcessData(
             id = numericId,
-            data = data
+            data = data,
         )
         logger.debug("✅ ExtHost로 원시 데이터 전송 완료: ${data.length} 문자 (터미널: $extHostTerminalId)")
     }
@@ -381,16 +379,16 @@ class TerminalInstance(
         try {
             val terminalToolWindowManager = org.jetbrains.plugins.terminal.TerminalToolWindowManager.getInstance(project)
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TERMINAL_TOOL_WINDOW_ID)
-            
+
             if (toolWindow == null) {
                 logger.warn("터미널 툴 윈도우가 존재하지 않음")
                 return
             }
-            
+
             // `TerminalToolWindowManager`의 `newTab` 메소드를 사용하여 새 Content를 생성합니다.
             val content = terminalToolWindowManager.newTab(toolWindow, terminalWidget!!)
             content.displayName = config.name ?: DEFAULT_TERMINAL_NAME // 탭 이름 설정
-            
+
             logger.info("✅ terminalWidget이 터미널 툴 윈도우에 추가됨: ${content.displayName}")
         } catch (e: Exception) {
             logger.error("❌ terminalWidget을 툴 윈도우에 추가 실패", e)
@@ -446,7 +444,7 @@ class TerminalInstance(
                 id = numericId,
                 extHostTerminalId = extHostTerminalId,
                 name = config.name ?: DEFAULT_TERMINAL_NAME,
-                shellLaunchConfig = shellLaunchConfigDto
+                shellLaunchConfig = shellLaunchConfigDto,
             )
 
             logger.info("✅ ExtHost 프로세스에 터미널 열림 알림 성공: $extHostTerminalId")
@@ -485,7 +483,7 @@ class TerminalInstance(
                     instanceId = numericId,
                     shellEnvKeys = envKeys,
                     shellEnvValues = envValues,
-                    isTrusted = true
+                    isTrusted = true,
                 )
 
                 logger.info("✅ ExtHost에 환경 변수 변경 알림: ${env.size} 변수 (터미널: $extHostTerminalId)")
@@ -525,7 +523,7 @@ class TerminalInstance(
             extHostTerminalServiceProxy.acceptTerminalClosed(
                 id = numericId,
                 exitCode = null,
-                exitReason = numericId
+                exitReason = numericId,
             )
 
             logger.info("✅ ExtHost 프로세스에 터미널 닫힘 알림 성공: $extHostTerminalId")
@@ -544,7 +542,7 @@ class TerminalInstance(
 
         try {
             state.markDisposed() // 해제 상태로 표시
-            
+
             callbackManager.clear() // 콜백 정리
             scope.cancel() // 코루틴 스코프 취소
 
@@ -579,16 +577,16 @@ class TerminalInstance(
  * 터미널 설정 데이터를 담는 데이터 클래스입니다.
  */
 data class TerminalConfig(
-    val name: String? = null,             // 터미널 이름
-    val shellPath: String? = null,        // 셸 실행 파일 경로
-    val shellArgs: List<String>? = null,  // 셸 실행 인자
-    val cwd: String? = null,              // 현재 작업 디렉터리
+    val name: String? = null, // 터미널 이름
+    val shellPath: String? = null, // 셸 실행 파일 경로
+    val shellArgs: List<String>? = null, // 셸 실행 인자
+    val cwd: String? = null, // 현재 작업 디렉터리
     val env: Map<String, String>? = null, // 환경 변수
     val useShellEnvironment: Boolean? = null, // 셸 환경 사용 여부
-    val hideFromUser: Boolean? = null,    // 사용자에게 숨길지 여부
+    val hideFromUser: Boolean? = null, // 사용자에게 숨길지 여부
     val isFeatureTerminal: Boolean? = null, // 기능 터미널 여부
     val forceShellIntegration: Boolean? = null, // 셸 통합 강제 여부
-    val initialText: String? = null       // 초기 텍스트
+    val initialText: String? = null, // 초기 텍스트
 ) {
     companion object {
         /**
@@ -605,7 +603,7 @@ data class TerminalConfig(
                 hideFromUser = config["hideFromUser"] as? Boolean,
                 isFeatureTerminal = config["isFeatureTerminal"] as? Boolean,
                 forceShellIntegration = config["forceShellIntegration"] as? Boolean,
-                initialText = config["initialText"] as? String
+                initialText = config["initialText"] as? String,
             )
         }
     }
@@ -626,7 +624,7 @@ data class TerminalConfig(
             type = null,
             isFeatureTerminal = isFeatureTerminal,
             tabActions = null,
-            shellIntegrationEnvironmentReporting = forceShellIntegration
+            shellIntegrationEnvironmentReporting = forceShellIntegration,
         )
     }
 }

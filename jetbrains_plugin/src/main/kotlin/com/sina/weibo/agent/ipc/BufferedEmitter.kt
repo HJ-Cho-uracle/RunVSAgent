@@ -10,8 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.Executors
-import kotlin.coroutines.CoroutineContext
 
 /**
  * 버퍼링된 이벤트 이미터(Buffered Event Emitter) 클래스입니다.
@@ -22,17 +20,20 @@ import kotlin.coroutines.CoroutineContext
 class BufferedEmitter<T> {
     // 이벤트를 수신하는 리스너 목록
     private val listeners = mutableListOf<(T) -> Unit>()
+
     // 리스너가 없을 때 이벤트를 임시로 저장하는 버퍼
     private val bufferedMessages = ConcurrentLinkedQueue<T>()
+
     // 리스너가 등록되어 있는지 여부
     private var hasListeners = false
+
     // 버퍼링된 메시지를 전달 중인지 여부
     private var isDeliveringMessages = false
-    
+
     // 코루틴 스코프 (IO 디스패처 사용)
     private val coroutineContext = Dispatchers.IO
     private val scope = CoroutineScope(coroutineContext)
-    
+
     companion object {
         private val LOG = Logger.getInstance(BufferedEmitter::class.java)
     }
@@ -42,7 +43,7 @@ class BufferedEmitter<T> {
      * TypeScript 버전의 `event` 속성과 유사합니다.
      */
     val event: EventListener<T> = this::onEvent
-    
+
     /**
      * 이벤트 리스너를 추가합니다.
      * 리스너가 추가되면 버퍼링된 메시지들을 전달하기 시작합니다.
@@ -52,13 +53,13 @@ class BufferedEmitter<T> {
     fun onEvent(listener: (T) -> Unit): Disposable {
         val wasEmpty = listeners.isEmpty()
         listeners.add(listener)
-        
+
         if (wasEmpty) {
             hasListeners = true
             // 마이크로태스크 큐를 사용하여 다른 메시지가 수신되기 전에 버퍼링된 메시지가 전달되도록 합니다.
             scope.launch { deliverMessages() }
         }
-        
+
         return Disposable {
             // 리스너 제거 시 동기화 처리
             synchronized(listeners) {
@@ -69,7 +70,7 @@ class BufferedEmitter<T> {
             }
         }
     }
-    
+
     /**
      * 이벤트를 발생시킵니다.
      * 리스너가 있으면 즉시 전달하고, 없으면 버퍼에 저장합니다.
@@ -97,14 +98,14 @@ class BufferedEmitter<T> {
             bufferedMessages.offer(event)
         }
     }
-    
+
     /**
      * 버퍼를 비웁니다.
      */
     fun flushBuffer() {
         bufferedMessages.clear()
     }
-    
+
     /**
      * 버퍼링된 메시지들을 리스너들에게 전달합니다.
      */
@@ -112,7 +113,7 @@ class BufferedEmitter<T> {
         if (isDeliveringMessages) {
             return
         }
-        
+
         isDeliveringMessages = true
         try {
             // 리스너가 있고 버퍼에 메시지가 있는 동안 메시지를 전달합니다.

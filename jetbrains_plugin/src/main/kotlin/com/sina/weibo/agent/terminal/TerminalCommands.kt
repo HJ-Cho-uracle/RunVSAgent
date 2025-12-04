@@ -4,17 +4,13 @@
 
 package com.sina.weibo.agent.terminal
 
-import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.ui.content.Content
 import com.sina.weibo.agent.actors.MainThreadClipboard
 import com.sina.weibo.agent.commands.CommandRegistry
 import com.sina.weibo.agent.commands.ICommand
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
-
 
 /**
  * 터미널 API 관련 명령들을 등록합니다.
@@ -40,7 +36,7 @@ fun registerTerminalAPICommands(project: Project, registry: CommandRegistry) {
             override fun returns(): String? {
                 return "void" // 반환 타입
             }
-        }
+        },
     )
 }
 
@@ -59,24 +55,24 @@ class TerminalAPICommands(val project: Project) {
      */
     suspend fun workbench_action_terminal_copySelection(): Any? {
         logger.info("터미널 출력을 클립보드에 복사 중")
-        
+
         val textToCopy = try {
             getTerminalText() ?: "" // 터미널 텍스트 가져오기
         } catch (e: Exception) {
             logger.error("터미널 출력을 클립보드에 복사 실패", e)
             ""
         }
-        
+
         clipboard.writeText(textToCopy) // 클립보드에 텍스트 쓰기
         if (textToCopy.isNotEmpty()) {
             logger.info("터미널 출력을 클립보드에 성공적으로 복사했습니다.")
         } else {
             logger.info("빈 터미널 출력을 클립보드에 복사했습니다.")
         }
-        
+
         return null
     }
-    
+
     /**
      * 현재 활성화된 터미널의 텍스트 내용을 가져옵니다.
      *
@@ -87,17 +83,16 @@ class TerminalAPICommands(val project: Project) {
         val window = ToolWindowManager.getInstance(project)
             .getToolWindow("Terminal")
             ?: return null
-            
+
         // 현재 선택된 콘텐츠(터미널 탭)를 가져옵니다.
         val selected = window.getContentManager().getSelectedContent()
             ?: return null
-            
+
         // 선택된 콘텐츠로부터 터미널 위젯을 가져옵니다.
         val widget = TerminalToolWindowManager.getWidgetByContent(selected)
             ?: return null
-            
+
         // 위젯의 텍스트 내용을 반환합니다. 내용이 비어있지 않은 경우에만 반환합니다.
         return widget.text.takeIf { it.isNotEmpty() }
     }
-    
 }

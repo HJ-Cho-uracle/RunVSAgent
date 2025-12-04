@@ -12,11 +12,11 @@ import java.nio.file.Paths
  * URI의 기본 구성 요소들을 정의합니다.
  */
 interface URIComponents {
-    val scheme: String      // 스키마 (예: "file", "http")
-    val authority: String?  // 권한 (예: "localhost:8080")
-    val path: String        // 경로 (예: "/path/to/file.txt")
-    val query: String?      // 쿼리 문자열 (예: "key=value")
-    val fragment: String?   // 프래그먼트 (예: "section1")
+    val scheme: String // 스키마 (예: "file", "http")
+    val authority: String? // 권한 (예: "localhost:8080")
+    val path: String // 경로 (예: "/path/to/file.txt")
+    val query: String? // 쿼리 문자열 (예: "key=value")
+    val fragment: String? // 프래그먼트 (예: "section1")
 }
 
 /**
@@ -28,24 +28,26 @@ class URI private constructor(
     override val authority: String?,
     override val path: String,
     override val query: String?,
-    override val fragment: String?
+    override val fragment: String?,
 ) : URIComponents {
-    
+
     companion object {
         private val isWindows = System.getProperty("os.name").lowercase().contains("windows") // 현재 OS가 Windows인지 여부
         private const val SLASH = "/"
         private val EMPTY = ""
-        
+
         // 스키마 패턴 정규식
         private val schemePattern = Regex("^\\w[\\w\\d+.-]*$")
+
         // 단일 슬래시로 시작하는지 확인하는 정규식
         private val singleSlashStart = Regex("^/")
+
         // 이중 슬래시로 시작하는지 확인하는 정규식
         private val doubleSlashStart = Regex("^//")
-        
+
         // URI 문자열을 파싱하기 위한 정규식 (VSCode의 _regexp에 해당)
         private val uriRegex = Regex("^(([^:/?#]+?):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?")
-        
+
         /**
          * 문자열로부터 URI를 파싱합니다.
          * @param value URI 문자열
@@ -54,17 +56,17 @@ class URI private constructor(
          */
         fun parse(value: String, strict: Boolean = false): URI {
             val match = uriRegex.find(value) ?: return URI(EMPTY, EMPTY, EMPTY, EMPTY, EMPTY)
-            
+
             return URI(
                 scheme = match.groups[2]?.value ?: EMPTY,
                 authority = percentDecode(match.groups[4]?.value ?: EMPTY),
                 path = percentDecode(match.groups[5]?.value ?: EMPTY),
                 query = percentDecode(match.groups[7]?.value ?: EMPTY),
                 fragment = percentDecode(match.groups[9]?.value ?: EMPTY),
-                strict = strict
+                strict = strict,
             )
         }
-        
+
         /**
          * 파일 경로로부터 URI를 생성합니다.
          * @param path 파일 시스템 경로
@@ -73,12 +75,12 @@ class URI private constructor(
         fun file(path: String): URI {
             var normalizedPath = path
             var authority = EMPTY
-            
+
             // Windows에서는 역슬래시를 슬래시로 변환합니다.
             if (isWindows) {
                 normalizedPath = normalizedPath.replace('\\', '/')
             }
-            
+
             // UNC 공유 경로 (예: //server/share) 처리
             if (normalizedPath.startsWith("//")) {
                 val idx = normalizedPath.indexOf('/', 2)
@@ -90,10 +92,10 @@ class URI private constructor(
                     normalizedPath = normalizedPath.substring(idx) ?: SLASH
                 }
             }
-            
+
             return URI("file", authority, normalizedPath, EMPTY, EMPTY)
         }
-        
+
         /**
          * `Path` 객체로부터 URI를 생성합니다.
          * @param path `Path` 객체
@@ -102,7 +104,7 @@ class URI private constructor(
         fun file(path: Path): URI {
             return file(path.toString())
         }
-        
+
         /**
          * URI 구성 요소로부터 URI를 생성합니다.
          * @param components URI 구성 요소
@@ -116,10 +118,10 @@ class URI private constructor(
                 components.path,
                 components.query,
                 components.fragment,
-                strict
+                strict,
             )
         }
-        
+
         /**
          * URI 경로와 경로 조각들을 결합하여 새로운 URI를 생성합니다.
          * @param uri 입력 URI
@@ -130,7 +132,7 @@ class URI private constructor(
             if (uri.path.isEmpty()) {
                 throw IllegalArgumentException("[UriError]: 경로가 없는 URI에는 joinPath를 호출할 수 없습니다.")
             }
-            
+
             val newPath: String = if (isWindows && uri.scheme == "file") {
                 val fsPath = uriToFsPath(uri, true)
                 val joinedPath = Paths.get(fsPath, *pathFragments).toString()
@@ -140,10 +142,10 @@ class URI private constructor(
                 val fragments = listOf(uri.path) + pathFragments
                 fragments.joinToString("/").replace(Regex("/+"), "/")
             }
-            
+
             return uri.with(path = newPath)
         }
-        
+
         /**
          * 퍼센트 인코딩된 문자열을 디코딩합니다.
          * @param str 디코딩할 문자열
@@ -151,22 +153,22 @@ class URI private constructor(
          */
         private fun percentDecode(str: String): String {
             val encodedAsHex = Regex("(%[0-9A-Za-z][0-9A-Za-z])+")
-            
+
             if (!encodedAsHex.containsMatchIn(str)) {
                 return str
             }
-            
+
             return encodedAsHex.replace(str) { match ->
                 try {
                     java.net.URLDecoder.decode(match.value, "UTF-8")
                 } catch (e: Exception) {
-                     // 디코딩 실패 시 원본 문자열 유지
+                    // 디코딩 실패 시 원본 문자열 유지
                     match.value
                 }
             }
         }
     }
-    
+
     /**
      * 주 생성자 (내부 사용).
      * URI 구성 요소를 정규화하고 유효성을 검사합니다.
@@ -177,19 +179,19 @@ class URI private constructor(
         path: String,
         query: String?,
         fragment: String?,
-        strict: Boolean
+        strict: Boolean,
     ) : this(
         scheme = schemeFix(scheme, strict),
         authority = authority,
         path = referenceResolution(schemeFix(scheme, strict), path),
         query = query,
-        fragment = fragment
+        fragment = fragment,
     ) {
         if (strict) {
             validate() // 엄격 모드에서 유효성 검사
         }
     }
-    
+
     /**
      * URI의 유효성을 검사합니다.
      * @throws IllegalArgumentException 유효하지 않은 URI 구성 요소가 있을 경우
@@ -198,40 +200,40 @@ class URI private constructor(
         // 스키마 확인
         if (scheme.isEmpty()) {
             throw IllegalArgumentException(
-                "[UriError]: 스키마가 누락되었습니다: {scheme: \"\", authority: \"$authority\", path: \"$path\", query: \"$query\", fragment: \"$fragment\"}"
+                "[UriError]: 스키마가 누락되었습니다: {scheme: \"\", authority: \"$authority\", path: \"$path\", query: \"$query\", fragment: \"$fragment\"}",
             )
         }
-        
+
         // 스키마 형식 확인
         if (!schemePattern.matches(scheme)) {
             throw IllegalArgumentException("[UriError]: 스키마에 허용되지 않는 문자가 포함되어 있습니다.")
         }
-        
+
         // 경로 형식 확인
         if (path.isNotEmpty()) {
             if (authority?.isNotEmpty() == true) {
                 if (!singleSlashStart.containsMatchIn(path)) {
                     throw IllegalArgumentException(
-                        "[UriError]: URI에 권한 구성 요소가 포함된 경우, 경로 구성 요소는 비어 있거나 슬래시(\"/\") 문자로 시작해야 합니다."
+                        "[UriError]: URI에 권한 구성 요소가 포함된 경우, 경로 구성 요소는 비어 있거나 슬래시(\"/\") 문자로 시작해야 합니다.",
                     )
                 }
             } else {
                 if (doubleSlashStart.containsMatchIn(path)) {
                     throw IllegalArgumentException(
-                        "[UriError]: URI에 권한 구성 요소가 포함되지 않은 경우, 경로는 이중 슬래시(\"//\") 문자로 시작할 수 없습니다."
+                        "[UriError]: URI에 권한 구성 요소가 포함되지 않은 경우, 경로는 이중 슬래시(\"//\") 문자로 시작할 수 없습니다.",
                     )
                 }
             }
         }
     }
-    
+
     /**
      * 파일 시스템 경로를 가져옵니다.
      * @return 파일 시스템 경로 문자열
      */
     val fsPath: String
         get() = uriToFsPath(this, false)
-    
+
     /**
      * URI의 구성 요소를 수정하여 새로운 URI를 생성합니다.
      * @param scheme 새로운 스키마 (null이면 현재 스키마 유지)
@@ -246,14 +248,14 @@ class URI private constructor(
         authority: String? = null,
         path: String? = null,
         query: String? = null,
-        fragment: String? = null
+        fragment: String? = null,
     ): URI {
         val newScheme = scheme ?: this.scheme
         val newAuthority = authority ?: this.authority
         val newPath = path ?: this.path
         val newQuery = query ?: this.query
         val newFragment = fragment ?: this.fragment
-        
+
         // 변경 사항이 없으면 현재 객체를 반환합니다.
         if (newScheme == this.scheme &&
             newAuthority == this.authority &&
@@ -263,10 +265,10 @@ class URI private constructor(
         ) {
             return this
         }
-        
+
         return URI(newScheme, newAuthority, newPath, newQuery, newFragment)
     }
-    
+
     /**
      * URI를 문자열로 변환합니다.
      * @return URI의 문자열 표현
@@ -274,7 +276,7 @@ class URI private constructor(
     override fun toString(): String {
         return asFormatted(false)
     }
-    
+
     /**
      * URI를 형식화된 문자열로 변환합니다.
      * @param skipEncoding 인코딩을 건너뛸지 여부
@@ -283,7 +285,7 @@ class URI private constructor(
     fun toString(skipEncoding: Boolean): String {
         return asFormatted(skipEncoding)
     }
-    
+
     /**
      * URI를 형식화된 문자열로 변환하는 내부 헬퍼 함수입니다.
      * @param skipEncoding 인코딩을 건너뛸지 여부
@@ -291,28 +293,28 @@ class URI private constructor(
      */
     private fun asFormatted(skipEncoding: Boolean): String {
         // 인코더 함수 선택
-        val encoderFn: (String, Boolean, Boolean) -> String = 
+        val encoderFn: (String, Boolean, Boolean) -> String =
             if (!skipEncoding) ::encodeURIComponentFast else ::encodeURIComponentMinimal
-        
+
         var res = ""
-        
+
         // 스키마 추가
         if (scheme.isNotEmpty()) {
             res += scheme
             res += ":"
         }
-        
+
         // 권한 또는 "file" 스키마인 경우 이중 슬래시 추가
         if (authority?.isNotEmpty() == true || scheme == "file") {
             res += SLASH
             res += SLASH
         }
-        
+
         // 권한 추가
         if (authority?.isNotEmpty() == true) {
             // ... (권한 파싱 및 인코딩 로직)
         }
-        
+
         // 경로 추가
         if (path.isNotEmpty()) {
             // Windows 드라이브 경로 처리
@@ -328,25 +330,25 @@ class URI private constructor(
                     normalizedPath = "${normalizedPath[0].lowercaseChar()}:${normalizedPath.substring(2)}"
                 }
             }
-            
+
             res += encoderFn(normalizedPath, true, false)
         }
-        
+
         // 쿼리 추가
         if (query?.isNotEmpty() == true) {
             res += "?"
             res += encoderFn(query, false, false)
         }
-        
+
         // 프래그먼트 추가
         if (fragment?.isNotEmpty() == true) {
             res += "#"
             res += encoderFn(fragment, false, false)
         }
-        
+
         return res
     }
-    
+
     /**
      * `equals` 메소드 오버라이드.
      * `scheme`, `path`가 같고, `authority`, `query`, `fragment`가 null 또는 빈 문자열인 경우 동일하게 처리합니다.
@@ -354,51 +356,54 @@ class URI private constructor(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is URI) return false
-        
+
         if (scheme != other.scheme) return false
         if (path != other.path) return false
-        
+
         // authority: null과 빈 문자열을 동일하게 처리
         if ((authority == null || authority.isEmpty()) &&
-            (other.authority == null || other.authority.isEmpty())) {
-             // 둘 다 null 또는 빈 문자열이면 동일
+            (other.authority == null || other.authority.isEmpty())
+        ) {
+            // 둘 다 null 또는 빈 문자열이면 동일
         } else if (authority != other.authority) {
             return false
         }
-        
+
         // query: null과 빈 문자열을 동일하게 처리
         if ((query == null || query.isEmpty()) &&
-            (other.query == null || other.query.isEmpty())) {
-             // 둘 다 null 또는 빈 문자열이면 동일
+            (other.query == null || other.query.isEmpty())
+        ) {
+            // 둘 다 null 또는 빈 문자열이면 동일
         } else if (query != other.query) {
             return false
         }
-        
+
         // fragment: null과 빈 문자열을 동일하게 처리
         if ((fragment == null || fragment.isEmpty()) &&
-            (other.fragment == null || other.fragment.isEmpty())) {
-             // 둘 다 null 또는 빈 문자열이면 동일
+            (other.fragment == null || other.fragment.isEmpty())
+        ) {
+            // 둘 다 null 또는 빈 문자열이면 동일
         } else if (fragment != other.fragment) {
             return false
         }
-        
+
         return true
     }
-    
+
     /**
      * `hashCode` 메소드 오버라이드.
      * `equals` 메소드와 일관성을 유지하도록 해시 코드를 계산합니다.
      */
     override fun hashCode(): Int {
         var result = scheme.hashCode()
-        if(authority != null && authority != ""){
+        if (authority != null && authority != "") {
             result = 31 * result + authority.hashCode()
         }
         result = 31 * result + path.hashCode()
-        if (query != null && query != ""){
+        if (query != null && query != "") {
             result = 31 * result + query.hashCode()
         }
-        if (fragment != null && fragment != ""){
+        if (fragment != null && fragment != "") {
             result = 31 * result + fragment.hashCode()
         }
         return result
@@ -414,7 +419,7 @@ class URI private constructor(
 private fun uriToFsPath(uri: URI, keepDriveLetterCasing: Boolean): String {
     val value: String
     val isWindows = System.getProperty("os.name").lowercase().contains("windows")
-    
+
     if (uri.authority?.isNotEmpty() == true && uri.path.length > 1 && uri.scheme == "file") {
         // UNC 경로: file://shares/c$/far/boo
         value = "//${uri.authority}${uri.path}"
@@ -435,7 +440,7 @@ private fun uriToFsPath(uri: URI, keepDriveLetterCasing: Boolean): String {
         // 기타 경로
         value = uri.path
     }
-    
+
     return if (isWindows) {
         value.replace('/', '\\') // Windows에서는 슬래시를 역슬래시로 변환
     } else {
@@ -487,22 +492,22 @@ private fun referenceResolution(scheme: String, path: String): String {
 private fun encodeURIComponentFast(uriComponent: String, isPath: Boolean, isAuthority: Boolean): String {
     var result: String? = null
     var nativeEncodePos = -1
-    
+
     for (pos in uriComponent.indices) {
         val code = uriComponent[pos].code
-        
+
         // 인코딩이 필요 없는 문자들
         if ((code in 97..122) || // a-z
-            (code in 65..90) ||  // A-Z
-            (code in 48..57) ||  // 0-9
-            code == 45 ||        // -
-            code == 46 ||        // .
-            code == 95 ||        // _
-            code == 126 ||       // ~
+            (code in 65..90) || // A-Z
+            (code in 48..57) || // 0-9
+            code == 45 || // -
+            code == 46 || // .
+            code == 95 || // _
+            code == 126 || // ~
             (isPath && code == 47) || // / (경로인 경우)
             (isAuthority && code == 91) || // [ (권한인 경우)
             (isAuthority && code == 93) || // ] (권한인 경우)
-            (isAuthority && code == 58)    // : (권한인 경우)
+            (isAuthority && code == 58) // : (권한인 경우)
         ) {
             // ... (인코딩 로직)
         } else {
@@ -510,7 +515,7 @@ private fun encodeURIComponentFast(uriComponent: String, isPath: Boolean, isAuth
             // ... (인코딩 로직)
         }
     }
-    
+
     // ... (최종 인코딩 처리)
     return result ?: uriComponent
 }
@@ -524,10 +529,10 @@ private fun encodeURIComponentFast(uriComponent: String, isPath: Boolean, isAuth
  */
 private fun encodeURIComponentMinimal(path: String, isPath: Boolean = false, isAuthority: Boolean = false): String {
     var result: String? = null
-    
+
     for (pos in path.indices) {
         val code = path[pos].code
-        
+
         if (code == 35 || code == 63) { // # 또는 ?
             if (result == null) {
                 result = path.substring(0, pos)
@@ -543,6 +548,6 @@ private fun encodeURIComponentMinimal(path: String, isPath: Boolean = false, isA
             }
         }
     }
-    
+
     return result ?: path
 }

@@ -9,7 +9,6 @@ import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.sina.weibo.agent.util.URI
-import java.lang.ref.WeakReference
 
 /**
  * IntelliJ 에디터의 생성 및 해제 이벤트를 감지하는 리스너 클래스입니다.

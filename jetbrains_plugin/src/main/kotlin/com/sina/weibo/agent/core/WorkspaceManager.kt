@@ -6,18 +6,14 @@ package com.sina.weibo.agent.core
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.ProjectManager
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.vfs.VirtualFile
 import com.sina.weibo.agent.model.StaticWorkspaceData
 import com.sina.weibo.agent.model.WorkspaceData
 import com.sina.weibo.agent.model.WorkspaceFolder
 import com.sina.weibo.agent.util.URI
-import java.io.File
 import java.util.*
 
 /**
@@ -59,7 +55,7 @@ class WorkspaceManager(val project: Project) {
             transient = false,
             // Configuration can be the project's .idea directory or project configuration file
             configuration = project.basePath?.let { URI.file("$it/.idea") },
-            isUntitled = false
+            isUntitled = false,
         )
 
         // Get workspace folders
@@ -67,7 +63,7 @@ class WorkspaceManager(val project: Project) {
 
         return WorkspaceData(staticWorkspaceData, workspaceFolders)
     }
-    
+
     /**
      * Gets the workspace ID for a project.
      *
@@ -79,7 +75,7 @@ class WorkspaceManager(val project: Project) {
         val basePath = project.basePath ?: return UUID.randomUUID().toString()
         return basePath.hashCode().toString()
     }
-    
+
     /**
      * Gets workspace folders for a project.
      *
@@ -89,14 +85,16 @@ class WorkspaceManager(val project: Project) {
     private fun getWorkspaceFolders(project: Project): List<WorkspaceFolder> {
         val folders = mutableListOf<WorkspaceFolder>()
         val basePath = project.basePath ?: return folders
-        
+
         // Add project root directory as the main workspace folder
-        folders.add(WorkspaceFolder(
-            uri = URI.file(basePath),
-            name = project.name,
-            index = 0
-        ))
-        
+        folders.add(
+            WorkspaceFolder(
+                uri = URI.file(basePath),
+                name = project.name,
+                index = 0,
+            ),
+        )
+
         // Get the virtual file for the project root directory - wrapped in ReadAction
         val projectDir = ApplicationManager.getApplication().runReadAction<VirtualFile?> {
             LocalFileSystem.getInstance().findFileByPath(basePath)
@@ -104,7 +102,7 @@ class WorkspaceManager(val project: Project) {
         if (projectDir == null || !projectDir.isDirectory) {
             return folders
         }
-        
+
 //        // Get subdirectories
 //        val contentRoots = projectDir.children
 //
@@ -125,7 +123,7 @@ class WorkspaceManager(val project: Project) {
 //                ))
 //            }
 //        }
-        
+
         return folders
     }
-} 
+}

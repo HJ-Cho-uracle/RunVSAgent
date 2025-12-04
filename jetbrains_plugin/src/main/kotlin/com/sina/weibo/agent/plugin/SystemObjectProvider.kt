@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object SystemObjectProvider {
     private val logger = Logger.getInstance(SystemObjectProvider::class.java)
-    
+
     // 시스템 객체들을 저장하는 맵 (키 -> 객체 인스턴스)
     private val systemObjects = ConcurrentHashMap<String, Any>()
 
@@ -28,7 +28,7 @@ object SystemObjectProvider {
         const val APPLICATION = "application" // IntelliJ ApplicationManager 인스턴스를 위한 키
         // 여기에 더 많은 시스템 객체 키를 추가할 수 있습니다.
     }
-    
+
     /**
      * `SystemObjectProvider`를 초기화합니다.
      * 초기화 시 필요한 기본 시스템 객체들을 등록합니다.
@@ -40,7 +40,7 @@ object SystemObjectProvider {
         // IntelliJ ApplicationManager 인스턴스를 등록합니다.
         register(Keys.APPLICATION, ApplicationManager.getApplication())
     }
-    
+
     /**
      * 시스템 객체를 등록합니다.
      * @param key 객체를 식별할 키
@@ -50,7 +50,7 @@ object SystemObjectProvider {
         systemObjects[key] = obj
         logger.debug("시스템 객체 등록됨: $key")
     }
-    
+
     /**
      * 지정된 키에 해당하는 시스템 객체를 가져옵니다.
      * @param key 객체를 식별할 키
@@ -60,7 +60,7 @@ object SystemObjectProvider {
     fun <T> get(key: String): T? {
         return systemObjects[key] as? T
     }
-    
+
     /**
      * 리소스를 정리합니다.
      * 등록된 모든 시스템 객체를 맵에서 제거합니다.

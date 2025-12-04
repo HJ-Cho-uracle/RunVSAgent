@@ -12,30 +12,30 @@ import com.intellij.openapi.project.Project
  * 커맨드는 등록하고 호출할 수 있는 실행 가능한 액션을 정의합니다.
  */
 interface ICommand {
-   /**
-    * 이 커맨드의 고유 식별자(ID)를 가져옵니다.
-    * @return 커맨드 ID 문자열
-    */
-   fun getId(): String
-   
-   /**
-    * 이 커맨드가 실행될 때 호출되어야 하는 메소드의 이름을 가져옵니다.
-    * @return 메소드 이름 문자열
-    */
-   fun getMethod(): String
-   
-   /**
-    * 호출될 메소드를 포함하고 있는 핸들러(handler) 객체를 가져옵니다.
-    * 실제 로직은 이 핸들러 객체 안에 구현되어 있습니다.
-    * @return 핸들러 객체
-    */
-   fun handler(): Any
-   
-   /**
-    * 커맨드의 반환 타입을 가져옵니다. (선택 사항)
-    * @return 반환 타입 문자열. 반환 값이 없으면 null.
-    */
-   fun returns(): String?
+    /**
+     * 이 커맨드의 고유 식별자(ID)를 가져옵니다.
+     * @return 커맨드 ID 문자열
+     */
+    fun getId(): String
+
+    /**
+     * 이 커맨드가 실행될 때 호출되어야 하는 메소드의 이름을 가져옵니다.
+     * @return 메소드 이름 문자열
+     */
+    fun getMethod(): String
+
+    /**
+     * 호출될 메소드를 포함하고 있는 핸들러(handler) 객체를 가져옵니다.
+     * 실제 로직은 이 핸들러 객체 안에 구현되어 있습니다.
+     * @return 핸들러 객체
+     */
+    fun handler(): Any
+
+    /**
+     * 커맨드의 반환 타입을 가져옵니다. (선택 사항)
+     * @return 반환 타입 문자열. 반환 값이 없으면 null.
+     */
+    fun returns(): String?
 }
 
 /**
@@ -48,27 +48,27 @@ interface ICommandRegistry {
      * @param id 등록된 커맨드의 ID
      */
     fun onDidRegisterCommand(id: String)
-    
+
     /**
      * 레지스트리에 커맨드를 등록합니다.
      * @param command 등록할 커맨드 객체
      */
     fun registerCommand(command: ICommand)
-    
+
     /**
      * 기존 커맨드에 대한 별칭(alias)을 등록합니다.
      * @param oldId 기존 커맨드의 ID
      * @param newId 새로운 별칭 ID
      */
     fun registerCommandAlias(oldId: String, newId: String)
-    
+
     /**
      * ID를 사용하여 커맨드를 가져옵니다.
      * @param id 조회할 커맨드의 ID
      * @return 커맨드 객체. 찾지 못하면 null.
      */
     fun getCommand(id: String): ICommand?
-    
+
     /**
      * 등록된 모든 커맨드를 가져옵니다.
      * @return 커맨드 ID를 키로, 커맨드 객체를 값으로 하는 Map

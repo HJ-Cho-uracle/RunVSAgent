@@ -8,11 +8,9 @@ import com.intellij.ide.plugins.IdeaPluginDescriptor
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.extensions.PluginId
-import com.sina.weibo.agent.plugin.DEBUG_MODE
-import com.sina.weibo.agent.plugin.WecoderPlugin
+import com.sina.weibo.agent.plugin.DebugMode
 import com.sina.weibo.agent.plugin.WecoderPluginService
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.io.path.pathString
 
@@ -33,7 +31,7 @@ object PluginResourceUtil {
     fun getResourcePath(pluginId: String, resourceName: String): String? {
         return try {
             // 디버그 모드인 경우, 디버그 리소스 경로를 직접 사용합니다.
-            if (WecoderPluginService.getDebugMode() == DEBUG_MODE.IDEA) {
+            if (WecoderPluginService.getDebugMode() == DebugMode.IDEA) {
                 return WecoderPluginService.getDebugResource() + "/$resourceName"
             }
 
@@ -86,7 +84,7 @@ object PluginResourceUtil {
      */
     private fun checkDevMode(plugin: IdeaPluginDescriptor): Boolean {
         return try {
-            WecoderPluginService.getDebugMode() != DEBUG_MODE.NONE
+            WecoderPluginService.getDebugMode() != DebugMode.NONE
         } catch (e: Exception) {
             false
         }
@@ -109,7 +107,7 @@ object PluginResourceUtil {
                     input.copyTo(output) // 스트림 복사
                 }
             }
-            
+
             LOG.info("리소스를 임시 파일로 추출: ${tempFile.absolutePath}")
             tempFile.absolutePath
         } catch (e: Exception) {

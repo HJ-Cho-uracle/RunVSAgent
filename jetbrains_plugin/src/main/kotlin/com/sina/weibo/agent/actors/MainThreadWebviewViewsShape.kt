@@ -27,7 +27,7 @@ interface MainThreadWebviewViewsShape : Disposable {
     fun registerWebviewViewProvider(
         extension: Map<String, Any?>,
         viewType: String,
-        options: Map<String, Any?>
+        options: Map<String, Any?>,
     )
 
     /**
@@ -79,10 +79,10 @@ class MainThreadWebviewViews(val project: Project) : MainThreadWebviewViewsShape
     override fun registerWebviewViewProvider(
         extension: Map<String, Any?>,
         viewType: String,
-        options: Map<String, Any?>
+        options: Map<String, Any?>,
     ) {
         logger.info("WebView 뷰 제공자 등록: viewType=$viewType, options=$options")
-        
+
         // WebViewManager 서비스를 통해 제공자 정보를 전달합니다.
         project.getService(WebViewManager::class.java).registerProvider(WebviewViewProviderData(extension, viewType, options))
     }

@@ -8,7 +8,6 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import java.io.IOException
 import java.net.Socket
-import java.net.SocketException
 import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
 import java.util.concurrent.ConcurrentHashMap
@@ -22,18 +21,24 @@ import kotlin.concurrent.thread
 class NodeSocket : ISocket {
 
     private val logger = Logger.getInstance(NodeSocket::class.java)
+
     // 데이터, 연결 종료, 스트림 종료 이벤트를 위한 리스너 맵
     private val dataListeners = ConcurrentHashMap<ISocket.DataListener, Unit>()
     private val closeListeners = ConcurrentHashMap<ISocket.CloseListener, Unit>()
     private val endListeners = ConcurrentHashMap<() -> Unit, Unit>()
+
     // 쓰기 가능 상태를 나타내는 플래그
     private val canWrite = AtomicBoolean(true)
+
     // 데이터 수신을 위한 별도의 스레드
     private var receiveThread: Thread? = null
+
     // 객체 해제 여부를 나타내는 플래그
     private val isDisposed = AtomicBoolean(false)
+
     // 스트림 종료 후 지연 종료를 위한 타이머 핸들
     private var endTimeoutHandle: Thread? = null
+
     // 소켓 종료 타임아웃 (30초)
     private val socketEndTimeoutMs = 30_000L
     private val debugLabel: String // 디버깅을 위한 레이블
@@ -185,10 +190,11 @@ class NodeSocket : ISocket {
         }
 
         traceSocketEvent(
-            SocketDiagnosticsEventType.ERROR, mapOf(
+            SocketDiagnosticsEventType.ERROR,
+            mapOf(
                 "code" to errorCode,
-                "message" to error.message
-            )
+                "message" to error.message,
+            ),
         )
 
         // EPIPE 오류는 추가적인 처리 없이 소켓이 스스로 닫히도록 합니다.
@@ -299,7 +305,9 @@ class NodeSocket : ISocket {
         try {
             if (isSocket && socket != null) {
                 socket.shutdownOutput()
-            } else channel?.shutdownOutput()
+            } else {
+                channel?.shutdownOutput()
+            }
         } catch (e: Exception) {
             logger.error("Socket[$debugLabel] END 신호 전송 중 예외 발생", e)
             handleSocketError(e)
@@ -309,7 +317,7 @@ class NodeSocket : ISocket {
     /**
      * 모든 데이터가 전송될 때까지 기다립니다.
      */
-    override suspend fun drain(): Unit {
+    override suspend fun drain() {
         traceSocketEvent(SocketDiagnosticsEventType.NODE_DRAIN_BEGIN)
         try {
             // 플러시를 트리거하기 위해 빈 패킷을 보냅니다.

@@ -13,15 +13,15 @@ import com.intellij.openapi.vfs.VirtualFile
 enum class FileChangeType {
     CREATED, // 파일 생성됨
     UPDATED, // 파일 수정됨
-    DELETED  // 파일 삭제됨
+    DELETED, // 파일 삭제됨
 }
 
 /**
  * 파일 시스템 항목의 유형을 나타내는 열거형입니다.
  */
 enum class FileSystemItemType {
-    FILE,      // 일반 파일
-    DIRECTORY  // 디렉터리
+    FILE, // 일반 파일
+    DIRECTORY, // 디렉터리
 }
 
 /**
@@ -47,7 +47,7 @@ data class WorkspaceFileChangeData(
     val file: VirtualFile,
     val changeType: FileChangeType,
     val timestamp: Long = System.currentTimeMillis(),
-    val itemType: FileSystemItemType = if (file.isDirectory) FileSystemItemType.DIRECTORY else FileSystemItemType.FILE
+    val itemType: FileSystemItemType = if (file.isDirectory) FileSystemItemType.DIRECTORY else FileSystemItemType.FILE,
 )
 
 /**
@@ -67,9 +67,8 @@ object WorkspaceDirectoriesChangeEvent : EventType<WorkspaceFilesChangeData>
  * @property changes 변경된 파일들의 `WorkspaceFileChangeData` 리스트
  */
 data class WorkspaceFilesChangeData(
-    val changes: List<WorkspaceFileChangeData>
+    val changes: List<WorkspaceFileChangeData>,
 )
-
 
 /**
  * 작업 공간 루트 변경 시 전달되는 데이터를 담는 데이터 클래스입니다.
@@ -80,7 +79,7 @@ data class WorkspaceFilesChangeData(
 data class WorkspaceRootChangeData(
     val project: Project,
     val oldPath: String?,
-    val newPath: String
+    val newPath: String,
 )
 
 /**

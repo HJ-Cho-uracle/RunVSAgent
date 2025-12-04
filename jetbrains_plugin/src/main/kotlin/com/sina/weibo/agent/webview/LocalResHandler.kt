@@ -5,7 +5,7 @@
 package com.sina.weibo.agent.webview
 
 import com.intellij.openapi.diagnostic.Logger
-import io.ktor.http.*
+import io.ktor.http.decodeURLPart
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.callback.CefCallback
@@ -16,7 +16,6 @@ import org.cef.misc.StringRef
 import org.cef.network.CefRequest
 import org.cef.network.CefResponse
 import java.io.File
-
 
 /**
  * 로컬 리소스 요청을 처리하는 `CefResourceRequestHandlerAdapter` 구현체입니다.
@@ -34,7 +33,6 @@ class LocalResHandler(val resourcePath: String, val request: CefRequest?) : CefR
     override fun getResourceHandler(browser: CefBrowser?, frame: CefFrame?, request: CefRequest?): CefResourceHandler {
         return LocalCefResHandle(resourcePath, request)
     }
-
 }
 
 /**
@@ -55,12 +53,12 @@ class LocalCefResHandle(val resourceBasePath: String, val request: CefRequest?) 
         logger.info("=== LocalCefResHandle 초기화 시작 ===")
         logger.info("리소스 기본 경로: $resourceBasePath")
         logger.info("요청 URL: ${request?.url}")
-        
+
         // 요청 URL에서 호스트와 쿼리 파라미터를 제거하고 경로만 추출합니다.
         // 예: "http://localhost:63342/index.html?param=value" -> "index.html"
         val requestPath = request?.url?.decodeURLPart()?.replace("http://localhost:", "")?.substringAfter("/")?.substringBefore("?")
         logger.info("추출된 요청 경로: $requestPath")
-        
+
         requestPath?.let {
             // 요청 경로를 기반으로 실제 파일 경로를 구성합니다.
             val filePath = if (requestPath.isEmpty()) {
@@ -69,7 +67,7 @@ class LocalCefResHandle(val resourceBasePath: String, val request: CefRequest?) 
                 "$resourceBasePath/$requestPath"
             }
             logger.info("구성된 파일 경로: $filePath")
-            
+
             file = File(filePath) // 파일 객체 생성
             logger.info("파일 객체 생성됨: $file")
 
@@ -173,5 +171,4 @@ class LocalCefResHandle(val resourceBasePath: String, val request: CefRequest?) 
         fileContent = null
         offset = 0
     }
-
 }

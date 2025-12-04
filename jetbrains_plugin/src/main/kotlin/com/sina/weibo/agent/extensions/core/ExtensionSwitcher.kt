@@ -7,13 +7,9 @@ package com.sina.weibo.agent.extensions.core
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.SystemInfo
-import com.sina.weibo.agent.core.ExtensionUnixDomainSocketServer
-import com.sina.weibo.agent.core.ISocketServer
 import com.sina.weibo.agent.extensions.common.ExtensionChangeListener
 import com.sina.weibo.agent.extensions.ui.buttons.DynamicButtonManager
 import com.sina.weibo.agent.plugin.WecoderPluginService
-import com.sina.weibo.agent.util.ExtensionUtils
 import com.sina.weibo.agent.webview.WebViewManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

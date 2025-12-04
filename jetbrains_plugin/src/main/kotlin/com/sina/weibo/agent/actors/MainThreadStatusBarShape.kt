@@ -6,7 +6,6 @@ package com.sina.weibo.agent.actors
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
-import java.net.URI
 
 /**
  * IntelliJ 메인 스레드에서 상태 표시줄(Status Bar) 관련 작업을 처리하기 위한 인터페이스입니다.
@@ -43,9 +42,8 @@ interface MainThreadStatusBarShape : Disposable {
         backgroundColor: Any?,
         alignLeft: Boolean,
         priority: Number?,
-        accessibilityInformation: Any?
+        accessibilityInformation: Any?,
     )
-
 }
 
 /**
@@ -69,7 +67,7 @@ class MainThreadStatusBar : MainThreadStatusBarShape {
         backgroundColor: Any?,
         alignLeft: Boolean,
         priority: Number?,
-        accessibilityInformation: Any?
+        accessibilityInformation: Any?,
     ) {
         logger.info("상태 표시줄 항목 설정: $entryId")
         // TODO: IntelliJ의 StatusBar.addWidget API를 사용하여 실제 위젯을 추가/업데이트하는 로직 구현 필요
@@ -78,5 +76,4 @@ class MainThreadStatusBar : MainThreadStatusBarShape {
     override fun dispose() {
         logger.info("Disposing main thread status bar resources")
     }
-
 }

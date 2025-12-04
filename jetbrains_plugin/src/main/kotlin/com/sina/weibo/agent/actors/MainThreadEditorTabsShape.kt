@@ -45,7 +45,7 @@ interface MainThreadEditorTabsShape {
  *
  * @property project 현재 IntelliJ 프로젝트 컨텍스트
  */
-class MainThreadEditorTabs(val project : Project) : MainThreadEditorTabsShape {
+class MainThreadEditorTabs(val project: Project) : MainThreadEditorTabsShape {
     private val logger = Logger.getInstance(MainThreadEditorTabs::class.java)
 
     /**
@@ -64,7 +64,7 @@ class MainThreadEditorTabs(val project : Project) : MainThreadEditorTabsShape {
 
         var closedAny = true
         // 모든 탭 ID에 대해 반복하여 닫기 이벤트를 트리거합니다.
-        for (tabId in tabIds){
+        for (tabId in tabIds) {
             // EditorAndDocManager 서비스를 통해 해당 탭을 닫습니다.
             project.getService(EditorAndDocManager::class.java).closeTab(tabId)
             // 주석 처리된 코드는 과거에 사용되었던 로직으로 보이며, 현재는 직접 닫는 방식으로 변경되었습니다.
@@ -85,12 +85,11 @@ class MainThreadEditorTabs(val project : Project) : MainThreadEditorTabsShape {
 
         var closedAny = false
         // 모든 그룹 ID에 대해 반복하여 닫기 이벤트를 트리거합니다.
-        for (groupId in groupIds){
+        for (groupId in groupIds) {
             // EditorAndDocManager 서비스를 통해 해당 그룹을 닫습니다.
             project.getService(EditorAndDocManager::class.java).closeGroup(groupId)
 //            closedAny = group?.triggerClose()?:false
         }
         return closedAny
     }
-
 }

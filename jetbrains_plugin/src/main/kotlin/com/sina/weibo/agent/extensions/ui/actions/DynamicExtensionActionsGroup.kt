@@ -4,17 +4,22 @@
 
 package com.sina.weibo.agent.extensions.ui.actions
 
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.ActionUpdateThreadAware
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.DumbAware
-import com.sina.weibo.agent.extensions.core.ExtensionManager
-import com.sina.weibo.agent.extensions.config.ExtensionProvider
+import com.intellij.openapi.project.Project
 import com.sina.weibo.agent.extensions.common.ExtensionChangeListener
+import com.sina.weibo.agent.extensions.config.ExtensionProvider
+import com.sina.weibo.agent.extensions.core.ExtensionManager
 import com.sina.weibo.agent.extensions.plugin.cline.ClineButtonProvider
-import com.sina.weibo.agent.extensions.plugin.roo.RooCodeButtonProvider
-import com.sina.weibo.agent.extensions.plugin.kilo.KiloCodeButtonProvider
 import com.sina.weibo.agent.extensions.plugin.costrict.CostrictCodeButtonProvider
+import com.sina.weibo.agent.extensions.plugin.kilo.KiloCodeButtonProvider
+import com.sina.weibo.agent.extensions.plugin.roo.RooCodeButtonProvider
 import com.sina.weibo.agent.extensions.ui.buttons.ExtensionButtonProvider
 
 /**
@@ -23,14 +28,14 @@ import com.sina.weibo.agent.extensions.ui.buttons.ExtensionButtonProvider
  * `DefaultActionGroup`을 상속받아 IntelliJ의 액션 시스템에 통합됩니다.
  */
 class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpdateThreadAware, ExtensionChangeListener {
-    
+
     private val logger = Logger.getInstance(DynamicExtensionActionsGroup::class.java)
-    
+
     // --- 캐시 변수 ---
     private var cachedButtonProvider: ExtensionButtonProvider? = null // 캐시된 버튼 제공자
     private var cachedExtensionId: String? = null // 캐시된 확장 ID
     private var cachedActions: List<AnAction>? = null // 캐시된 액션 목록
-    
+
     /**
      * 액션 그룹을 현재 컨텍스트와 확장 타입에 따라 업데이트합니다.
      * 메뉴/툴바가 표시될 때마다 호출됩니다.
@@ -43,19 +48,19 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
             e.presentation.isVisible = false // 프로젝트가 없으면 그룹을 숨깁니다.
             return
         }
-        
+
         try {
             val extensionManager = ExtensionManager.getInstance(project)
             val currentProvider = extensionManager.getCurrentProvider()
-            
+
             if (currentProvider != null) {
                 val extensionId = currentProvider.getExtensionId()
-                
+
                 // 캐시된 확장 ID가 다르거나 액션이 캐시되지 않았으면 업데이트합니다.
                 if (cachedExtensionId != extensionId || cachedActions == null) {
                     updateCachedActions(currentProvider, project)
                 }
-                
+
                 // 캐시된 액션들을 사용하여 그룹을 구성합니다.
                 if (cachedActions != null) {
                     removeAll() // 기존 액션 모두 제거
@@ -74,7 +79,7 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
             e.presentation.isVisible = false
         }
     }
-    
+
     /**
      * 현재 확장 제공자에 따라 캐시된 액션들을 업데이트합니다.
      * @param provider 현재 확장 제공자
@@ -82,7 +87,7 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
      */
     private fun updateCachedActions(provider: ExtensionProvider, project: Project) {
         val extensionId = provider.getExtensionId()
-        
+
         // 확장의 ID에 따라 적절한 `ExtensionButtonProvider` 인스턴스를 생성합니다.
         val buttonProvider = when (extensionId) {
             "roo-code" -> RooCodeButtonProvider()
@@ -91,20 +96,20 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
             "costrict" -> CostrictCodeButtonProvider()
             else -> null
         }
-        
+
         if (buttonProvider != null) {
             // 버튼 제공자로부터 액션 목록을 가져와 캐시합니다.
             val actions = buttonProvider.getButtons(project)
-            
+
             // 캐시 변수들을 업데이트합니다.
             cachedButtonProvider = buttonProvider
             cachedExtensionId = extensionId
             cachedActions = actions
-            
+
             logger.debug("확장 '$extensionId'에 대해 캐시된 액션 업데이트됨, 개수: ${actions.size}")
         }
     }
-    
+
     /**
      * (현재 사용되지 않음) 동적 액션을 이 액션 그룹에 로드합니다.
      * `updateCachedActions` 메소드로 대체되었습니다.
@@ -120,7 +125,7 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
     }
-    
+
     /**
      * 현재 확장이 변경되었을 때 호출됩니다.
      * `ExtensionChangeListener` 인터페이스의 일부입니다.
@@ -129,7 +134,7 @@ class DynamicExtensionActionsGroup : DefaultActionGroup(), DumbAware, ActionUpda
      */
     override fun onExtensionChanged(newExtensionId: String) {
         logger.info("확장이 '$newExtensionId'(으)로 변경됨, 동적 액션 새로고침")
-        
+
         // 참고: UI가 다음에 표시될 때 액션 그룹은 자동으로 새로고침됩니다.
         // 여기에서 수동으로 업데이트를 트리거할 필요는 없습니다.
     }

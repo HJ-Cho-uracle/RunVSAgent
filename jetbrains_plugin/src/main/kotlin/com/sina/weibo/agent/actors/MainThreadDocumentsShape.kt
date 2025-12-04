@@ -4,23 +4,23 @@
 
 package com.sina.weibo.agent.actors
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.editor.Document
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.FileDocumentManagerListener
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
+import com.intellij.util.messages.MessageBusConnection
 import com.sina.weibo.agent.editor.EditorAndDocManager
 import com.sina.weibo.agent.editor.createURI
 import com.sina.weibo.agent.service.DocumentSyncService
-import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.fileEditor.FileDocumentManagerListener
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.editor.Document
-import com.intellij.util.messages.MessageBusConnection
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import com.intellij.openapi.progress.ProcessCanceledException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -65,8 +65,10 @@ interface MainThreadDocumentsShape {
  */
 class MainThreadDocuments(var project: Project) : MainThreadDocumentsShape {
     private val logger = Logger.getInstance(MainThreadDocuments::class.java)
+
     // IntelliJ의 메시지 버스에 연결하기 위한 커넥션 객체
     private var messageBusConnection: MessageBusConnection? = null
+
     // 문서 동기화 로직을 처리하는 서비스
     private val documentSyncService = DocumentSyncService(project)
 
@@ -94,7 +96,7 @@ class MainThreadDocuments(var project: Project) : MainThreadDocumentsShape {
                     override fun beforeDocumentSaving(document: Document) {
                         handleDocumentSaving(document)
                     }
-                }
+                },
             )
             logger.info("문서 저장 리스너가 성공적으로 등록되었습니다.")
         } catch (e: Exception) {

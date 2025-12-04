@@ -4,46 +4,35 @@
 
 package com.sina.weibo.agent.ui
 
+import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
-import com.intellij.ide.plugins.PluginManagerCore
-import com.intellij.openapi.extensions.PluginId
 import com.intellij.ui.jcef.JBCefApp
-import com.intellij.openapi.application.ApplicationInfo
-import com.intellij.ide.BrowserUtil
 import com.sina.weibo.agent.actions.OpenDevToolsAction
+import com.sina.weibo.agent.extensions.core.ExtensionConfigurationManager
+import com.sina.weibo.agent.extensions.core.ExtensionManager
+import com.sina.weibo.agent.plugin.DebugMode
 import com.sina.weibo.agent.plugin.WecoderPlugin
 import com.sina.weibo.agent.plugin.WecoderPluginService
-import com.sina.weibo.agent.plugin.DEBUG_MODE
+import com.sina.weibo.agent.util.PluginConstants
 import com.sina.weibo.agent.webview.DragDropHandler
 import com.sina.weibo.agent.webview.WebViewCreationCallback
 import com.sina.weibo.agent.webview.WebViewInstance
 import com.sina.weibo.agent.webview.WebViewManager
-import com.sina.weibo.agent.util.PluginConstants
-import com.sina.weibo.agent.extensions.core.ExtensionConfigurationManager
-import com.sina.weibo.agent.extensions.core.ExtensionManager
-import com.sina.weibo.agent.plugin.SystemObjectProvider
-import com.sina.weibo.agent.extensions.ui.VsixUploadDialog
 import java.awt.BorderLayout
-import java.awt.datatransfer.StringSelection
 import java.awt.Toolkit
-import java.awt.Dimension
-import java.awt.Font
-import java.awt.Component
-import java.awt.Cursor
+import java.awt.datatransfer.StringSelection
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
-import javax.swing.BorderFactory
-import com.intellij.util.ui.JBFont
-import com.intellij.util.ui.JBUI
-import com.sina.weibo.agent.util.ConfigFileUtils
 
 /**
  * "RunVSAgent" Tool Window를 생성하고 초기화하는 팩토리 클래스입니다.
@@ -68,7 +57,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
             titleActions.add(action)
         }
         // 디버그 모드일 때만 '개발자 도구 열기' 버튼을 추가합니다.
-        if (WecoderPluginService.getDebugMode() != DEBUG_MODE.NONE) {
+        if (WecoderPluginService.getDebugMode() != DebugMode.NONE) {
             titleActions.add(OpenDevToolsAction { project.getService(WebViewManager::class.java).getLatestWebView() })
         }
         toolWindow.setTitleActions(titleActions)
@@ -81,7 +70,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
         val content = contentFactory.createContent(
             toolWindowContent.content,
             "",
-            false
+            false,
         )
         toolWindow.contentManager.addContent(content)
     }
@@ -92,31 +81,38 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
      */
     private class RunVSAgentToolWindowContent(
         private val project: Project,
-        private val toolWindow: ToolWindow
+        private val toolWindow: ToolWindow,
     ) : WebViewCreationCallback {
         private val logger = Logger.getInstance(RunVSAgentToolWindowContent::class.java)
 
         // WebView를 관리하는 서비스
         private val webViewManager = project.getService(WebViewManager::class.java)
+
         // 확장(VSCode 플러그인) 설정을 관리하는 서비스
         private val configManager = ExtensionConfigurationManager.getInstance(project)
+
         // 확장(VSCode 플러그인)의 생명주기를 관리하는 서비스
         private val extensionManager = ExtensionManager.getInstance(project)
 
         // 메인 콘텐츠 패널
         private val contentPanel = JPanel(BorderLayout())
+
         // WebView가 로딩되기 전에 보여줄 시스템 정보 및 초기화 메시지 라벨
         private val placeholderLabel = JLabel(createSystemInfoText())
+
         // 클립보드에 복사하기 위한 순수 텍스트 형태의 시스템 정보
         private val systemInfoText = createSystemInfoPlainText()
+
         // 설정이 유효하지 않을 때 보여줄 플러그인 선택 패널
         private val pluginSelectionPanel = createPluginSelectionPanel()
+
         // 현재 설정 상태를 보여주는 패널
         private val configStatusPanel = createConfigStatusPanel()
 
         // 플러그인 시작 중 UI 변경을 막기 위한 상태 잠금 변수
         @Volatile
         private var isPluginStarting = false
+
         // 플러그인이 실행 중인지 여부를 나타내는 상태 변수
         @Volatile
         private var isPluginRunning = false
@@ -315,7 +311,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
             // ... (사용 가능한 확장 목록을 보여주고 선택할 수 있는 UI 구성)
             return JPanel()
         }
-        
+
         /**
          * 사용 가능한 확장 목록을 보여주는 패널을 생성합니다.
          */
@@ -342,7 +338,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
             val displayName: String,
             val description: String,
             val isAvailable: Boolean,
-            val isCurrent: Boolean = false
+            val isCurrent: Boolean = false,
         )
 
         /**
@@ -351,7 +347,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
         private fun uploadVsixForPlugin(pluginId: String, pluginName: String) {
             // ... (VsixUploadDialog를 사용하여 파일 선택 및 업로드 처리)
         }
-        
+
         /**
          * 현재 설정 상태를 텍스트로 보여주는 패널을 생성합니다.
          */
@@ -359,7 +355,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
             // ... (상태를 표시할 JLabel을 포함하는 패널 생성)
             return JPanel()
         }
-        
+
         /**
          * 설정 상태 라벨의 텍스트와 색상을 현재 상태에 맞게 업데이트합니다.
          */
@@ -374,21 +370,21 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
             // ... (다크/라이트 테마 및 상태(success, warning, error)에 따라 다른 색상 반환)
             return java.awt.Color.BLACK
         }
-        
+
         /**
          * 사용자가 선택한 플러그인을 현재 설정으로 적용하고 플러그인을 시작합니다.
          */
         private fun applyPluginSelection(pluginId: String) {
             // ... (configManager.setCurrentExtensionId를 호출하여 설정을 저장하고, startPluginAfterSelection 호출)
         }
-        
+
         /**
          * 플러그인 선택 후, 해당 플러그인을 실제로 초기화하고 시작합니다.
          */
         private fun startPluginAfterSelection(pluginId: String) {
             // ... (ExtensionManager와 WecoderPlugin 서비스를 초기화하고, 상태 변수 업데이트)
         }
-        
+
         /**
          * 현재 설정 상태에 따라 Tool Window의 메인 콘텐츠를 동적으로 변경합니다.
          * (예: 유효한 설정 -> 시스템 정보 표시, 유효하지 않은 설정 -> 플러그인 선택 화면 표시)
@@ -396,7 +392,7 @@ class RunVSAgentToolWindowFactory : ToolWindowFactory {
         private fun updateUIContent() {
             // ... (isPluginRunning, configManager.isConfigurationValid 등의 상태를 조합하여 UI를 재구성)
         }
-        
+
         /**
          * 수동 설정 방법을 안내하는 다이얼로그를 표시합니다.
          */

@@ -106,7 +106,7 @@ class ExtensionManagerFactory(private val project: Project) {
         try {
             val extensionPath = PluginResourceUtil.getResourcePath(
                 PluginConstants.PLUGIN_ID,
-                config.codeDir
+                config.codeDir,
             )
             if (extensionPath != null && File(extensionPath).exists()) {
                 LOG.info("PluginResourceUtil을 통해 확장 경로 찾음: $extensionPath")

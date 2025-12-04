@@ -17,11 +17,11 @@ import com.sina.weibo.agent.ipc.proxy.IRPCProtocol
 @Service(Service.Level.PROJECT)
 class PluginContext {
     private val logger = Logger.getInstance(PluginContext::class.java)
-    
+
     // Extension Host와의 통신을 위한 RPC 프로토콜 인스턴스
     @Volatile // 여러 스레드에서 접근할 수 있으므로 가시성을 보장합니다.
     private var rpcProtocol: IRPCProtocol? = null
-    
+
     /**
      * RPC 프로토콜 인스턴스를 설정합니다.
      * Extension Host와의 연결이 수립된 후 호출됩니다.
@@ -31,7 +31,7 @@ class PluginContext {
         logger.info("RPC 프로토콜 인스턴스 설정 중")
         rpcProtocol = protocol
     }
-    
+
     /**
      * 현재 설정된 RPC 프로토콜 인스턴스를 가져옵니다.
      * @return RPC 프로토콜 인스턴스, 설정되지 않았으면 null
@@ -39,7 +39,7 @@ class PluginContext {
     fun getRPCProtocol(): IRPCProtocol? {
         return rpcProtocol
     }
-    
+
     /**
      * `PluginContext`가 관리하는 모든 리소스를 해제합니다.
      * 프로젝트가 닫히거나 플러그인이 언로드될 때 호출될 수 있습니다.
@@ -48,7 +48,7 @@ class PluginContext {
         logger.info("PluginContext의 리소스 해제 중")
         rpcProtocol = null
     }
-    
+
     companion object {
         /**
          * `PluginContext`의 싱글톤 인스턴스를 가져옵니다.

@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class TabStateManager(var project: Project) {
     private val logger = Logger.getInstance(TabStateManager::class.java)
-    
+
     // --- 상태 저장소 ---
     private var state = TabsState() // 모든 탭 그룹의 상태를 담는 객체
     private val tabHandles = ConcurrentHashMap<String, TabHandle>() // 탭 ID를 키로 하는 TabHandle 맵
@@ -46,7 +46,7 @@ class TabStateManager(var project: Project) {
             groupId = groupId,
             isActive = isActive,
             viewColumn = viewColumn,
-            tabs = emptyList()
+            tabs = emptyList(),
         )
         state.groups[groupId] = group // 상태에 그룹 추가
 
@@ -111,7 +111,7 @@ class TabStateManager(var project: Project) {
         if (input is TextDiffTabInput) {
             logger.info("탭 생성 (Diff): " + input.modified.path)
         }
-        
+
         val group = state.groups[groupId] ?: error("그룹을 찾을 수 없음: $groupId")
 
         // `EditorTabDto` 객체를 생성합니다.
@@ -122,7 +122,7 @@ class TabStateManager(var project: Project) {
             isActive = options.isActive,
             isPinned = options.isPinned,
             isPreview = !options.isPinned,
-            isDirty = false
+            isDirty = false,
         )
 
         // 그룹에 탭을 추가하고 새로운 그룹 상태를 업데이트합니다.
@@ -135,13 +135,15 @@ class TabStateManager(var project: Project) {
         tabHandles[tab.id] = handle
 
         // 탭 작업 이벤트와 그룹 업데이트 이벤트를 Extension Host에 알립니다.
-        tabStateService.acceptTabOperation(TabOperation(
-            groupId = groupId,
-            index = newTabs.size - 1,
-            tabDto = tab,
-            kind = TabModelOperationKind.TAB_OPEN.value,
-            oldIndex = null
-        ))
+        tabStateService.acceptTabOperation(
+            TabOperation(
+                groupId = groupId,
+                index = newTabs.size - 1,
+                tabDto = tab,
+                kind = TabModelOperationKind.TAB_OPEN.value,
+                oldIndex = null,
+            ),
+        )
         tabStateService.acceptTabGroupUpdate(newGroup)
         return handle
     }
@@ -176,13 +178,15 @@ class TabStateManager(var project: Project) {
             tabHandles.remove(id)
 
             // 탭 작업 이벤트와 그룹 업데이트 이벤트를 Extension Host에 알립니다.
-            tabStateService.acceptTabOperation(TabOperation(
-                groupId = handle.groupId,
-                index = index,
-                tabDto = tab,
-                kind = TabModelOperationKind.TAB_CLOSE.value,
-                oldIndex = null
-            ))
+            tabStateService.acceptTabOperation(
+                TabOperation(
+                    groupId = handle.groupId,
+                    index = index,
+                    tabDto = tab,
+                    kind = TabModelOperationKind.TAB_CLOSE.value,
+                    oldIndex = null,
+                ),
+            )
             tabStateService.acceptTabGroupUpdate(newGroup)
         }
         return handle
@@ -205,13 +209,15 @@ class TabStateManager(var project: Project) {
             state.groups[handle.groupId] = group.copy(tabs = newTabs)
 
             // 탭 작업 이벤트와 그룹 업데이트 이벤트를 Extension Host에 알립니다.
-            tabStateService.acceptTabOperation(TabOperation(
-                groupId = handle.groupId,
-                index = index,
-                tabDto = tab,
-                kind = TabModelOperationKind.TAB_UPDATE.value,
-                oldIndex = null
-            ))
+            tabStateService.acceptTabOperation(
+                TabOperation(
+                    groupId = handle.groupId,
+                    index = index,
+                    tabDto = tab,
+                    kind = TabModelOperationKind.TAB_UPDATE.value,
+                    oldIndex = null,
+                ),
+            )
 //            tabStateService.acceptEditorTabModel(state.groups.values.toList()) // 현재 주석 처리됨
         }
     }
@@ -240,13 +246,15 @@ class TabStateManager(var project: Project) {
                 }
                 state.groups[handle.groupId] = fromGroup.copy(tabs = newTabs)
 
-                tabStateService.acceptTabOperation(TabOperation(
-                    groupId = handle.groupId,
-                    index = toIndex,
-                    tabDto = tab,
-                    kind = TabModelOperationKind.TAB_MOVE.value,
-                    oldIndex = fromIndex
-                ))
+                tabStateService.acceptTabOperation(
+                    TabOperation(
+                        groupId = handle.groupId,
+                        index = toIndex,
+                        tabDto = tab,
+                        kind = TabModelOperationKind.TAB_MOVE.value,
+                        oldIndex = fromIndex,
+                    ),
+                )
             } else {
                 // 그룹 간 이동하는 경우
                 val newFromTabs = fromGroup.tabs.toMutableList().apply { removeAt(fromIndex) }
@@ -256,13 +264,15 @@ class TabStateManager(var project: Project) {
 
                 handle.groupId = toGroupId // 탭 핸들의 그룹 ID 업데이트
 
-                tabStateService.acceptTabOperation(TabOperation(
-                    groupId = toGroupId,
-                    index = toIndex,
-                    tabDto = tab,
-                    kind = TabModelOperationKind.TAB_MOVE.value,
-                    oldIndex = fromIndex
-                ))
+                tabStateService.acceptTabOperation(
+                    TabOperation(
+                        groupId = toGroupId,
+                        index = toIndex,
+                        tabDto = tab,
+                        kind = TabModelOperationKind.TAB_MOVE.value,
+                        oldIndex = fromIndex,
+                    ),
+                )
             }
         }
     }
@@ -279,14 +289,14 @@ class TabStateManager(var project: Project) {
         id: String,
         isActive: Boolean? = null,
         isDirty: Boolean? = null,
-        isPinned: Boolean? = null
+        isPinned: Boolean? = null,
     ) {
         updateTab(id) { tab ->
             tab.copy(
                 isActive = isActive ?: tab.isActive,
                 isDirty = isDirty ?: tab.isDirty,
                 isPinned = isPinned ?: tab.isPinned,
-                isPreview = if (isPinned != null) !isPinned else tab.isPreview
+                isPreview = if (isPinned != null) !isPinned else tab.isPreview,
             )
         }
     }
@@ -342,16 +352,16 @@ class TabStateManager(var project: Project) {
  * 모든 탭 그룹의 상태를 담는 데이터 클래스입니다.
  */
 data class TabsState(
-    val groups: MutableMap<Int, EditorTabGroupDto> = ConcurrentHashMap()
+    val groups: MutableMap<Int, EditorTabGroupDto> = ConcurrentHashMap(),
 )
 
 /**
  * 탭 생성 옵션을 담는 데이터 클래스입니다.
  */
 data class TabOptions(
-    val isActive: Boolean = false,  // 탭이 활성화될지 여부
-    val isPinned: Boolean = false,  // 탭이 고정될지 여부
-    val isPreview: Boolean = false  // 탭이 미리보기 모드인지 여부
+    val isActive: Boolean = false, // 탭이 활성화될지 여부
+    val isPinned: Boolean = false, // 탭이 고정될지 여부
+    val isPreview: Boolean = false, // 탭이 미리보기 모드인지 여부
 ) {
     companion object {
         val DEFAULT = TabOptions() // 기본 옵션
@@ -365,7 +375,7 @@ data class TabOptions(
  */
 class TabGroupHandle(
     val groupId: Int,
-    private val manager: TabStateManager
+    private val manager: TabStateManager,
 ) {
     /**
      * 이 그룹의 탭 그룹 데이터를 가져옵니다.
@@ -427,7 +437,7 @@ class TabGroupHandle(
 class TabHandle(
     val id: String,
     var groupId: Int,
-    private val manager: TabStateManager
+    private val manager: TabStateManager,
 ) {
 
     /**

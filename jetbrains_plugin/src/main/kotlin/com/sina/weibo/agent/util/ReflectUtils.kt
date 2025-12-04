@@ -22,7 +22,7 @@ import kotlin.reflect.typeOf
 suspend fun doInvokeMethod(
     method: KFunction<*>,
     args: List<Any?>,
-    actor: Any
+    actor: Any,
 ): Any? {
     val parameterTypes = method.parameters // 메소드의 파라미터 목록
     val processedArgs = ArrayList<Any?>(parameterTypes.size) // 처리된 인자 목록

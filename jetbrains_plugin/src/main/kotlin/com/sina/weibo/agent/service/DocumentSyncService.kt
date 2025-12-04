@@ -59,7 +59,7 @@ class DocumentSyncService(private val project: Project) {
                 "authority" to "",
                 "path" to virtualFile.path,
                 "query" to "",
-                "fragment" to ""
+                "fragment" to "",
             )
             val uri = createURI(uriMap)
 
@@ -85,7 +85,7 @@ class DocumentSyncService(private val project: Project) {
                         EOL = handle.document.EOL,
                         languageId = handle.document.languageId,
                         isDirty = false, // 저장 후에는 dirty 상태가 아님
-                        encoding = handle.document.encoding
+                        encoding = handle.document.encoding,
                     )
 
                     // EditorHolder의 문서 상태를 업데이트합니다.
@@ -114,14 +114,14 @@ class DocumentSyncService(private val project: Project) {
      */
     fun shouldHandleFileEvent(virtualFile: VirtualFile): Boolean {
         return !virtualFile.isDirectory && // 디렉터리가 아님
-                virtualFile.isInLocalFileSystem && // 로컬 파일 시스템에 있음
-                !virtualFile.path.contains("/.idea/") && // IDE 설정 파일 제외
-                !virtualFile.path.contains("/target/") && // 빌드 출력 파일 제외
-                !virtualFile.path.contains("/build/") &&
-                !virtualFile.path.contains("/node_modules/") &&
-                virtualFile.extension != null && // 확장자가 있어야 함
-                !isTooLargeForSyncing(virtualFile) && // 너무 큰 파일 제외
-                !isForSimpleWidget(virtualFile) // 특정 위젯 파일 제외
+            virtualFile.isInLocalFileSystem && // 로컬 파일 시스템에 있음
+            !virtualFile.path.contains("/.idea/") && // IDE 설정 파일 제외
+            !virtualFile.path.contains("/target/") && // 빌드 출력 파일 제외
+            !virtualFile.path.contains("/build/") &&
+            !virtualFile.path.contains("/node_modules/") &&
+            virtualFile.extension != null && // 확장자가 있어야 함
+            !isTooLargeForSyncing(virtualFile) && // 너무 큰 파일 제외
+            !isForSimpleWidget(virtualFile) // 특정 위젯 파일 제외
     }
 
     /**
@@ -150,29 +150,29 @@ class DocumentSyncService(private val project: Project) {
         return try {
             val fileName = virtualFile.name.lowercase()
             val extension = virtualFile.extension?.lowercase()
-            
+
             // 임시 파일, 캐시 파일, 백업 파일 등
             fileName.startsWith(".") ||
-            fileName.endsWith(".tmp") ||
-            fileName.endsWith(".temp") ||
-            fileName.endsWith(".bak") ||
-            fileName.endsWith(".backup") ||
-            fileName.contains("~") ||
-            // 바이너리 파일 확장자
-            extension in setOf(
-                "exe", "dll", "so", "dylib", "bin", "obj", "o", "a", "lib",
-                "zip", "tar", "gz", "rar", "7z", "jar", "war", "ear",
-                "png", "jpg", "jpeg", "gif", "bmp", "ico", "tiff",
-                "mp3", "mp4", "avi", "mov", "wav", "flv", "wmv",
-                "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"
-            ) ||
-            // 특수 경로
-            virtualFile.path.contains("/.git/") ||
-            virtualFile.path.contains("/.svn/") ||
-            virtualFile.path.contains("/.hg/") ||
-            virtualFile.path.contains("/vendor/") ||
-            virtualFile.path.contains("/dist/") ||
-            virtualFile.path.contains("/out/")
+                fileName.endsWith(".tmp") ||
+                fileName.endsWith(".temp") ||
+                fileName.endsWith(".bak") ||
+                fileName.endsWith(".backup") ||
+                fileName.contains("~") ||
+                // 바이너리 파일 확장자
+                extension in setOf(
+                    "exe", "dll", "so", "dylib", "bin", "obj", "o", "a", "lib",
+                    "zip", "tar", "gz", "rar", "7z", "jar", "war", "ear",
+                    "png", "jpg", "jpeg", "gif", "bmp", "ico", "tiff",
+                    "mp3", "mp4", "avi", "mov", "wav", "flv", "wmv",
+                    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+                ) ||
+                // 특수 경로
+                virtualFile.path.contains("/.git/") ||
+                virtualFile.path.contains("/.svn/") ||
+                virtualFile.path.contains("/.hg/") ||
+                virtualFile.path.contains("/vendor/") ||
+                virtualFile.path.contains("/dist/") ||
+                virtualFile.path.contains("/out/")
         } catch (e: Exception) {
             logger.warn("파일이 간단한 위젯용인지 확인 실패: ${virtualFile.path}", e)
             false

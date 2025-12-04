@@ -6,6 +6,7 @@ package com.sina.weibo.agent.extensions.plugin.roo
 
 /** 프롬프트 타입 식별자를 위한 타입 별칭 */
 typealias RooCodeSupportPromptType = String
+
 /** 프롬프트 파라미터 맵을 위한 타입 별칭 */
 typealias RooCodePromptParams = Map<String, Any?>
 
@@ -27,7 +28,7 @@ object RooCodeSupportPromptConfigs {
     val ENHANCE = RooCodeSupportPromptConfig(
         """이 프롬프트의 개선된 버전을 생성하세요 (개선된 프롬프트만 회신 - 대화, 설명, 서론, 글머리 기호, 플레이스홀더 또는 따옴표 없이):
 
-${'$'}{userInput}"""
+${'$'}{userInput}""",
     )
 
     /**
@@ -45,7 +46,7 @@ ${'$'}{selectedText}
 이 코드가 무엇을 하는지에 대한 명확하고 간결한 설명을 제공하세요. 다음을 포함합니다:
 1. 목적 및 기능
 2. 주요 구성 요소 및 상호 작용
-3. 사용된 중요한 패턴 또는 기술"""
+3. 사용된 중요한 패턴 또는 기술""",
     )
 
     /**
@@ -65,7 +66,7 @@ ${'$'}{selectedText}
 1. 위에 나열된 모든 감지된 문제(있는 경우)를 해결하세요.
 2. 다른 잠재적인 버그나 문제를 식별하세요.
 3. 수정된 코드를 제공하세요.
-4. 무엇이 수정되었고 그 이유를 설명하세요."""
+4. 무엇이 수정되었고 그 이유를 설명하세요.""",
     )
 
     /**
@@ -86,7 +87,7 @@ ${'$'}{selectedText}
 3. 모범 사례 및 패턴
 4. 오류 처리 및 엣지 케이스
 
-각 개선 사항에 대한 설명과 함께 개선된 코드를 제공하세요."""
+각 개선 사항에 대한 설명과 함께 개선된 코드를 제공하세요.""",
     )
 
     /**
@@ -97,7 +98,7 @@ ${'$'}{selectedText}
         """${'$'}{filePath}:${'$'}{startLine}-${'$'}{endLine}
 ```
 ${'$'}{selectedText}
-```"""
+```""",
     )
 
     /**
@@ -109,7 +110,7 @@ ${'$'}{selectedText}
 터미널 출력:
 ```
 ${'$'}{terminalContent}
-```"""
+```""",
     )
 
     /**
@@ -126,7 +127,7 @@ ${'$'}{terminalContent}
 다음 사항을 지켜주세요:
 1. 명령의 문제를 식별하세요.
 2. 수정된 명령을 제공하세요.
-3. 무엇이 수정되었고 그 이유를 설명하세요."""
+3. 무엇이 수정되었고 그 이유를 설명하세요.""",
     )
 
     /**
@@ -143,7 +144,7 @@ ${'$'}{terminalContent}
 다음을 제공하세요:
 1. 명령이 하는 일
 2. 각 부분/플래그에 대한 설명
-3. 예상되는 출력 및 동작"""
+3. 예상되는 출력 및 동작""",
     )
 
     /**
@@ -151,7 +152,7 @@ ${'$'}{terminalContent}
      * 사용자 입력을 직접 전달하는 간단한 형식입니다.
      */
     val NEW_TASK = RooCodeSupportPromptConfig(
-        """${'$'}{userInput}"""
+        """${'$'}{userInput}""",
     )
 
     /**
@@ -167,7 +168,7 @@ ${'$'}{terminalContent}
         "TERMINAL_ADD_TO_CONTEXT" to TERMINAL_ADD_TO_CONTEXT,
         "TERMINAL_FIX" to TERMINAL_FIX,
         "TERMINAL_EXPLAIN" to TERMINAL_EXPLAIN,
-        "NEW_TASK" to NEW_TASK
+        "NEW_TASK" to NEW_TASK,
     )
 }
 

@@ -10,10 +10,10 @@ import com.intellij.openapi.diagnostic.Logger
  * Node.js 버전 정보를 나타내는 데이터 클래스입니다.
  */
 data class NodeVersion(
-    val major: Int,      // 주 버전 (Major version)
-    val minor: Int,      // 부 버전 (Minor version)
-    val patch: Int,      // 패치 버전 (Patch version)
-    val original: String // 원본 버전 문자열 (예: "v20.19.2")
+    val major: Int, // 주 버전 (Major version)
+    val minor: Int, // 부 버전 (Minor version)
+    val patch: Int, // 패치 버전 (Patch version)
+    val original: String, // 원본 버전 문자열 (예: "v20.19.2")
 ) {
     /**
      * 두 Node.js 버전 번호를 비교합니다.
@@ -27,21 +27,21 @@ data class NodeVersion(
             else -> patch - other.patch
         }
     }
-    
+
     /**
      * 지정된 버전보다 낮은지 여부를 확인합니다.
      */
     fun isLowerThan(other: NodeVersion): Boolean {
         return compareTo(other) < 0
     }
-    
+
     /**
      * 지정된 버전보다 크거나 같은지 여부를 확인합니다.
      */
     fun isGreaterOrEqualTo(other: NodeVersion): Boolean {
         return compareTo(other) >= 0
     }
-    
+
     /**
      * `NodeVersion` 객체를 문자열로 표현할 때 원본 버전 문자열을 반환합니다.
      */
@@ -54,7 +54,7 @@ data class NodeVersion(
  */
 object NodeVersionUtil {
     private val LOG = Logger.getInstance(NodeVersionUtil::class.java)
-    
+
     /**
      * Node.js 실행 파일 경로로부터 버전 정보를 가져옵니다.
      * @param nodePath Node.js 실행 파일의 경로
@@ -65,14 +65,14 @@ object NodeVersionUtil {
             val process = ProcessBuilder(nodePath, "--version").start() // `node --version` 실행
             val output = process.inputStream.bufferedReader().readText().trim() // 출력 읽기
             process.waitFor() // 프로세스 종료 대기
-            
+
             parseNodeVersion(output) // 출력 파싱
         } catch (e: Exception) {
             LOG.warn("Node.js 버전 가져오기 실패", e)
             null
         }
     }
-    
+
     /**
      * Node.js 버전 문자열을 파싱하여 `NodeVersion` 객체로 변환합니다.
      * @param versionOutput `node --version` 명령어의 출력 문자열 (예: "v20.19.2")
@@ -83,13 +83,13 @@ object NodeVersionUtil {
             // Node.js 버전 형식은 일반적으로 vX.Y.Z 이므로 정규식을 사용하여 파싱합니다.
             val versionRegex = Regex("v(\\d+)\\.(\\d+)\\.(\\d+)")
             val matchResult = versionRegex.find(versionOutput.trim())
-            
+
             if (matchResult != null) {
                 val major = matchResult.groupValues[1].toInt()
                 val minor = matchResult.groupValues[2].toInt()
                 val patch = matchResult.groupValues[3].toInt()
                 val nodeVersion = NodeVersion(major, minor, patch, versionOutput.trim())
-                
+
                 LOG.info("Node.js 버전: $versionOutput, 파싱 결과: $major.$minor.$patch")
                 nodeVersion
             } else {
@@ -101,7 +101,7 @@ object NodeVersionUtil {
             null
         }
     }
-    
+
     /**
      * 현재 Node.js 버전이 최소 요구 버전을 충족하는지 확인합니다.
      * @param nodeVersion 현재 Node.js 버전

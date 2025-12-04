@@ -26,19 +26,19 @@ interface MainThreadCommandsShape : Disposable {
      * @param id 등록할 커맨드의 고유 식별자
      */
     fun registerCommand(id: String)
-    
+
     /**
      * 등록된 커맨드를 해제합니다.
      * @param id 해제할 커맨드의 고유 식별자
      */
     fun unregisterCommand(id: String)
-    
+
     /**
      * 커맨드 활성화 이벤트를 발생시킵니다. (현재는 로깅만 수행)
      * @param id 활성화할 커맨드의 고유 식별자
      */
     fun fireCommandActivationEvent(id: String)
-    
+
     /**
      * Extension Host의 요청에 따라 특정 커맨드를 실행합니다.
      * @param id 실행할 커맨드의 고유 식별자
@@ -46,7 +46,7 @@ interface MainThreadCommandsShape : Disposable {
      * @return 커맨드 실행 결과 (비동기적으로 반환될 수 있음)
      */
     suspend fun executeCommand(id: String, args: List<Any?>): Any?
-    
+
     /**
      * 현재 등록된 모든 커맨드의 ID 목록을 가져옵니다.
      * @return 커맨드 ID 문자열의 리스트
@@ -65,7 +65,7 @@ class MainThreadCommands(val project: Project) : MainThreadCommandsShape {
     // 커맨드를 등록하고 관리하는 레지스트리 객체
     private val registry = CommandRegistry(project)
     private val logger = Logger.getInstance(MainThreadCommandsShape::class.java)
-    
+
     /**
      * 클래스 초기화 시, 플러그인에서 기본적으로 제공하는 커맨드들을 등록합니다.
      */
@@ -150,5 +150,4 @@ class MainThreadCommands(val project: Project) : MainThreadCommandsShape {
         // 찾은 메소드를 인자와 함께 동적으로 호출합니다.
         doInvokeMethod(method, args, handler)
     }
-
 }

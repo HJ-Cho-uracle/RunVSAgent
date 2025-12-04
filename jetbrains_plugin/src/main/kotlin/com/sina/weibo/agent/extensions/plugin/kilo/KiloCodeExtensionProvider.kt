@@ -5,12 +5,11 @@
 package com.sina.weibo.agent.extensions.plugin.kilo
 
 import com.intellij.openapi.project.Project
-import com.sina.weibo.agent.extensions.config.ExtensionConfiguration
-import com.sina.weibo.agent.extensions.core.ExtensionManagerFactory
-import com.sina.weibo.agent.extensions.core.VsixManager
-import com.sina.weibo.agent.extensions.config.ExtensionProvider
 import com.sina.weibo.agent.extensions.common.ExtensionType
+import com.sina.weibo.agent.extensions.config.ExtensionConfiguration
 import com.sina.weibo.agent.extensions.config.ExtensionMetadata
+import com.sina.weibo.agent.extensions.config.ExtensionProvider
+import com.sina.weibo.agent.extensions.core.ExtensionManagerFactory
 import com.sina.weibo.agent.extensions.core.VsixManager.Companion.getBaseDirectory
 import com.sina.weibo.agent.util.PluginConstants
 import com.sina.weibo.agent.util.PluginResourceUtil
@@ -21,16 +20,16 @@ import java.io.File
  * `ExtensionProvider` 인터페이스를 구현하여 Kilo Code 확장에 대한 메타데이터와 생명주기 메소드를 제공합니다.
  */
 class KiloCodeExtensionProvider : ExtensionProvider {
-    
+
     // 확장의 고유 ID를 반환합니다.
     override fun getExtensionId(): String = "kilo-code"
-    
+
     // 확장의 표시 이름을 반환합니다.
     override fun getDisplayName(): String = "Kilo Code"
-    
+
     // 확장에 대한 설명을 반환합니다.
     override fun getDescription(): String = "고급 기능을 갖춘 AI 기반 코드 어시스턴트"
-    
+
     /**
      * Kilo Code 확장을 초기화합니다.
      * @param project 현재 IntelliJ 프로젝트
@@ -39,7 +38,7 @@ class KiloCodeExtensionProvider : ExtensionProvider {
         // Kilo Code 확장 설정을 초기화합니다.
         val extensionConfig = ExtensionConfiguration.getInstance(project)
         extensionConfig.initialize()
-        
+
         // ExtensionManagerFactory를 초기화합니다. (필요한 경우)
         try {
             val extensionManagerFactory = ExtensionManagerFactory.getInstance(project)
@@ -61,18 +60,18 @@ class KiloCodeExtensionProvider : ExtensionProvider {
 
         // 1. VSIX 설치 경로 확인 (사용자 설정 디렉터리 내 플러그인 폴더)
         val possiblePaths = listOf(
-            "${getBaseDirectory()}/${config.codeDir}"
+            "${getBaseDirectory()}/${config.codeDir}",
         )
 
         if (possiblePaths.any { File(it).exists() }) {
             return true
         }
-        
+
         // 2. 플러그인 리소스 경로 확인 (내장 확장용)
         try {
             val pluginResourcePath = PluginResourceUtil.getResourcePath(
                 PluginConstants.PLUGIN_ID,
-                config.codeDir
+                config.codeDir,
             )
             if (pluginResourcePath != null && File(pluginResourcePath).exists()) {
                 return true
@@ -80,12 +79,12 @@ class KiloCodeExtensionProvider : ExtensionProvider {
         } catch (e: Exception) {
             // 플러그인 리소스 확인 중 예외 발생 시 무시합니다.
         }
-        
+
         // TODO: 개발/테스트 환경을 위한 프로젝트 경로 확인 로직 추가 필요
         // 현재는 파일이 없으면 false를 반환합니다.
         return false
     }
-    
+
     /**
      * Kilo Code 확장의 설정 메타데이터를 가져옵니다.
      * @param project 현재 IntelliJ 프로젝트
@@ -94,7 +93,7 @@ class KiloCodeExtensionProvider : ExtensionProvider {
     override fun getConfiguration(project: Project): ExtensionMetadata {
         val extensionConfig = ExtensionConfiguration.getInstance(project)
         val config = extensionConfig.getConfig(ExtensionType.KILO_CODE)
-        
+
         // `ExtensionMetadata` 인터페이스를 구현하는 익명 객체를 반환합니다.
         return object : ExtensionMetadata {
             override fun getCodeDir(): String = config.codeDir
@@ -107,7 +106,7 @@ class KiloCodeExtensionProvider : ExtensionProvider {
             override fun getExtensionDependencies(): List<String> = config.extensionDependencies
         }
     }
-    
+
     /**
      * Kilo Code 확장 리소스를 해제합니다. (필요한 경우 구현)
      */

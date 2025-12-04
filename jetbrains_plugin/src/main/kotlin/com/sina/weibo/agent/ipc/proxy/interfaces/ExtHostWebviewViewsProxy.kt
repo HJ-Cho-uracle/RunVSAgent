@@ -23,9 +23,9 @@ interface ExtHostWebviewViewsProxy {
         viewType: String,
         title: String?,
         state: Any?,
-        cancellation: Any?
+        cancellation: Any?,
     )
-    
+
     /**
      * WebView 뷰의 가시성(visibility)이 변경되었을 때 트리거됩니다.
      * @param webviewHandle WebView 핸들
@@ -33,14 +33,14 @@ interface ExtHostWebviewViewsProxy {
      */
     fun onDidChangeWebviewViewVisibility(
         webviewHandle: String,
-        visible: Boolean
+        visible: Boolean,
     )
-    
+
     /**
      * WebView 뷰를 해제합니다.
      * @param webviewHandle WebView 핸들
      */
     fun disposeWebviewView(
-        webviewHandle: String
+        webviewHandle: String,
     )
 }

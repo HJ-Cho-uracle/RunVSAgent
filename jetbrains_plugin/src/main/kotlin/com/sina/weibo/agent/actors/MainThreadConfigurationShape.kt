@@ -39,7 +39,8 @@ enum class ConfigurationTarget(val value: Int) {
     DEFAULT(7),
 
     /** 메모리에만 임시로 저장되고 영속화되지 않는 설정 */
-    MEMORY(8);
+    MEMORY(8),
+    ;
 
     companion object {
         /**
@@ -77,7 +78,7 @@ data class ConfigurationOverrides(
     /** 오버라이드 식별자. 주로 언어별 설정을 위해 사용됩니다. (예: "[typescript]") */
     val overrideIdentifier: String? = null,
     /** 설정이 적용될 리소스의 URI. 파일별 설정을 위해 사용됩니다. */
-    val resource: URI? = null
+    val resource: URI? = null,
 )
 
 /**
@@ -99,7 +100,7 @@ interface MainThreadConfigurationShape : Disposable {
         key: String,
         value: Any?,
         overrides: Map<String, Any>?,
-        scopeToLanguage: Boolean?
+        scopeToLanguage: Boolean?,
     )
 
     /**
@@ -113,7 +114,7 @@ interface MainThreadConfigurationShape : Disposable {
         target: Int,
         key: String,
         overrides: Map<String, Any>?,
-        scopeToLanguage: Boolean?
+        scopeToLanguage: Boolean?,
     )
 }
 
@@ -133,15 +134,15 @@ class MainThreadConfiguration : MainThreadConfigurationShape {
         key: String,
         value: Any?,
         overrides: Map<String, Any>?,
-        scopeToLanguage: Boolean?
+        scopeToLanguage: Boolean?,
     ) {
         val configTarget = ConfigurationTarget.fromValue(target)
         val configOverrides = convertToConfigurationOverrides(overrides)
 
         logger.info(
             "설정 업데이트 요청: target=${configTarget?.let { ConfigurationTarget.toString(it) }}, key=$key, value=$value, " +
-                    "overrideIdentifier=${configOverrides?.overrideIdentifier}, resource=${configOverrides?.resource}, " +
-                    "scopeToLanguage=$scopeToLanguage"
+                "overrideIdentifier=${configOverrides?.overrideIdentifier}, resource=${configOverrides?.resource}, " +
+                "scopeToLanguage=$scopeToLanguage",
         )
 
         // 기본 키와 오버라이드 정보를 조합하여 최종 저장 키를 생성합니다.
@@ -189,15 +190,15 @@ class MainThreadConfiguration : MainThreadConfigurationShape {
         target: Int,
         key: String,
         overrides: Map<String, Any>?,
-        scopeToLanguage: Boolean?
+        scopeToLanguage: Boolean?,
     ) {
         val configTarget = ConfigurationTarget.fromValue(target)
         val configOverrides = convertToConfigurationOverrides(overrides)
 
         logger.info(
             "설정 제거 요청: target=${configTarget?.let { ConfigurationTarget.toString(it) }}, key=$key, " +
-                    "overrideIdentifier=${configOverrides?.overrideIdentifier}, resource=${configOverrides?.resource}, " +
-                    "scopeToLanguage=$scopeToLanguage"
+                "overrideIdentifier=${configOverrides?.overrideIdentifier}, resource=${configOverrides?.resource}, " +
+                "scopeToLanguage=$scopeToLanguage",
         )
 
         val fullKey = buildConfigurationKey(key, configOverrides, scopeToLanguage)
@@ -274,7 +275,7 @@ class MainThreadConfiguration : MainThreadConfigurationShape {
     private fun buildConfigurationKey(
         baseKey: String,
         overrides: ConfigurationOverrides?,
-        scopeToLanguage: Boolean?
+        scopeToLanguage: Boolean?,
     ): String {
         val keyBuilder = StringBuilder(baseKey)
 

@@ -23,13 +23,13 @@ fun createRawURITransformer(remoteAuthority: String): IRawURITransformer {
                     scheme = "file",
                     path = uri.path,
                     query = uri.query,
-                    fragment = uri.fragment
+                    fragment = uri.fragment,
                 )
                 "file" -> UriParts(
                     scheme = "vscode-local",
                     path = uri.path,
                     query = uri.query,
-                    fragment = uri.fragment
+                    fragment = uri.fragment,
                 )
                 else -> uri
             }
@@ -46,13 +46,13 @@ fun createRawURITransformer(remoteAuthority: String): IRawURITransformer {
                     authority = remoteAuthority,
                     path = uri.path,
                     query = uri.query,
-                    fragment = uri.fragment
+                    fragment = uri.fragment,
                 )
                 "vscode-local" -> UriParts(
                     scheme = "file",
                     path = uri.path,
                     query = uri.query,
-                    fragment = uri.fragment
+                    fragment = uri.fragment,
                 )
                 else -> uri
             }
@@ -86,7 +86,7 @@ fun createURITransformer(remoteAuthority: String): IURITransformer {
  * `IURITransformer`를 사용하여 변환합니다.
  */
 class UriReplacer(private val transformer: IURITransformer) : (String, Any?) -> Any? {
-    
+
     /**
      * JSON 직렬화 중 호출되어 값을 변환합니다.
      * @param key 현재 처리 중인 JSON 속성의 키
@@ -96,11 +96,12 @@ class UriReplacer(private val transformer: IURITransformer) : (String, Any?) -> 
     override fun invoke(key: String, value: Any?): Any? {
         // 값이 문자열이고 URI 관련 키(예: "uri", "documentUri")인 경우 변환을 시도합니다.
         if (value is String && (
-            key == "uri" || 
-            key == "documentUri" || 
-            key == "targetUri" || 
-            key == "sourceUri" || 
-            key.endsWith("Uri"))
+                key == "uri" ||
+                    key == "documentUri" ||
+                    key == "targetUri" ||
+                    key == "sourceUri" ||
+                    key.endsWith("Uri")
+                )
         ) {
             return transformer.transformOutgoingURI(value)
         }

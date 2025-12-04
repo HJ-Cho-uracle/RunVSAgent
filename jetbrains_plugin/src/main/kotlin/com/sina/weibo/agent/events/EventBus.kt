@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
-
 /**
  * 애플리케이션 레벨의 이벤트 버스 서비스입니다.
  * 플러그인 전체에서 공유되는 이벤트를 발행하고 구독하는 데 사용됩니다.
@@ -42,8 +41,7 @@ class EventBus : AbsEventBus() {
  * `@Service(Service.Level.PROJECT)` 어노테이션을 통해 IntelliJ에 프로젝트 서비스로 등록됩니다.
  */
 @Service(Service.Level.PROJECT)
-class ProjectEventBus : AbsEventBus() {
-}
+class ProjectEventBus : AbsEventBus()
 
 /**
  * 이벤트 버스의 추상 기본 클래스입니다.
@@ -124,7 +122,7 @@ open class AbsEventBus : Disposable {
     inline fun <reified T : Any> on(
         scope: CoroutineScope,
         eventType: EventType<T>,
-        crossinline handler: suspend (T) -> Unit
+        crossinline handler: suspend (T) -> Unit,
     ) {
         scope.launch {
             events
@@ -160,9 +158,12 @@ open class AbsEventBus : Disposable {
         listeners.getOrPut(eventType) { mutableListOf() }.add(wrappedHandler)
 
         // IntelliJ의 Disposer API를 사용하여 리소스 정리 시 리스너를 자동으로 제거합니다.
-        Disposer.register(disposable, Disposable {
-            removeListener(eventType, wrappedHandler)
-        })
+        Disposer.register(
+            disposable,
+            Disposable {
+                removeListener(eventType, wrappedHandler)
+            },
+        )
     }
 
     /**
@@ -203,5 +204,5 @@ interface EventType<T : Any>
  */
 data class Event<T : Any>(
     val type: EventType<T>,
-    val data: T
+    val data: T,
 )

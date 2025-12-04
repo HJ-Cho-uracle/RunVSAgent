@@ -29,7 +29,11 @@ import kotlinx.coroutines.launch
 import org.cef.CefSettings
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
-import org.cef.handler.*
+import org.cef.handler.CefDisplayHandlerAdapter
+import org.cef.handler.CefLoadHandler
+import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.handler.CefRequestHandlerAdapter
+import org.cef.handler.CefResourceRequestHandler
 import org.cef.misc.BoolRef
 import org.cef.network.CefRequest
 import java.io.IOException
@@ -65,22 +69,23 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
     // 가장 최근에 생성된 WebView 인스턴스
     @Volatile
     private var latestWebView: WebViewInstance? = null
-    
+
     // WebView 생성 콜백 목록
     private val creationCallbacks = mutableListOf<WebViewCreationCallback>()
 
     // 리소스 루트 디렉터리 경로
     @Volatile
     private var resourceRootDir: Path? = null
-    
+
     // 현재 테마 설정
     private var currentThemeConfig: JsonObject? = null
-    
+
     // 현재 테마 타입 (다크/라이트)
     private var isDarkTheme: Boolean = true
-    
+
     // 중복 해제 방지 플래그
     private var isDisposed = false
+
     // 테마 초기화 여부
     private var themeInitialized = false
 
@@ -90,14 +95,14 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
      */
     fun initializeThemeManager(resourceRoot: String) {
         if (isDisposed || themeInitialized) return
-        
+
         logger.info("테마 관리자 초기화 중")
         val themeManager = ThemeManager.getInstance()
         themeManager.initialize(resourceRoot)
         themeManager.addThemeChangeListener(this) // 테마 변경 리스너로 자신을 등록
         themeInitialized = true
     }
-    
+
     /**
      * `ThemeChangeListener` 인터페이스 구현: 테마 변경 이벤트를 처리합니다.
      * @param themeConfig 테마 설정 JSON 객체
@@ -107,25 +112,25 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
         logger.info("테마 변경 이벤트 수신, isDarkTheme: $isDarkTheme, config: ${themeConfig.size()}")
         this.currentThemeConfig = themeConfig
         this.isDarkTheme = isDarkTheme
-        
+
         // 모든 WebView 인스턴스에 테마 설정을 전송합니다.
         sendThemeConfigToWebViews(themeConfig)
     }
-    
+
     /**
      * 모든 WebView 인스턴스에 테마 설정을 전송합니다.
      * @param themeConfig 테마 설정 JSON 객체
      */
     private fun sendThemeConfigToWebViews(themeConfig: JsonObject) {
         logger.info("WebView에 테마 설정 전송")
-        
+
         try {
             getLatestWebView()?.sendThemeConfigToWebView(themeConfig)
         } catch (e: Exception) {
             logger.error("WebView에 테마 설정 전송 실패", e)
         }
     }
-    
+
     /**
      * HTML 콘텐츠를 리소스 디렉터리에 저장합니다.
      * @param html HTML 콘텐츠
@@ -138,9 +143,9 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
             logger.warn("리소스 루트 디렉터리가 존재하지 않아 HTML 콘텐츠를 저장할 수 없습니다.")
             throw IOException("리소스 루트 디렉터리가 존재하지 않습니다.")
         }
-        
+
         val filePath = resourceRootDir?.resolve(filename)
-        
+
         try {
             if (filePath != null) {
                 logger.info("HTML 콘텐츠 저장됨: $filePath")
@@ -153,7 +158,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
             throw e
         }
     }
-    
+
     /**
      * WebView 생성 콜백을 등록합니다.
      * @param callback 콜백 객체
@@ -162,15 +167,18 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
     fun addCreationCallback(callback: WebViewCreationCallback, disposable: Disposable? = null) {
         synchronized(creationCallbacks) {
             creationCallbacks.add(callback)
-            
+
             // `Disposable`이 제공되면, 해제될 때 콜백을 자동으로 제거합니다.
             if (disposable != null) {
-                Disposer.register(disposable, Disposable {
-                    removeCreationCallback(callback)
-                })
+                Disposer.register(
+                    disposable,
+                    Disposable {
+                        removeCreationCallback(callback)
+                    },
+                )
             }
         }
-        
+
         // 이미 생성된 WebView가 있으면 즉시 새 콜백에 알립니다.
         latestWebView?.let { webview ->
             ApplicationManager.getApplication().invokeLater {
@@ -178,7 +186,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
             }
         }
     }
-    
+
     /**
      * WebView 생성 콜백을 제거합니다.
      * @param callback 제거할 콜백 객체
@@ -188,7 +196,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
             creationCallbacks.remove(callback)
         }
     }
-    
+
     /**
      * WebView가 생성되었음을 모든 콜백에 알립니다.
      * @param instance 생성된 WebView 인스턴스
@@ -197,7 +205,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
         val callbacks = synchronized(creationCallbacks) {
             creationCallbacks.toList() // 동시 수정 방지를 위해 복사본 생성
         }
-        
+
         // UI 스레드에서 안전하게 콜백을 호출합니다.
         ApplicationManager.getApplication().invokeLater {
             callbacks.forEach { callback ->
@@ -209,7 +217,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
             }
         }
     }
-    
+
     /**
      * WebView 제공자를 등록하고 WebView 인스턴스를 생성합니다.
      * @param data WebView 뷰 제공자 데이터
@@ -217,21 +225,21 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
     fun registerProvider(data: WebviewViewProviderData) {
         logger.info("WebView 제공자 등록 및 WebView 인스턴스 생성: ${data.viewType}")
         val extension = data.extension
-        
+
         // 확장 정보에서 리소스 루트 디렉터리 경로를 가져와 설정합니다.
         try {
             @Suppress("UNCHECKED_CAST")
             val location = extension?.get("location") as? Map<String, Any?>
             val fsPath = location?.get("fsPath") as? String
-            
+
             if (fsPath != null) {
                 val path = Paths.get(fsPath)
                 logger.info("확장에서 리소스 디렉터리 경로 가져옴: $path")
-                
+
                 if (!path.exists()) {
                     path.createDirectories()
                 }
-                
+
                 resourceRootDir = path // 리소스 루트 디렉터리 업데이트
                 initializeThemeManager(fsPath) // 테마 관리자 초기화
             }
@@ -249,21 +257,20 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
 
         val title = data.options["title"] as? String ?: data.viewType
         val state = data.options["state"] as? Map<String, Any?> ?: emptyMap()
-        
+
         val webview = WebViewInstance(data.viewType, viewId, title, state, project, data.extension)
 
         val proxy = protocol.getProxy(ServiceProxyRegistry.ExtHostContext.ExtHostWebviewViews)
         proxy.resolveWebviewView(viewId, data.viewType, title, state, null)
 
-
         // 가장 최근에 생성된 WebView로 설정합니다.
         latestWebView = webview
-        
+
         logger.info("WebView 인스턴스 생성됨: viewType=${data.viewType}, viewId=$viewId")
 
         notifyWebViewCreated(webview) // WebView 생성 콜백에 알림
     }
-    
+
     /**
      * 가장 최근에 생성된 WebView 인스턴스를 가져옵니다.
      */
@@ -280,8 +287,10 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
         // <script nonce="..."> 또는 <script type="text/javascript" nonce="..."> 형식 모두 지원
         val mRst = """<script(?:\s+type="text/javascript")?\s+nonce="([A-Za-z0-9]{32})">""".toRegex().find(data.htmlContent)
         val str = mRst?.value ?: ""
-        data.htmlContent = data.htmlContent.replace(str,"""
-                        ${str}
+        data.htmlContent = data.htmlContent.replace(
+            str,
+            """
+                        $str
                         // 메시지를 플러그인으로 보내는 함수를 먼저 정의합니다.
                         window.sendMessageToPlugin = function(message) {
                             // JS 객체를 JSON 문자열로 변환
@@ -294,7 +303,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
                         globalThis.acquireVsCodeApi = (function() {
                             let acquired = false;
                         
-                            let state = JSON.parse('${encodedState}');
+                            let state = JSON.parse('$encodedState');
                         
                             if (typeof window !== "undefined" && !window.receiveMessageFromPlugin) {
                                 console.log("VSCodeAPIWrapper: IDEA 플러그인 호환성을 위해 receiveMessageFromPlugin 설정 중");
@@ -336,14 +345,13 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
                         delete window.frameElement;
                         
                         console.log("VSCode API 모의 주입됨");
-                        """)
-
-
+                        """,
+        )
 
         logger.info("HTML 업데이트 이벤트 수신: handle=${data.handle}, HTML 길이: ${data.htmlContent.length}")
-        
+
         val webView = getLatestWebView()
-        
+
         if (webView != null) {
             try {
                 // HTTP 서버가 실행 중인 경우
@@ -384,14 +392,13 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
         }
     }
 
-    
     override fun dispose() {
         if (isDisposed) {
             logger.info("WebViewManager가 이미 해제되었습니다. 반복 호출 무시")
             return
         }
         isDisposed = true
-        
+
         logger.info("WebViewManager 리소스 해제 중...")
 
         // 테마 관리자에서 리스너 제거
@@ -400,7 +407,7 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
         } catch (e: Exception) {
             logger.error("테마 관리자에서 리스너 제거 실패", e)
         }
-        
+
         // 리소스 디렉터리 정리 (index.html 파일만 삭제)
         try {
             resourceRootDir?.let {
@@ -426,18 +433,16 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
         } catch (e: Exception) {
             logger.error("WebView 리소스 해제 실패", e)
         }
-        
+
         currentThemeConfig = null // 테마 데이터 초기화
-        
+
         // 콜백 목록 비우기
         synchronized(creationCallbacks) {
             creationCallbacks.clear()
         }
-        
+
         logger.info("WebViewManager 리소스 해제 완료")
     }
-
-
 }
 
 /**
@@ -445,17 +450,17 @@ class WebViewManager(var project: Project) : Disposable, ThemeChangeListener {
  */
 class WebViewInstance(
     val viewType: String, // 뷰 타입
-    val viewId: String,   // 뷰 ID
-    val title: String,    // 제목
+    val viewId: String, // 뷰 ID
+    val title: String, // 제목
     val state: Map<String, Any?>, // 상태 데이터
     val project: Project, // 프로젝트
-    val extension: Map<String, Any?> // 확장 정보
+    val extension: Map<String, Any?>, // 확장 정보
 ) : Disposable {
     private val logger = Logger.getInstance(WebViewInstance::class.java)
-    
+
     // JCEF 브라우저 인스턴스 (오프스크린 렌더링 활성화)
     val browser = JBCefBrowser.createBuilder().setOffScreenRendering(true).build()
-    
+
     // WebView 해제 상태
     private var isDisposed = false
 
@@ -471,10 +476,10 @@ class WebViewInstance(
     private var isPageLoaded = false // 페이지 로드 완료 여부
 
     private var currentThemeConfig: JsonObject? = null // 현재 테마 설정
-    
+
     // 페이지 로드 완료 콜백
     private var pageLoadCallback: (() -> Unit)? = null
-    
+
     init {
         setupJSBridge() // JavaScript 브릿지 설정
         enableResourceInterception(extension) // 리소스 요청 가로채기 활성화
@@ -498,14 +503,14 @@ class WebViewInstance(
     fun isPageLoaded(): Boolean {
         return isPageLoaded
     }
-    
+
     /**
      * 페이지 로드 완료 시 호출될 콜백을 설정합니다.
      */
     fun setPageLoadCallback(callback: (() -> Unit)?) {
         pageLoadCallback = callback
     }
-    
+
     /**
      * WebView에 테마를 주입합니다.
      * CSS 변수를 HTML 태그에 삽입하고, 테마 설정 메시지를 WebView로 보냅니다.
@@ -643,104 +648,113 @@ class WebViewInstance(
             val client = browser.jbCefClient // JCEF 클라이언트 가져오기
 
             // 콘솔 메시지 핸들러 등록
-            client.addDisplayHandler(object: CefDisplayHandlerAdapter() {
-                override fun onConsoleMessage(
-                    browser: CefBrowser?,
-                    level: CefSettings.LogSeverity?,
-                    message: String?,
-                    source: String?,
-                    line: Int
-                ): Boolean {
-                    logger.debug("WebView 콘솔 메시지: [$level] $message (라인: $line, 소스: $source)")
-                    return true
-                }
-            }, browser.cefBrowser)
-            
-            // 로드 핸들러 등록
-            client.addLoadHandler(object : CefLoadHandlerAdapter() {
-                override fun onLoadingStateChange(
-                    browser: CefBrowser?,
-                    isLoading: Boolean,
-                    canGoBack: Boolean,
-                    canGoForward: Boolean
-                ) {
-                    logger.info("WebView 로딩 상태 변경됨: isLoading=$isLoading, canGoBack=$canGoBack, canGoForward=$canGoForward")
-                }
-                
-                override fun onLoadStart(
-                    browser: CefBrowser?,
-                    frame: CefFrame?,
-                    transitionType: CefRequest.TransitionType?
-                ) {
-                    logger.info("WebView 로딩 시작: ${frame?.url}, 전환 타입: $transitionType")
-                    isPageLoaded = false
-                }
-                
-                override fun onLoadEnd(
-                    browser: CefBrowser?,
-                    frame: CefFrame?,
-                    httpStatusCode: Int
-                ) {
-                    logger.info("WebView 로딩 완료: ${frame?.url}, 상태 코드: $httpStatusCode")
-                    isPageLoaded = true
-                    injectTheme() // 페이지 로드 완료 후 테마 주입
-                    pageLoadCallback?.invoke() // 페이지 로드 완료 콜백 호출
-                }
-                
-                override fun onLoadError(
-                    browser: CefBrowser?,
-                    frame: CefFrame?,
-                    errorCode: CefLoadHandler.ErrorCode?,
-                    errorText: String?,
-                    failedUrl: String?
-                ) {
-                    logger.info("WebView 로드 오류: $failedUrl, 오류 코드: $errorCode, 오류 메시지: $errorText")
-                }
-            }, browser.cefBrowser)
-            
-            // 요청 핸들러 등록 (리소스 요청 가로채기)
-            client.addRequestHandler(object : CefRequestHandlerAdapter() {
-                override fun onBeforeBrowse(
-                    browser: CefBrowser?,
-                    frame: CefFrame?,
-                    request: CefRequest?,
-                    user_gesture: Boolean,
-                    is_redirect: Boolean
-                ): Boolean {
-                    logger.info("onBeforeBrowse, URL: ${request?.url}")
-                    // localhost가 아닌 외부 URL은 시스템 브라우저로 엽니다.
-                    if (request?.url?.startsWith("http://localhost") == false) {
-                        BrowserUtil.browse(request.url)
+            client.addDisplayHandler(
+                object : CefDisplayHandlerAdapter() {
+                    override fun onConsoleMessage(
+                        browser: CefBrowser?,
+                        level: CefSettings.LogSeverity?,
+                        message: String?,
+                        source: String?,
+                        line: Int,
+                    ): Boolean {
+                        logger.debug("WebView 콘솔 메시지: [$level] $message (라인: $line, 소스: $source)")
                         return true
                     }
-                    return false
-                }
+                },
+                browser.cefBrowser,
+            )
 
-                override fun getResourceRequestHandler(
-                    browser: CefBrowser?,
-                    frame: CefFrame?,
-                    request: CefRequest?,
-                    isNavigation: Boolean,
-                    isDownload: Boolean,
-                    requestInitiator: String?,
-                    disableDefaultHandling: BoolRef?
-                ): CefResourceRequestHandler? {
-                    logger.debug("getResourceRequestHandler, fsPath: $fsPath")
-                    // 로컬호스트 요청인 경우 `LocalResHandler`를 사용하여 로컬 파일 시스템에서 리소스를 제공합니다.
-                    if (fsPath != null && request?.url?.contains("localhost") == true) {
-                        val path = Paths.get(fsPath)
-                        return LocalResHandler(path.pathString, request)
-                    } else {
-                        return null
+            // 로드 핸들러 등록
+            client.addLoadHandler(
+                object : CefLoadHandlerAdapter() {
+                    override fun onLoadingStateChange(
+                        browser: CefBrowser?,
+                        isLoading: Boolean,
+                        canGoBack: Boolean,
+                        canGoForward: Boolean,
+                    ) {
+                        logger.info("WebView 로딩 상태 변경됨: isLoading=$isLoading, canGoBack=$canGoBack, canGoForward=$canGoForward")
                     }
-                }
-            }, browser.cefBrowser)
+
+                    override fun onLoadStart(
+                        browser: CefBrowser?,
+                        frame: CefFrame?,
+                        transitionType: CefRequest.TransitionType?,
+                    ) {
+                        logger.info("WebView 로딩 시작: ${frame?.url}, 전환 타입: $transitionType")
+                        isPageLoaded = false
+                    }
+
+                    override fun onLoadEnd(
+                        browser: CefBrowser?,
+                        frame: CefFrame?,
+                        httpStatusCode: Int,
+                    ) {
+                        logger.info("WebView 로딩 완료: ${frame?.url}, 상태 코드: $httpStatusCode")
+                        isPageLoaded = true
+                        injectTheme() // 페이지 로드 완료 후 테마 주입
+                        pageLoadCallback?.invoke() // 페이지 로드 완료 콜백 호출
+                    }
+
+                    override fun onLoadError(
+                        browser: CefBrowser?,
+                        frame: CefFrame?,
+                        errorCode: CefLoadHandler.ErrorCode?,
+                        errorText: String?,
+                        failedUrl: String?,
+                    ) {
+                        logger.info("WebView 로드 오류: $failedUrl, 오류 코드: $errorCode, 오류 메시지: $errorText")
+                    }
+                },
+                browser.cefBrowser,
+            )
+
+            // 요청 핸들러 등록 (리소스 요청 가로채기)
+            client.addRequestHandler(
+                object : CefRequestHandlerAdapter() {
+                    override fun onBeforeBrowse(
+                        browser: CefBrowser?,
+                        frame: CefFrame?,
+                        request: CefRequest?,
+                        user_gesture: Boolean,
+                        is_redirect: Boolean,
+                    ): Boolean {
+                        logger.info("onBeforeBrowse, URL: ${request?.url}")
+                        // localhost가 아닌 외부 URL은 시스템 브라우저로 엽니다.
+                        if (request?.url?.startsWith("http://localhost") == false) {
+                            BrowserUtil.browse(request.url)
+                            return true
+                        }
+                        return false
+                    }
+
+                    override fun getResourceRequestHandler(
+                        browser: CefBrowser?,
+                        frame: CefFrame?,
+                        request: CefRequest?,
+                        isNavigation: Boolean,
+                        isDownload: Boolean,
+                        requestInitiator: String?,
+                        disableDefaultHandling: BoolRef?,
+                    ): CefResourceRequestHandler? {
+                        logger.debug("getResourceRequestHandler, fsPath: $fsPath")
+                        // 로컬호스트 요청인 경우 `LocalResHandler`를 사용하여 로컬 파일 시스템에서 리소스를 제공합니다.
+                        if (fsPath != null && request?.url?.contains("localhost") == true) {
+                            val path = Paths.get(fsPath)
+                            return LocalResHandler(path.pathString, request)
+                        } else {
+                            return null
+                        }
+                    }
+                },
+                browser.cefBrowser,
+            )
             logger.info("WebView 리소스 가로채기 활성화됨: $viewType/$viewId")
         } catch (e: Exception) {
             logger.error("WebView 리소스 가로채기 활성화 실패", e)
         }
     }
-    
+
     /**
      * URL을 로드합니다.
      */
@@ -750,7 +764,7 @@ class WebViewInstance(
             browser.loadURL(url)
         }
     }
-    
+
     /**
      * HTML 콘텐츠를 로드합니다.
      */
@@ -764,7 +778,7 @@ class WebViewInstance(
             }
         }
     }
-    
+
     /**
      * JavaScript 코드를 실행합니다.
      */
@@ -774,7 +788,7 @@ class WebViewInstance(
             browser.cefBrowser.executeJavaScript(script, browser.cefBrowser.url, 0)
         }
     }
-    
+
     /**
      * 개발자 도구를 엽니다.
      */
@@ -783,7 +797,7 @@ class WebViewInstance(
             browser.openDevtools()
         }
     }
-    
+
     override fun dispose() {
         if (!isDisposed) {
             browser.dispose() // JBCefBrowser 해제

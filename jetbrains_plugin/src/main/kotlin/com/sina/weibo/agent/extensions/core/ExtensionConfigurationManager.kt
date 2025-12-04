@@ -3,10 +3,10 @@ package com.sina.weibo.agent.extensions.core
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import com.sina.weibo.agent.util.ConfigFileUtils
+import com.sina.weibo.agent.util.PluginConstants
 import java.io.File
 import java.util.Properties
-import com.sina.weibo.agent.util.PluginConstants
-import com.sina.weibo.agent.util.ConfigFileUtils
 
 /**
  * 확장(Extension) 설정 관리자입니다.
@@ -24,15 +24,15 @@ class ExtensionConfigurationManager(private val project: Project) {
     // 현재 활성화된 확장의 ID
     @Volatile
     private var currentExtensionId: String? = null
-    
+
     // 설정의 유효성 상태
     @Volatile
     private var isConfigurationValid = false
-    
+
     // 설정 로딩 완료 여부
     @Volatile
     private var isConfigurationLoaded = false
-    
+
     // 설정 로딩 시간
     private var configurationLoadTime: Long? = null
 
@@ -54,28 +54,28 @@ class ExtensionConfigurationManager(private val project: Project) {
         logger.info("확장 설정 관리자 초기화 중")
         loadConfiguration()
     }
-    
+
     /**
      * 현재 설정이 유효하고 사용 준비가 되었는지 확인합니다.
      */
     fun isConfigurationValid(): Boolean {
         return isConfigurationValid
     }
-    
+
     /**
      * 설정이 파일로부터 로드되었는지 확인합니다.
      */
     fun isConfigurationLoaded(): Boolean {
         return isConfigurationLoaded
     }
-    
+
     /**
      * 설정이 로드된 시간을 가져옵니다.
      */
     fun getConfigurationLoadTime(): Long? {
         return configurationLoadTime
     }
-    
+
     /**
      * 설정 유효성 검사 실패 시 오류 메시지를 반환합니다.
      */
@@ -87,9 +87,11 @@ class ExtensionConfigurationManager(private val project: Project) {
                 extensionId.isBlank() -> "확장 타입이 비어 있습니다. ${PluginConstants.ConfigFiles.MAIN_CONFIG_FILE} 파일에 '${PluginConstants.ConfigFiles.EXTENSION_TYPE_KEY}'에 유효한 값을 설정해주세요."
                 else -> "유효하지 않은 확장 타입: '$extensionId'. ${PluginConstants.ConfigFiles.MAIN_CONFIG_FILE} 파일의 '${PluginConstants.ConfigFiles.EXTENSION_TYPE_KEY}' 값을 확인해주세요."
             }
-        } else null
+        } else {
+            null
+        }
     }
-    
+
     /**
      * 상세한 설정 상태 정보를 문자열로 반환합니다.
      */
@@ -109,7 +111,7 @@ class ExtensionConfigurationManager(private val project: Project) {
             append(" | 파일: ${getConfigurationFilePath()}")
         }
     }
-    
+
     /**
      * 문제 해결을 위한 상세 디버그 정보를 문자열로 반환합니다.
      */
@@ -121,11 +123,11 @@ class ExtensionConfigurationManager(private val project: Project) {
             append("현재 확장 ID: $currentExtensionId\n")
             append("설정 파일 경로: ${getConfigurationFilePath()}\n")
             append("설정 파일 존재 여부: ${configFile.exists()}\n")
-            
+
             if (configFile.exists()) {
                 append("설정 파일 크기: ${configFile.length()} 바이트\n")
                 append("설정 파일 최종 수정일: ${java.util.Date(configFile.lastModified())}\n")
-                
+
                 try {
                     val properties = Properties()
                     properties.load(configFile.inputStream())
@@ -137,12 +139,12 @@ class ExtensionConfigurationManager(private val project: Project) {
                     append("설정 파일 읽기 실패: ${e.message}\n")
                 }
             }
-            
+
             append("프로젝트 기본 경로: ${project.basePath}\n")
             append("================================")
         }
     }
-    
+
     /**
      * 유효하지 않은 설정에 대한 복구 제안 목록을 반환합니다.
      */
@@ -153,7 +155,7 @@ class ExtensionConfigurationManager(private val project: Project) {
                 "2. '${PluginConstants.ConfigFiles.EXTENSION_TYPE_KEY}' 속성이 유효한 확장 ID로 설정되어 있는지 확인하세요.",
                 "3. 유효한 확장 타입: roo-code, cline, custom",
                 "4. 'createDefaultConfiguration()'을 실행하여 템플릿을 생성해보세요.",
-                "5. 파일 권한을 확인하고 파일이 읽기 가능한지 확인하세요."
+                "5. 파일 권한을 확인하고 파일이 읽기 가능한지 확인하세요.",
             )
         } else {
             emptyList()
@@ -168,13 +170,13 @@ class ExtensionConfigurationManager(private val project: Project) {
             isConfigurationLoaded = false
             isConfigurationValid = false
             configurationLoadTime = System.currentTimeMillis()
-            
+
             if (ConfigFileUtils.mainConfigExists()) {
                 val properties = ConfigFileUtils.loadMainConfig()
                 currentExtensionId = properties.getProperty(PluginConstants.ConfigFiles.EXTENSION_TYPE_KEY)
-                
+
                 isConfigurationValid = validateConfiguration(currentExtensionId)
-                
+
                 if (isConfigurationValid) {
                     logger.info("유효한 설정 로드 완료: 현재 확장 = $currentExtensionId")
                 } else {
@@ -185,7 +187,7 @@ class ExtensionConfigurationManager(private val project: Project) {
                 currentExtensionId = null
                 isConfigurationValid = false
             }
-            
+
             isConfigurationLoaded = true
         } catch (e: Exception) {
             logger.error("설정 로드 실패", e)
@@ -194,7 +196,7 @@ class ExtensionConfigurationManager(private val project: Project) {
             isConfigurationLoaded = true
         }
     }
-    
+
     /**
      * 확장 ID의 유효성을 검사합니다.
      */
@@ -212,9 +214,9 @@ class ExtensionConfigurationManager(private val project: Project) {
 
             logger.info("설정 파일에 저장 중: ${configFile.absolutePath}")
             logger.info("설정 내용: ${PluginConstants.ConfigFiles.EXTENSION_TYPE_KEY}=$currentExtensionId")
-            
+
             ConfigFileUtils.saveMainConfig(properties)
-            
+
             // 파일이 제대로 생성되고 내용이 저장되었는지 확인합니다.
             if (configFile.exists()) {
                 val savedProperties = Properties()
@@ -237,7 +239,7 @@ class ExtensionConfigurationManager(private val project: Project) {
         logger.info("설정 다시 로드 중")
         loadConfiguration()
     }
-    
+
     /**
      * 설정 파일 변경을 확인하고, 변경되었으면 다시 로드합니다.
      */
@@ -255,14 +257,14 @@ class ExtensionConfigurationManager(private val project: Project) {
             logger.warn("설정 변경 확인 중 오류 발생", e)
         }
     }
-    
+
     /**
      * 설정 파일의 절대 경로를 반환합니다.
      */
     fun getConfigurationFilePath(): String {
         return configFile.absolutePath
     }
-    
+
     /**
      * 현재 활성화된 확장의 ID를 반환합니다.
      */
@@ -277,10 +279,10 @@ class ExtensionConfigurationManager(private val project: Project) {
     fun setCurrentExtensionId(extensionId: String) {
         logger.info("현재 확장 ID를 다음으로 설정: $extensionId")
         currentExtensionId = extensionId
-        
+
         saveConfiguration() // 설정 파일에 저장
         reloadConfiguration() // 저장된 설정을 다시 로드하여 유효성 검사
-        
+
         logger.info("확장 ID 설정 및 설정 다시 로드 완료: $extensionId, 유효함: $isConfigurationValid")
     }
 

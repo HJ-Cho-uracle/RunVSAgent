@@ -16,7 +16,7 @@ interface IRPCProtocol : Disposable {
      * (예: 연결 상태, 메시지 처리 지연 등)
      */
     val responsiveState: ResponsiveState
-    
+
     /**
      * 지정된 식별자에 해당하는 프록시 객체를 가져옵니다.
      * 이 프록시를 통해 원격 서비스의 메소드를 로컬에서 호출하는 것처럼 사용할 수 있습니다.

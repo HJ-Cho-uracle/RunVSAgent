@@ -23,7 +23,6 @@ import java.io.File
  * @param registry 명령을 등록할 `CommandRegistry` 인스턴스
  */
 fun registerOpenEditorAPICommands(project: Project, registry: CommandRegistry) {
-
     registry.registerCommand(
         object : ICommand {
             override fun getId(): String {
@@ -40,8 +39,7 @@ fun registerOpenEditorAPICommands(project: Project, registry: CommandRegistry) {
             override fun returns(): String? {
                 return "void" // 반환 타입
             }
-
-        }
+        },
     )
 }
 
@@ -50,7 +48,7 @@ fun registerOpenEditorAPICommands(project: Project, registry: CommandRegistry) {
  */
 class OpenEditorAPICommands(val project: Project) {
     private val logger = Logger.getInstance(OpenEditorAPICommands::class.java)
-    
+
     /**
      * 두 파일을 비교하는 Diff 에디터를 엽니다.
      * `_workbench.diff` 커맨드가 호출될 때 실행되는 실제 로직입니다.
@@ -65,11 +63,11 @@ class OpenEditorAPICommands(val project: Project) {
         val rightURI = createURI(right)
         val leftURI = createURI(left)
         logger.info("Diff 에디터 열기: ${rightURI.path}")
-        
+
         // 각 URI로부터 DiffContent 객체를 생성합니다.
         val content1 = createContent(left, project)
         val content2 = createContent(right, project)
-        
+
         if (content1 != null && content2 != null) {
             // EditorAndDocManager 서비스를 통해 Diff 에디터를 엽니다.
             project.getService(EditorAndDocManager::class.java).openDiffEditor(leftURI, rightURI, title ?: "File Comparison")
@@ -91,7 +89,7 @@ class OpenEditorAPICommands(val project: Project) {
         val scheme = uri["scheme"]
         val query = uri["query"]
         // val fragment = uri["fragment"] // 현재 사용되지 않음
-        
+
         if (scheme != null) {
             val contentFactory = DiffContentFactory.getInstance()
             if (scheme == "file") {
@@ -113,7 +111,9 @@ class OpenEditorAPICommands(val project: Project) {
                 val string = if (query != null) {
                     val bytes = java.util.Base64.getDecoder().decode(query as String)
                     String(bytes)
-                } else ""
+                } else {
+                    ""
+                }
                 val content = contentFactory.create(project, string)
                 return content
             }

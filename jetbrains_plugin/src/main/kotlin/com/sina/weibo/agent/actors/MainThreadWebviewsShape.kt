@@ -30,14 +30,14 @@ interface MainThreadWebviewsShape : Disposable {
      * @param value 설정할 HTML 내용
      */
     fun setHtml(handle: WebviewHandle, value: String)
-    
+
     /**
      * 지정된 핸들의 WebView에 대한 옵션을 설정합니다.
      * @param handle WebView 핸들
      * @param options WebView 콘텐츠에 대한 옵션 (예: 스크립트 활성화 여부)
      */
     fun setOptions(handle: WebviewHandle, options: Map<String, Any?>)
-    
+
     /**
      * 지정된 핸들의 WebView로 메시지를 보냅니다. (IntelliJ -> WebView)
      * @param handle WebView 핸들
@@ -53,11 +53,11 @@ interface MainThreadWebviewsShape : Disposable {
  */
 class MainThreadWebviews(val project: Project) : MainThreadWebviewsShape {
     private val logger = Logger.getInstance(MainThreadWebviews::class.java)
-    
+
     // 등록된 WebView들을 저장하는 맵 (현재는 사용되지 않음)
     private val webviews = ConcurrentHashMap<WebviewHandle, Any?>()
-    private var webviewHandle : WebviewHandle = ""
-    
+    private var webviewHandle: WebviewHandle = ""
+
     /**
      * WebView의 HTML 내용을 설정합니다.
      * Extension Host로부터 받은 HTML 내용에서 `vscode-file:` 프로토콜 경로를
@@ -74,7 +74,7 @@ class MainThreadWebviews(val project: Project) : MainThreadWebviewsShape {
             val extensionDir = currentProvider?.getConfiguration(project)?.getCodeDir() ?: "unknown-extension"
             val modifiedHtml = value.replace(Regex("vscode-file:/.*?/$extensionDir/"), "/")
             logger.info("vscode-file 프로토콜 경로를 변환했습니다.")
-            
+
             // `WebViewManager`를 통해 HTML 업데이트 이벤트를 전달합니다.
             val data = WebviewHtmlUpdateData(handle, modifiedHtml)
             project.getService(WebViewManager::class.java).updateWebViewHtml(data)
@@ -83,7 +83,7 @@ class MainThreadWebviews(val project: Project) : MainThreadWebviewsShape {
             logger.error("WebView HTML 설정 실패", e)
         }
     }
-    
+
     /**
      * WebView 옵션을 설정합니다. (현재는 로깅만 수행)
      */
@@ -92,14 +92,14 @@ class MainThreadWebviews(val project: Project) : MainThreadWebviewsShape {
         webviewHandle = handle
         // TODO: 실제 WebView 컴포넌트에 옵션을 설정하는 로직 구현 필요
     }
-    
+
     /**
      * WebView로 메시지를 전송합니다.
      * `WebViewManager`를 통해 가장 최근에 생성된 WebView에 메시지를 전달합니다.
      */
     override fun postMessage(handle: WebviewHandle, value: String): Boolean {
         // 테마 관련 메시지는 너무 빈번하므로 디버그 레벨로 로깅합니다.
-        if(value.contains("theme")) {
+        if (value.contains("theme")) {
             logger.debug("WebView로 테마 메시지 전송")
         }
 
@@ -113,7 +113,7 @@ class MainThreadWebviews(val project: Project) : MainThreadWebviewsShape {
             false
         }
     }
-    
+
     override fun dispose() {
         logger.info("Disposing MainThreadWebviews resources")
         webviews.clear()

@@ -8,16 +8,8 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.WindowManager
-import com.sina.weibo.agent.plugin.SystemObjectProvider
-import com.sina.weibo.agent.plugin.WecoderPluginService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.future.future
 import java.awt.Desktop
 import java.net.URI
-import java.util.concurrent.CompletableFuture
 
 /**
  * IntelliJ 메인 스레드에서 창(Window) 관련 서비스를 처리하기 위한 인터페이스입니다.
@@ -29,7 +21,7 @@ interface MainThreadWindowShape : Disposable {
      * @return 창의 상태 정보를 담은 Map
      */
     fun getInitialState(): Map<String, Boolean>
-    
+
     /**
      * 주어진 URI를 시스템의 기본 브라우저나 어플리케이션으로 엽니다.
      * @param uri URI 구성 요소를 담은 Map
@@ -38,7 +30,7 @@ interface MainThreadWindowShape : Disposable {
      * @return 열기 성공 여부
      */
     fun openUri(uri: Map<String, Any?>, uriString: String?, options: Map<String, Any?>): Boolean
-    
+
     /**
      * 내부 URI를 외부에서 접근 가능한 URI로 변환합니다.
      * @param uri 변환할 URI의 구성 요소
@@ -66,10 +58,10 @@ class MainThreadWindow(val project: Project) : MainThreadWindowShape {
             val frame = WindowManager.getInstance().getFrame(project)
             val isFocused = frame?.isFocused ?: false
             val isActive = frame?.isActive ?: false
-            
+
             return mapOf(
                 "isFocused" to isFocused,
-                "isActive" to isActive
+                "isActive" to isActive,
             )
         } catch (e: Exception) {
             logger.error("창 초기 상태 조회 실패", e)
@@ -83,7 +75,7 @@ class MainThreadWindow(val project: Project) : MainThreadWindowShape {
     override fun openUri(uri: Map<String, Any?>, uriString: String?, options: Map<String, Any?>): Boolean {
         try {
             logger.info("URI 여는 중: $uriString")
-            
+
             // 전달받은 uriString 또는 uri 구성요소 Map으로부터 java.net.URI 객체를 생성합니다.
             val actualUri = if (uriString != null) {
                 try {
@@ -139,7 +131,7 @@ class MainThreadWindow(val project: Project) : MainThreadWindowShape {
             val path = components["path"] as? String ?: ""
             val query = components["query"] as? String ?: ""
             val fragment = components["fragment"] as? String ?: ""
-            
+
             URI(scheme, authority, path, query, fragment)
         } catch (e: Exception) {
             logger.warn("URI 구성 요소로부터 URI 생성 실패: $components", e)

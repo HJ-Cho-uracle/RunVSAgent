@@ -6,7 +6,12 @@ package com.sina.weibo.agent.webview
 
 import com.intellij.openapi.diagnostic.Logger
 import java.awt.datatransfer.DataFlavor
-import java.awt.dnd.*
+import java.awt.dnd.DnDConstants
+import java.awt.dnd.DropTarget
+import java.awt.dnd.DropTargetAdapter
+import java.awt.dnd.DropTargetDragEvent
+import java.awt.dnd.DropTargetDropEvent
+import java.awt.dnd.DropTargetEvent
 import java.io.File
 import javax.swing.JComponent
 
@@ -16,58 +21,61 @@ import javax.swing.JComponent
  */
 class DragDropHandler(
     private val webViewInstance: WebViewInstance, // 드래그 앤 드롭 이벤트를 전달할 WebView 인스턴스
-    private val targetComponent: JComponent       // 드래그 앤 드롭 이벤트를 수신할 대상 Swing 컴포넌트
+    private val targetComponent: JComponent, // 드래그 앤 드롭 이벤트를 수신할 대상 Swing 컴포넌트
 ) {
     private val logger = Logger.getInstance(DragDropHandler::class.java)
-    
+
     /**
      * 드래그 앤 드롭 지원을 설정합니다.
      */
     fun setupDragAndDrop() {
         logger.info("WebView에 드래그 앤 드롭 지원 설정 중 (VSCode 호환)")
-        
+
         // 대상 컴포넌트에 DropTarget을 설정하고 DropTargetAdapter를 구현합니다.
-        val dropTarget = DropTarget(targetComponent, object : DropTargetAdapter() {
-            
-            /** 드래그가 대상 영역으로 진입했을 때 호출됩니다. */
-            override fun dragEnter(dtde: DropTargetDragEvent) {
-                logger.info("드래그 진입 감지됨")
-                // Shift 키가 눌려 있고 파일 목록이 포함되어 있으면 드래그를 수락합니다.
-                if (isShiftKeyPressed(dtde) && hasFileList(dtde)) {
-                    dtde.acceptDrag(DnDConstants.ACTION_COPY) // 복사 액션 수락
-                    notifyDragState(true) // WebView에 드래그 상태 변경 알림
-                    logger.info("드래그 수락됨 - Shift 키 눌림 및 파일 감지됨")
-                } else {
-                    dtde.rejectDrag() // 드래그 거부
-                    logger.info("드래그 거부됨 - ${if (!isShiftKeyPressed(dtde)) "Shift 키가 눌리지 않음" else "파일이 감지되지 않음"}")
+        val dropTarget = DropTarget(
+            targetComponent,
+            object : DropTargetAdapter() {
+
+                /** 드래그가 대상 영역으로 진입했을 때 호출됩니다. */
+                override fun dragEnter(dtde: DropTargetDragEvent) {
+                    logger.info("드래그 진입 감지됨")
+                    // Shift 키가 눌려 있고 파일 목록이 포함되어 있으면 드래그를 수락합니다.
+                    if (isShiftKeyPressed(dtde) && hasFileList(dtde)) {
+                        dtde.acceptDrag(DnDConstants.ACTION_COPY) // 복사 액션 수락
+                        notifyDragState(true) // WebView에 드래그 상태 변경 알림
+                        logger.info("드래그 수락됨 - Shift 키 눌림 및 파일 감지됨")
+                    } else {
+                        dtde.rejectDrag() // 드래그 거부
+                        logger.info("드래그 거부됨 - ${if (!isShiftKeyPressed(dtde)) "Shift 키가 눌리지 않음" else "파일이 감지되지 않음"}")
+                    }
                 }
-            }
-            
-            /** 드래그가 대상 영역 위에서 이동할 때 호출됩니다. */
-            override fun dragOver(dtde: DropTargetDragEvent) {
-                if (isShiftKeyPressed(dtde) && hasFileList(dtde)) {
-                    dtde.acceptDrag(DnDConstants.ACTION_COPY)
-                } else {
-                    dtde.rejectDrag()
+
+                /** 드래그가 대상 영역 위에서 이동할 때 호출됩니다. */
+                override fun dragOver(dtde: DropTargetDragEvent) {
+                    if (isShiftKeyPressed(dtde) && hasFileList(dtde)) {
+                        dtde.acceptDrag(DnDConstants.ACTION_COPY)
+                    } else {
+                        dtde.rejectDrag()
+                    }
                 }
-            }
-            
-            /** 드래그가 대상 영역을 벗어났을 때 호출됩니다. */
-            override fun dragExit(dte: DropTargetEvent) {
-                logger.info("드래그 종료 감지됨")
-                notifyDragState(false) // WebView에 드래그 상태 변경 알림
-            }
-            
-            /** 드롭 이벤트가 발생했을 때 호출됩니다. */
-            override fun drop(dtde: DropTargetDropEvent) {
-                logger.info("드롭 이벤트 감지됨")
-                handleFileDrop(dtde) // 파일 드롭 처리
-            }
-        })
-        
+
+                /** 드래그가 대상 영역을 벗어났을 때 호출됩니다. */
+                override fun dragExit(dte: DropTargetEvent) {
+                    logger.info("드래그 종료 감지됨")
+                    notifyDragState(false) // WebView에 드래그 상태 변경 알림
+                }
+
+                /** 드롭 이벤트가 발생했을 때 호출됩니다. */
+                override fun drop(dtde: DropTargetDropEvent) {
+                    logger.info("드롭 이벤트 감지됨")
+                    handleFileDrop(dtde) // 파일 드롭 처리
+                }
+            },
+        )
+
         logger.info("드래그 앤 드롭 설정 완료")
     }
-    
+
     /**
      * Shift 키가 눌렸는지 확인합니다.
      * VSCode의 네이티브 `if (!e.shiftKey)` 검사를 시뮬레이션합니다.
@@ -79,7 +87,7 @@ class DragDropHandler(
         // TODO: 필요하다면 실제 Shift 키 감지 로직 구현
         return true
     }
-    
+
     /**
      * WebView에 드래그 상태 변경을 알립니다.
      * VSCode의 드래그 시각적 피드백(isDraggingOver 상태)을 시뮬레이션합니다.
@@ -111,7 +119,7 @@ class DragDropHandler(
             logger.error("드래그 상태 알림 실패", e)
         }
     }
-    
+
     /**
      * 파일 드롭 이벤트를 처리합니다.
      * VSCode의 `handleDrop` 함수를 기반으로 합니다.
@@ -119,22 +127,23 @@ class DragDropHandler(
     private fun handleFileDrop(dtde: DropTargetDropEvent) {
         try {
             logger.info("드롭 이벤트 처리 중")
-            
+
             if (!hasFileList(dtde)) {
                 logger.info("드롭 거부됨: 전송 가능한 파일 목록 없음")
                 dtde.rejectDrop()
                 notifyDragState(false)
                 return
             }
-            
+
             dtde.acceptDrop(DnDConstants.ACTION_COPY) // 드롭 수락
-            
+
             val transferable = dtde.transferable
+
             @Suppress("UNCHECKED_CAST")
             val fileList = transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<File> // 파일 목록 가져오기
-            
+
             logger.info("드롭된 파일: ${fileList.map { it.absolutePath }}")
-            
+
             if (fileList.isNotEmpty()) {
                 insertFilePathsIntoTextarea(fileList) // 파일 경로를 텍스트 영역에 삽입
                 dtde.dropComplete(true) // 드롭 완료
@@ -142,16 +151,15 @@ class DragDropHandler(
                 logger.warn("드롭 이벤트에서 유효한 파일을 찾을 수 없습니다.")
                 dtde.dropComplete(false)
             }
-            
+
             notifyDragState(false) // 드래그 상태 초기화
-            
         } catch (e: Exception) {
             logger.error("파일 드롭 처리 중 오류 발생", e)
             dtde.dropComplete(false)
             notifyDragState(false)
         }
     }
-    
+
     /**
      * 파일 경로를 VSCode 네이티브 핸들러로 전달합니다.
      * VSCode 확장을 위한 네이티브 드래그 이벤트를 시뮬레이션합니다.
@@ -160,9 +168,9 @@ class DragDropHandler(
         try {
             // 파일 경로 목록 생성 (VSCode 네이티브 핸들러는 절대 경로를 사용)
             val filePaths = files.map { it.absolutePath }
-            
+
             logger.info("VSCode 네이티브 핸들러로 드래그 드롭 이벤트 전달 중: ${filePaths.size}개 파일")
-            
+
             // VSCode 확장을 위한 모의 네이티브 드래그 이벤트를 생성하는 JavaScript 코드
             val jsCode = """
                 (function() {
@@ -312,21 +320,20 @@ class DragDropHandler(
                     return true;
                 })();
             """.trimIndent()
-            
+
             webViewInstance.executeJavaScript(jsCode)
-            
         } catch (e: Exception) {
             logger.error("VSCode로 드래그 드롭 이벤트 전달 실패", e)
         }
     }
-    
+
     /**
      * 드래그 데이터에 파일 목록이 포함되어 있는지 확인합니다.
      */
     private fun hasFileList(dtde: DropTargetDragEvent): Boolean {
         return dtde.transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
     }
-    
+
     /**
      * 드롭 데이터에 파일 목록이 포함되어 있는지 확인합니다.
      */

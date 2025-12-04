@@ -19,13 +19,13 @@ interface MainThreadLoggerShape : Disposable {
      * @param messages 기록할 로그 메시지 목록
      */
     fun log(file: URI, messages: List<String>)
-    
+
     /**
      * 지정된 로그 파일의 버퍼를 비워, 모든 내용이 파일에 쓰여지도록 합니다.
      * @param file 플러시할 로그 파일의 URI
      */
     fun flush(file: URI)
-    
+
     /**
      * 새로운 로거를 생성합니다.
      * @param file 이 로거가 사용할 로그 파일의 URI
@@ -33,21 +33,21 @@ interface MainThreadLoggerShape : Disposable {
      * @return 생성 결과 (일반적으로 Unit 또는 성공 여부)
      */
     fun createLogger(file: URI, options: Map<String, Any?>): Any
-    
+
     /**
      * 로거를 시스템에 등록합니다.
      * @param logger 등록할 로거의 정보를 담은 Map
      * @return 등록 결과
      */
     fun registerLogger(logger: Map<String, Any?>): Any
-    
+
     /**
      * 등록된 로거를 해제합니다.
      * @param resource 해제할 로거와 연결된 리소스 URI
      * @return 해제 결과
      */
     fun deregisterLogger(resource: String): Any
-    
+
     /**
      * 특정 로거의 출력을 보이거나 숨깁니다.
      * @param resource 가시성을 설정할 로거와 연결된 리소스 URI
@@ -55,7 +55,6 @@ interface MainThreadLoggerShape : Disposable {
      * @return 설정 결과
      */
     fun setVisibility(resource: String, visible: Boolean): Any
-
 }
 
 /**
@@ -97,5 +96,4 @@ class MainThreadLogger : MainThreadLoggerShape {
     override fun dispose() {
         logger.info("Disposing MainThreadLogger")
     }
-
 }

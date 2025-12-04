@@ -7,10 +7,10 @@ package com.sina.weibo.agent.actors
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.application.ApplicationManager
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -43,14 +43,14 @@ class MainThreadMessageService : MainThreadMessageServiceShape {
         severity: Int,
         message: String,
         options: Map<String, Any>,
-        commands: List<Map<String, Any>>
+        commands: List<Map<String, Any>>,
     ): Int? {
         logger.info("showMessage - severity: $severity, message: $message, options: $options, commands: $commands")
 
         val project = ProjectManager.getInstance().defaultProject
         val isModal = options["modal"] as? Boolean ?: false
         val detail = options["detail"] as? String
-        
+
         return if (isModal) {
             // 모달 다이얼로그로 표시하고, 사용자가 클릭한 버튼의 핸들을 반환합니다.
             showModalMessage(project, severity, message, detail, options, commands)
@@ -71,11 +71,11 @@ class MainThreadMessageService : MainThreadMessageServiceShape {
         message: String,
         detail: String?,
         options: Map<String, Any>,
-        commands: List<Map<String, Any>>
+        commands: List<Map<String, Any>>,
     ): Int? {
         // '닫기' 역할을 하는 버튼(취소 버튼)이 있는지 찾습니다.
         var cancelIdx = commands.indexOfFirst { it["isCloseAffordance"] == true }
-        
+
         // 닫기 버튼이 없으면, "Cancel" 버튼을 자동으로 추가합니다.
         val commandsWithCancel = if (cancelIdx < 0) {
             val cancelHandle = commands.size
@@ -83,21 +83,21 @@ class MainThreadMessageService : MainThreadMessageServiceShape {
         } else {
             commands
         }
-        
+
         // 다이얼로그에 표시될 버튼들의 제목 배열을 만듭니다.
         val buttonTitles = commandsWithCancel.map { it["title"].toString() }
         // 버튼 인덱스와 실제 핸들 값을 매핑하여, 나중에 사용자가 클릭한 버튼의 핸들을 찾을 수 있게 합니다.
         val handleMap = commandsWithCancel.mapIndexed { idx, cmd -> idx to (cmd["handle"] as? Number)?.toInt() }.toMap()
-        
+
         // 최종 취소 버튼 인덱스를 다시 찾습니다.
         val cancelIdxFinal = commandsWithCancel.indexOfFirst { it["isCloseAffordance"] == true }
-        
+
         // 다이얼로그에 표시될 주 메시지와 상세 메시지를 조합합니다.
         val dialogMessage = if (detail.isNullOrBlank()) message else "$message\n\n$detail"
-        
+
         // 사용자가 선택한 버튼의 인덱스를 스레드 안전하게 저장하기 위한 AtomicReference
         val selectedIdxRef = AtomicReference<Int>()
-        
+
         // 모든 UI 작업은 반드시 EDT(Event Dispatch Thread)에서 실행되어야 합니다.
         ApplicationManager.getApplication().invokeAndWait {
             val selectedIdx = Messages.showDialog(
@@ -114,11 +114,11 @@ class MainThreadMessageService : MainThreadMessageServiceShape {
                     2 -> Messages.getWarningIcon()
                     3 -> Messages.getErrorIcon()
                     else -> Messages.getInformationIcon()
-                }
+                },
             )
             selectedIdxRef.set(selectedIdx)
         }
-        
+
         // 사용자가 클릭한 버튼의 인덱스를 가져와 해당하는 핸들 값을 반환합니다.
         val selectedIdx = selectedIdxRef.get()
         return if (selectedIdx >= 0) handleMap[selectedIdx] else null
@@ -131,7 +131,7 @@ class MainThreadMessageService : MainThreadMessageServiceShape {
     private fun showNotificationMessage(
         project: com.intellij.openapi.project.Project,
         severity: Int,
-        message: String
+        message: String,
     ) {
         // 심각도에 따라 알림 타입을 결정합니다.
         val notificationType = when (severity) {
@@ -143,7 +143,7 @@ class MainThreadMessageService : MainThreadMessageServiceShape {
         // "RunVSAgent" 알림 그룹에 속한 알림을 생성합니다.
         val notification = NotificationGroupManager.getInstance().getNotificationGroup("RunVSAgent").createNotification(
             message,
-            notificationType
+            notificationType,
         )
         // 알림을 표시합니다.
         notification.notify(project)

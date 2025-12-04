@@ -5,7 +5,6 @@
 package com.sina.weibo.agent.editor
 
 import com.intellij.diff.DiffContentFactory
-import java.util.concurrent.ConcurrentHashMap
 import com.intellij.diff.chains.DiffRequestChain
 import com.intellij.diff.chains.SimpleDiffRequestChain
 import com.intellij.diff.contents.DiffContent
@@ -30,10 +29,15 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.readText
 import com.sina.weibo.agent.util.URI
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
 import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 /**
@@ -49,12 +53,16 @@ class EditorAndDocManager(val project: Project) : Disposable {
 
     // 현재 문서 및 에디터의 상태를 저장하는 객체
     private var state = DocumentsAndEditorsState()
+
     // 마지막으로 Extension Host에 알린 문서 및 에디터의 상태
     private var lastNotifiedState = DocumentsAndEditorsState()
+
     // 에디터 ID를 키로 하는 EditorHolder 객체 맵
     private var editorHandles = ConcurrentHashMap<String, EditorHolder>()
+
     // IntelliJ에서 열려있는 에디터 맵 (주로 Diff 에디터용)
     private val ideaOpenedEditor = ConcurrentHashMap<String, Editor>()
+
     // 탭 상태를 관리하는 매니저
     private var tabManager: TabStateManager = TabStateManager(project)
 
@@ -90,7 +98,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
                             CoroutineScope(Dispatchers.IO).launch {
                                 val handle = sync2ExtHost(uri, false, isText)
                                 handle.ideaEditor = editor
-                                val group = tabManager.createTabGroup(EditorGroupColumn.beside.value, true)
+                                val group = tabManager.createTabGroup(EditorGroupColumn.BESIDE.value, true)
                                 val options = TabOptions(isActive = true)
                                 val tab = group.addTab(EditorTabInput(uri, uri.path, ""), options)
                                 handle.tab = tab
@@ -162,7 +170,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
                     val uri = URI.file(editor.file.path)
                     val handle = sync2ExtHost(uri, false)
                     handle.ideaEditor = editor
-                    val group = tabManager.createTabGroup(EditorGroupColumn.beside.value, true)
+                    val group = tabManager.createTabGroup(EditorGroupColumn.BESIDE.value, true)
                     val options = TabOptions(isActive = true)
                     val tab = group.addTab(EditorTabInput(uri, uri.path, ""), options)
                     handle.tab = tab
@@ -193,7 +201,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
             options = options,
             selections = emptyList(),
             visibleRanges = emptyList(),
-            editorPosition = null
+            editorPosition = null,
         )
         val handle = EditorHolder(id, editorState, documentState, diff, this)
         state.documents[documentUri] = documentState
@@ -233,7 +241,9 @@ class EditorAndDocManager(val project: Project) : Disposable {
                 val string = if (query != null) {
                     val bytes = java.util.Base64.getDecoder().decode(query)
                     String(bytes)
-                } else ""
+                } else {
+                    ""
+                }
                 val content = contentFactory.create(project, string, type)
                 return content
             }
@@ -269,7 +279,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
                 handle.ideaEditor = it[0]
             }
         }
-        val group = tabManager.createTabGroup(EditorGroupColumn.beside.value, true)
+        val group = tabManager.createTabGroup(EditorGroupColumn.BESIDE.value, true)
         val options = TabOptions(isActive = true)
         val tab = group.addTab(EditorTabInput(documentUri, documentUri.path, ""), options)
         handle.tab = tab
@@ -310,7 +320,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
                 }
                 handle.title = title
 
-                val group = tabManager.createTabGroup(EditorGroupColumn.beside.value, true)
+                val group = tabManager.createTabGroup(EditorGroupColumn.BESIDE.value, true)
                 val options = TabOptions(isActive = true)
                 val tab = group.addTab(TextDiffTabInput(left, documentUri), options)
                 handle.tab = tab
@@ -405,7 +415,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
                 EOL = "\n",
                 languageId = "",
                 isDirty = false,
-                encoding = "utf8"
+                encoding = "utf8",
             )
             state.documents[uri] = document
             processUpdates() // 상태 업데이트를 Extension Host에 알립니다.
@@ -558,7 +568,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
         val rst = DocumentsAndEditorsState(
             editors = ConcurrentHashMap(),
             documents = ConcurrentHashMap(),
-            activeEditorId = state.activeEditorId
+            activeEditorId = state.activeEditorId,
         )
         rst.editors.putAll(state.editors)
         rst.documents.putAll(state.documents)
@@ -653,7 +663,7 @@ class EditorAndDocManager(val project: Project) : Disposable {
 data class DocumentsAndEditorsState(
     var editors: MutableMap<String, TextEditorAddData> = ConcurrentHashMap(),
     var documents: MutableMap<URI, ModelAddedData> = ConcurrentHashMap(),
-    var activeEditorId: String? = null
+    var activeEditorId: String? = null,
 ) {
     /**
      * 현재 상태와 이전 상태를 비교하여 변경사항(델타)을 계산합니다.
@@ -691,11 +701,15 @@ data class DocumentsAndEditorsState(
                 if (optionsChanged || selectionsChanged || visibleRangesChanged) {
                     editorDeltas[id] = EditorPropertiesChangeData(
                         options = if (optionsChanged) editor.options else null,
-                        selections = if (selectionsChanged) SelectionChangeEvent(
-                            selections = editor.selections,
-                            source = null
-                        ) else null,
-                        visibleRanges = if (visibleRangesChanged) editor.visibleRanges else null
+                        selections = if (selectionsChanged) {
+                            SelectionChangeEvent(
+                                selections = editor.selections,
+                                source = null,
+                            )
+                        } else {
+                            null
+                        },
+                        visibleRanges = if (visibleRangesChanged) editor.visibleRanges else null,
                     )
                 }
             } ?: run {
@@ -710,10 +724,10 @@ data class DocumentsAndEditorsState(
         documents.forEach { (uri, document) ->
             lastState.documents[uri]?.let { lastDocument ->
                 val hasChanges = document.lines != lastDocument.lines ||
-                        document.EOL != lastDocument.EOL ||
-                        document.languageId != lastDocument.languageId ||
-                        document.isDirty != lastDocument.isDirty ||
-                        document.encoding != lastDocument.encoding
+                    document.EOL != lastDocument.EOL ||
+                    document.languageId != lastDocument.languageId ||
+                    document.isDirty != lastDocument.isDirty ||
+                    document.encoding != lastDocument.encoding
 
                 if (hasChanges) {
                     // 내용이 변경되었으면 전체 문서를 변경된 것으로 간주합니다.
@@ -723,12 +737,12 @@ data class DocumentsAndEditorsState(
                                 startLineNumber = 1,
                                 startColumn = 1,
                                 endLineNumber = max(1, lastDocument.lines.size),
-                                endColumn = max(1, (lastDocument.lines.lastOrNull()?.length ?: 0) + 1)
+                                endColumn = max(1, (lastDocument.lines.lastOrNull()?.length ?: 0) + 1),
                             ),
                             rangeOffset = 0,
                             rangeLength = lastDocument.lines.joinToString(lastDocument.EOL).length,
-                            text = document.lines.joinToString(document.EOL)
-                        )
+                            text = document.lines.joinToString(document.EOL),
+                        ),
                     )
 
                     documentDeltas[uri] = ModelChangedEvent(
@@ -737,7 +751,7 @@ data class DocumentsAndEditorsState(
                         versionId = document.versionId,
                         isUndoing = false,
                         isRedoing = false,
-                        isDirty = document.isDirty
+                        isDirty = document.isDirty,
                     )
                 }
             }
@@ -748,13 +762,13 @@ data class DocumentsAndEditorsState(
             addedDocuments = addedDocuments,
             removedEditors = removedIds.toList(),
             addedEditors = addedEditors,
-            newActiveEditor = if (activeEditorId != lastState.activeEditorId) activeEditorId else null
+            newActiveEditor = if (activeEditorId != lastState.activeEditorId) activeEditorId else null,
         )
 
         return Delta(
             itemsDelta = if (itemsDelta.isEmpty()) null else itemsDelta,
             editorDeltas = editorDeltas,
-            documentDeltas = documentDeltas
+            documentDeltas = documentDeltas,
         )
     }
 }
@@ -765,5 +779,5 @@ data class DocumentsAndEditorsState(
 data class Delta(
     val itemsDelta: DocumentsAndEditorsDelta?,
     val editorDeltas: MutableMap<String, EditorPropertiesChangeData>,
-    val documentDeltas: MutableMap<URI, ModelChangedEvent>
+    val documentDeltas: MutableMap<URI, ModelChangedEvent>,
 )

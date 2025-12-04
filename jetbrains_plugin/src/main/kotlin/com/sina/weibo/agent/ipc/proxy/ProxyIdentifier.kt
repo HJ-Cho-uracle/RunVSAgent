@@ -15,7 +15,7 @@ package com.sina.weibo.agent.ipc.proxy
  */
 class ProxyIdentifier<T> private constructor(
     val sid: String,
-    val nid: Int
+    val nid: Int,
 ) {
     companion object {
         /**
@@ -24,7 +24,7 @@ class ProxyIdentifier<T> private constructor(
          */
         var count = 0
             private set // 외부에서는 읽기만 가능
-            
+
         /**
          * 새로운 `ProxyIdentifier` 인스턴스를 생성합니다.
          * 이 메소드는 `count`를 증가시켜 고유한 `nid`를 할당합니다.
@@ -34,7 +34,7 @@ class ProxyIdentifier<T> private constructor(
         internal fun <T> create(sid: String): ProxyIdentifier<T> {
             return ProxyIdentifier<T>(sid, ++count)
         }
-        
+
         /**
          * 플레이스홀더 `ProxyIdentifier`를 생성합니다.
          * `count`를 증가시키지 않으므로, 내부적으로 `identifiers` 리스트를 채울 때 사용됩니다.

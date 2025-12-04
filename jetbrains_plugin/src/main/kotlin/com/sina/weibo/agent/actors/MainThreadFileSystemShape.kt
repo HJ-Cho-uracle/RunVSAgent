@@ -6,11 +6,9 @@ package com.sina.weibo.agent.actors
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 import java.net.URI
 import java.nio.file.Files
-import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 
@@ -21,7 +19,7 @@ enum class FileType {
     UNKNOWN,
     FILE,
     DIRECTORY,
-    SYMBOLIC_LINK
+    SYMBOLIC_LINK,
 }
 
 /**
@@ -32,7 +30,7 @@ data class FileStat(
     val type: FileType,
     val ctime: Long, // 생성 시간 (epoch 밀리초)
     val mtime: Long, // 마지막 수정 시간 (epoch 밀리초)
-    val size: Long   // 파일 크기 (바이트)
+    val size: Long, // 파일 크기 (바이트)
 )
 
 /**
@@ -40,7 +38,7 @@ data class FileStat(
  */
 data class FileSystemProviderCapabilities(
     val isCaseSensitive: Boolean, // 대소문자 구분 여부
-    val isReadonly: Boolean,      // 읽기 전용 여부
+    val isReadonly: Boolean, // 읽기 전용 여부
     // ... (기타 기능들)
 )
 
@@ -48,7 +46,7 @@ data class FileSystemProviderCapabilities(
  * 파일 덮어쓰기 옵션을 정의하는 데이터 클래스입니다.
  */
 data class FileOverwriteOptions(
-    val overwrite: Boolean // 기존 파일을 덮어쓸지 여부
+    val overwrite: Boolean, // 기존 파일을 덮어쓸지 여부
 )
 
 /**
@@ -56,7 +54,7 @@ data class FileOverwriteOptions(
  */
 data class FileDeleteOptions(
     val recursive: Boolean, // 디렉터리를 재귀적으로 삭제할지 여부
-    val useTrash: Boolean   // 파일을 영구 삭제하는 대신 휴지통으로 이동할지 여부
+    val useTrash: Boolean, // 파일을 영구 삭제하는 대신 휴지통으로 이동할지 여부
 )
 
 /**
@@ -64,7 +62,7 @@ data class FileDeleteOptions(
  */
 data class FileChangeDto(
     val type: Int, // 변경 유형: 1=생성, 2=수정, 3=삭제
-    val resource: Map<String, Any?> // 변경된 리소스 정보
+    val resource: Map<String, Any?>, // 변경된 리소스 정보
 )
 
 /**
@@ -151,7 +149,7 @@ interface MainThreadFileSystemShape : Disposable {
      * @param options 삭제 작업에 대한 추가 옵션
      */
     fun delete(uri: URI, options: Map<String, Any>)
-    
+
     /**
      * 지정된 스키마의 파일 시스템 제공자가 활성화되도록 보장합니다.
      */
@@ -171,7 +169,7 @@ interface MainThreadFileSystemShape : Disposable {
  */
 class MainThreadFileSystem : MainThreadFileSystemShape {
     private val logger = Logger.getInstance(MainThreadFileSystem::class.java)
-    
+
     // 등록된 파일 시스템 제공자들을 핸들(Int)을 키로 하여 관리합니다.
     private val providers = ConcurrentHashMap<Int, String>()
 
@@ -190,13 +188,13 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("파일 상태 정보 조회: $resource")
         val file = File(resource.path)
         if (!file.exists()) throw Exception("파일이 존재하지 않음: ${resource.path}")
-        
+
         val type = when {
             file.isDirectory -> FileType.DIRECTORY
             Files.isSymbolicLink(file.toPath()) -> FileType.SYMBOLIC_LINK
             else -> FileType.FILE
         }
-        
+
         return FileStat(type, file.lastModified(), file.lastModified(), file.length())
     }
 
@@ -204,8 +202,8 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("디렉터리 내용 읽기: $resource")
         val file = File(resource.path)
         if (!file.isDirectory) throw Exception("디렉터리가 아님: ${resource.path}")
-        
-        return file.listFiles()?.map { 
+
+        return file.listFiles()?.map {
             Pair(it.name, if (it.isDirectory) FileType.DIRECTORY.ordinal.toString() else FileType.FILE.ordinal.toString())
         } ?: emptyList()
     }
@@ -221,7 +219,7 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("파일 내용 쓰기: $uri, 크기: ${content.size} 바이트")
         val file = File(uri.path)
         if (file.exists() && !overwrite) throw Exception("파일이 이미 존재하며 덮어쓰기가 허용되지 않음: ${uri.path}")
-        
+
         file.parentFile?.mkdirs()
         file.writeBytes(content)
         return content
@@ -232,10 +230,10 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         val sourceFile = File(source.path)
         val targetFile = File(target.path)
         val overwrite = options["overwrite"] as? Boolean ?: false
-        
+
         if (!sourceFile.exists()) throw Exception("원본 파일이 존재하지 않음: ${source.path}")
         if (targetFile.exists() && !overwrite) throw Exception("대상 파일이 이미 존재하며 덮어쓰기가 허용되지 않음: ${target.path}")
-        
+
         targetFile.parentFile?.mkdirs()
         if (!sourceFile.renameTo(targetFile)) {
             // renameTo가 실패할 경우(예: 다른 파일 시스템 간 이동), Files.move를 시도합니다.
@@ -274,12 +272,12 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         val useTrash = options["useTrash"] as? Boolean ?: false
 
         if (!file.exists()) return // 파일이 없으면 성공으로 간주
-        
+
         if (useTrash) {
             // TODO: 실제 휴지통으로 이동하는 로직 구현 필요
             logger.warn("휴지통 기능은 구현되지 않았습니다. 직접 삭제를 수행합니다.")
         }
-        
+
         if (file.isDirectory && recursive) {
             file.deleteRecursively()
         } else if (file.isDirectory && !recursive) {
@@ -298,11 +296,11 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("파일 시스템 변경 알림: handle=$handle, resources=${resources.joinToString { it.resource.toString() }}")
         // 실제 구현에서는 이 변경사항을 IntelliJ의 다른 부분에 전파하는 로직이 필요합니다.
     }
-    
+
     private fun getPathFromUriComponents(uri: URI): String {
         return File(uri).path
     }
-    
+
     override fun dispose() {
         logger.info("Disposing MainThreadFileSystem resources")
         providers.clear()

@@ -4,12 +4,12 @@
 
 package com.sina.weibo.agent.service
 
+import com.google.gson.Gson
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
-import com.google.gson.Gson
 
 /**
  * 확장(Extension) 데이터를 영속적으로 저장하고 관리하는 서비스입니다.
@@ -20,7 +20,7 @@ import com.google.gson.Gson
 @Service
 @State(
     name = "com.sina.weibo.agent.service.ExtensionStorageService", // 상태 컴포넌트의 고유 이름
-    storages = [Storage("roo-cline-extension-storage.xml")] // 상태가 저장될 XML 파일 이름
+    storages = [Storage("roo-cline-extension-storage.xml")], // 상태가 저장될 XML 파일 이름
 )
 class ExtensionStorageService : PersistentStateComponent<ExtensionStorageService> {
     private val gson = Gson() // 객체를 JSON 문자열로 변환하기 위한 Gson 인스턴스

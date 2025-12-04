@@ -6,9 +6,52 @@ package com.sina.weibo.agent.core
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
-import com.sina.weibo.agent.actors.*
+import com.sina.weibo.agent.actors.MainThreadBulkEditsShape
+import com.sina.weibo.agent.actors.MainThreadClipboardShape
+import com.sina.weibo.agent.actors.MainThreadCommandsShape
+import com.sina.weibo.agent.actors.MainThreadConfigurationShape
+import com.sina.weibo.agent.actors.MainThreadConsoleShape
+import com.sina.weibo.agent.actors.MainThreadDebugServiceShape
+import com.sina.weibo.agent.actors.MainThreadDiaglogsShape
+import com.sina.weibo.agent.actors.MainThreadDocumentContentProvidersShape
+import com.sina.weibo.agent.actors.MainThreadDocumentsShape
+import com.sina.weibo.agent.actors.MainThreadEditorTabsShape
+import com.sina.weibo.agent.actors.MainThreadErrorsShape
+import com.sina.weibo.agent.actors.MainThreadExtensionServiceShape
+import com.sina.weibo.agent.actors.MainThreadFileSystemEventServiceShape
+import com.sina.weibo.agent.actors.MainThreadFileSystemShape
+import com.sina.weibo.agent.actors.MainThreadLanguageFeaturesShape
+import com.sina.weibo.agent.actors.MainThreadLanguageModelToolsShape
+import com.sina.weibo.agent.actors.MainThreadLoggerShape
+import com.sina.weibo.agent.actors.MainThreadMessageServiceShape
+import com.sina.weibo.agent.actors.MainThreadOutputServiceShape
+import com.sina.weibo.agent.actors.MainThreadSearchShape
+import com.sina.weibo.agent.actors.MainThreadSecretStateShape
+import com.sina.weibo.agent.actors.MainThreadStatusBarShape
+import com.sina.weibo.agent.actors.MainThreadStorageShape
+import com.sina.weibo.agent.actors.MainThreadTaskShape
+import com.sina.weibo.agent.actors.MainThreadTelemetryShape
+import com.sina.weibo.agent.actors.MainThreadTerminalServiceShape
+import com.sina.weibo.agent.actors.MainThreadTerminalShellIntegrationShape
+import com.sina.weibo.agent.actors.MainThreadTextEditorsShape
+import com.sina.weibo.agent.actors.MainThreadUrlsShape
+import com.sina.weibo.agent.actors.MainThreadWebviewViewsShape
+import com.sina.weibo.agent.actors.MainThreadWebviewsShape
+import com.sina.weibo.agent.actors.MainThreadWindowShape
 import com.sina.weibo.agent.ipc.proxy.createProxyIdentifier
-import com.sina.weibo.agent.ipc.proxy.interfaces.*
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostCommandsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostConfigurationProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostDocumentsAndEditorsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostDocumentsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostEditorTabsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostEditorsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostExtensionServiceProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostFileSystemEventServiceProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostTerminalServiceProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostTerminalShellIntegrationProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostWebviewViewsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostWebviewsProxy
+import com.sina.weibo.agent.ipc.proxy.interfaces.ExtHostWorkspaceProxy
 
 /**
  * 서비스 프록시 레지스트리 클래스입니다.
@@ -18,31 +61,30 @@ import com.sina.weibo.agent.ipc.proxy.interfaces.*
 @Service(Service.Level.PROJECT)
 class ServiceProxyRegistry private constructor() {
     private val logger = Logger.getInstance(this::class.java)
-    
+
     /**
      * 모든 서비스 프록시 식별자를 초기화하고 등록합니다.
      * 이 메소드는 플러그인이 생성될 때 모든 서비스가 초기화되도록 보장합니다.
      */
     fun initialize() {
         logger.info("모든 프록시 식별자 초기화")
-        
+
         // Main 스레드(IntelliJ 플러그인)에서 Extension Host로 호출할 서비스 프록시들
         val mainThreadProxies = listOf(
             MainContext.MainThreadAuthentication,
             MainContext.MainThreadBulkEdits,
             // ... (나머지 MainContext 프록시들)
         )
-        
+
         // Extension Host에서 Main 스레드(IntelliJ 플러그인)로 호출할 서비스 프록시들
         val extHostProxies = listOf(
             ExtHostContext.ExtHostCodeMapper,
             ExtHostContext.ExtHostCommands,
             // ... (나머지 ExtHostContext 프록시들)
         )
-        
+
         logger.info("${mainThreadProxies.size}개의 메인 스레드 서비스와 ${extHostProxies.size}개의 확장 호스트 서비스 초기화됨")
     }
-    
 
     /**
      * Main 스레드(IntelliJ 플러그인)에서 Extension Host로 호출할 서비스들의 컨텍스트 ID를 정의합니다.
@@ -199,4 +241,4 @@ class ServiceProxyRegistry private constructor() {
         val ExtHostLocalization = createProxyIdentifier<Any>("ExtHostLocalization")
         val ExtHostMcp = createProxyIdentifier<Any>("ExtHostMcp")
     }
-} 
+}

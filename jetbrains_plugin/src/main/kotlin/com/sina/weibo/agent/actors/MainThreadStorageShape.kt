@@ -21,7 +21,7 @@ interface MainThreadStorageShape : Disposable {
      * @return 저장소에 저장된 데이터. 없으면 null일 수 있습니다.
      */
     fun initializeExtensionStorage(shared: Boolean, extensionId: String): Any?
-    
+
     /**
      * 지정된 확장의 저장소에 값을 저장합니다.
      * @param shared 전역 저장소에 저장할지 여부
@@ -29,7 +29,7 @@ interface MainThreadStorageShape : Disposable {
      * @param value 저장할 데이터 객체
      */
     fun setValue(shared: Boolean, extensionId: String, value: Any)
-    
+
     /**
      * 동기화할 저장소 키 목록을 등록합니다.
      * (예: 설정 동기화 기능을 위해 어떤 키들을 동기화할지 지정)
@@ -55,7 +55,7 @@ class MainThreadStorage : MainThreadStorageShape {
         val storage = service<ExtensionStorageService>()
         return storage.getValue(extensionId)
     }
-    
+
     /**
      * `ExtensionStorageService`에 값을 저장하도록 위임합니다.
      */
@@ -65,7 +65,7 @@ class MainThreadStorage : MainThreadStorageShape {
         val storage = service<ExtensionStorageService>()
         storage.setValue(extensionId, value)
     }
-    
+
     /**
      * 동기화할 키를 등록합니다. (현재는 로깅만 수행)
      */

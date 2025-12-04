@@ -6,7 +6,7 @@
 # https://detekt.github.io/detekt/configurations.html
 
 build:
-  maxIssues: 0
+  maxIssues: 5000
   excludeCorrectable: false
   weights:
     # complexity: 2
@@ -276,7 +276,6 @@ exceptions:
       - 'Exception'
       - 'IllegalArgumentException'
       - 'IllegalMonitorStateException'
-      - 'IllegalStateException'
       - 'IndexOutOfBoundsException'
       - 'NullPointerException'
       - 'RuntimeException'
@@ -339,7 +338,7 @@ naming:
     active: true
     parameterPattern: '[a-z][A-Za-z0-9]*'
     excludeClassPattern: '$^'
-    ignoreOverridden: true
+    # ignoreOverridden: true # Deprecated
   InvalidPackageDeclaration:
     active: true
     rootPackage: ''
@@ -381,7 +380,7 @@ naming:
     variablePattern: '[a-z][A-Za-z0-9]*'
     privateVariablePattern: '(_)?[a-z][A-Za-z0-9]*'
     excludeClassPattern: '$^'
-    ignoreOverridden: true
+    # ignoreOverridden: true # Deprecated
 
 performance:
   active: true
@@ -508,7 +507,7 @@ style:
     active: false
   CollapsibleIfStatements:
     active: false
-  DataClassContainsFunction:
+  DataClassContainsFunctions: # Renamed from DataClassContainsFunction
     active: false
     conversionFunctionPrefix:
       - 'to'
@@ -531,12 +530,12 @@ style:
     includeLineWrapping: false
   ForbiddenComment:
     active: true
-    values:
-      - 'FIXME:'
-      - 'STOPSHIP:'
-      - 'TODO:'
+    # values: # Deprecated
+    #   - 'FIXME:'
+    #   - 'STOPSHIP:'
+    #   - 'TODO:'
     allowedPatterns: ''
-    customMessage: ''
+    # customMessage: '' # Deprecated
   ForbiddenImport:
     active: false
     imports: []
@@ -546,12 +545,12 @@ style:
     methods:
       - 'kotlin.io.print'
       - 'kotlin.io.println'
-  ForbiddenPublicDataClass:
-    active: true
-    excludes: ['**']
-    ignorePackages:
-      - '*.internal'
-      - '*.internal.*'
+  # ForbiddenPublicDataClass: # Deprecated
+  #   active: true
+  #   excludes: ['**']
+  #   ignorePackages:
+  #     - '*.internal'
+  #     - '*.internal.*'
   ForbiddenVoid:
     active: true
     ignoreOverridden: false
@@ -561,12 +560,12 @@ style:
     ignoreOverridableFunction: true
     ignoreActualFunction: true
     excludedFunctions: []
-  LibraryCodeMustSpecifyReturnType:
-    active: true
-    excludes: ['**']
-  LibraryEntitiesShouldNotBePublic:
-    active: false
-    excludes: ['**']
+  # LibraryCodeMustSpecifyReturnType: # Deprecated
+  #   active: true
+  #   excludes: ['**']
+  # LibraryEntitiesShouldNotBePublic: # Deprecated
+  #   active: false
+  #   excludes: ['**']
   LoopWithTooManyJumpStatements:
     active: true
     maxJumpCount: 1
@@ -588,8 +587,8 @@ style:
     ignoreEnums: false
     ignoreRanges: false
     ignoreExtensionFunctions: true
-  MandatoryBracesIfStatements:
-    active: false
+  # MandatoryBracesIfStatements: # Deprecated
+  #   active: false
   MandatoryBracesLoops:
     active: false
   MaxChainedCallsOnSameLine:

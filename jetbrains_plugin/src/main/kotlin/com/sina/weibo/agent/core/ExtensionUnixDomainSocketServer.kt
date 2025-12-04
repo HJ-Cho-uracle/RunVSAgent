@@ -23,15 +23,19 @@ import kotlin.concurrent.thread
  */
 class ExtensionUnixDomainSocketServer : ISocketServer {
     private val logger = Logger.getInstance(ExtensionUnixDomainSocketServer::class.java)
-    
+
     // UDS 서버 채널
     private var udsServerChannel: ServerSocketChannel? = null
+
     // UDS 소켓 파일의 경로
     private var udsSocketPath: Path? = null
+
     // 연결된 클라이언트 채널과 해당 클라이언트를 관리하는 ExtensionHostManager 맵
     private val clientManagers = ConcurrentHashMap<SocketChannel, ExtensionHostManager>()
+
     // 서버의 연결 수락 스레드
     private var serverThread: Thread? = null
+
     // 현재 프로젝트 경로
     private var projectPath: String = ""
 
@@ -60,14 +64,14 @@ class ExtensionUnixDomainSocketServer : ISocketServer {
         try {
             val sockPath = createSocketFile() // 임시 소켓 파일 생성
             val udsAddr = UnixDomainSocketAddress.of(sockPath) // UDS 주소 생성
-            
+
             // UDS 서버 채널을 열고 바인딩합니다.
             udsServerChannel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)
             udsServerChannel!!.bind(udsAddr)
             udsSocketPath = sockPath
             isRunning = true
             logger.info("[UDS] 리스닝 시작: $sockPath")
-            
+
             // 별도의 스레드에서 클라이언트 연결을 비동기적으로 수락합니다.
             serverThread = thread(start = true, name = "ExtensionUDSSocketServer") {
                 acceptUdsConnections()
@@ -87,19 +91,19 @@ class ExtensionUnixDomainSocketServer : ISocketServer {
         if (!isRunning) return
         isRunning = false
         logger.info("UDS 소켓 서버 중지 중...")
-        
+
         // 모든 클라이언트 연결을 닫고 매니저를 해제합니다.
         clientManagers.forEach { (_, manager) ->
             try { manager.dispose() } catch (e: Exception) { logger.warn("클라이언트 매니저 해제 실패", e) }
         }
         clientManagers.clear()
-        
+
         // 서버 채널을 닫습니다.
         try { udsServerChannel?.close() } catch (e: Exception) { logger.warn("UDS 서버 채널 닫기 실패", e) }
-        
+
         // 생성했던 소켓 파일을 삭제합니다.
         try { udsSocketPath?.let { Files.deleteIfExists(it) } } catch (e: Exception) { logger.warn("UDS 소켓 파일 삭제 실패", e) }
-        
+
         // 스레드 및 채널 정리
         serverThread?.interrupt()
         serverThread = null

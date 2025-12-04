@@ -5,14 +5,12 @@
 package com.sina.weibo.agent.actors
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.sina.weibo.agent.editor.EditorAndDocManager
 import com.sina.weibo.agent.editor.Range
 import com.sina.weibo.agent.editor.createURI
-import kotlinx.coroutines.delay
 import java.io.File
 
 /**
@@ -26,8 +24,8 @@ interface MainThreadTextEditorsShape : Disposable {
      * @param options 에디터를 어떻게 표시할지에 대한 옵션 (예: 특정 컬럼에 표시)
      * @return 생성된 에디터의 고유 ID 또는 null
      */
-    suspend fun tryShowTextDocument(resource: Map<String,Any?>, options: Any?): Any?
-    
+    suspend fun tryShowTextDocument(resource: Map<String, Any?>, options: Any?): Any?
+
     /**
      * 텍스트 에디터에 사용될 데코레이션 타입(예: 특정 색상, 밑줄 등)을 등록합니다.
      * @param extensionId 이 데코레이션을 등록하는 확장의 ID
@@ -35,33 +33,33 @@ interface MainThreadTextEditorsShape : Disposable {
      * @param options 데코레이션 렌더링에 대한 상세 옵션
      */
     fun registerTextEditorDecorationType(extensionId: Map<String, String>, key: String, options: Any)
-    
+
     /**
      * 등록된 텍스트 에디터 데코레이션 타입을 제거합니다.
      * @param key 제거할 데코레이션 타입의 키
      */
     fun removeTextEditorDecorationType(key: String)
-    
+
     /**
      * 지정된 ID의 에디터를 사용자에게 보여줍니다. (예: 해당 탭을 활성화)
      * @param id 에디터의 고유 ID
      * @param position 에디터를 표시할 위치 정보
      */
     fun tryShowEditor(id: String, position: Any?): Any
-    
+
     /**
      * 지정된 ID의 에디터를 숨깁니다.
      * @param id 에디터의 고유 ID
      */
     fun tryHideEditor(id: String): Any
-    
+
     /**
      * 지정된 ID의 에디터에 대한 옵션을 설정합니다. (예: 탭 크기, 들여쓰기 스타일 등)
      * @param id 에디터의 고유 ID
      * @param options 적용할 설정 변경사항
      */
     fun trySetOptions(id: String, options: Any): Any
-    
+
     /**
      * 지정된 ID의 에디터에 데코레이션을 적용합니다.
      * @param id 에디터의 고유 ID
@@ -69,27 +67,27 @@ interface MainThreadTextEditorsShape : Disposable {
      * @param ranges 데코레이션을 적용할 범위(Range) 목록
      */
     fun trySetDecorations(id: String, key: String, ranges: List<Any>): Any
-    
+
     /**
      * 지정된 ID의 에디터에 데코레이션을 빠르게 적용합니다. (성능 최적화 버전일 수 있음)
      */
     fun trySetDecorationsFast(id: String, key: String, ranges: List<Any>): Any
-    
+
     /**
      * 지정된 ID의 에디터에서 특정 범위를 사용자에게 보여주도록 스크롤합니다.
      * @param id 에디터의 고유 ID
      * @param range 보여줄 범위
      * @param revealType 어떻게 보여줄지에 대한 방식 (예: 중앙, 상단)
      */
-    fun tryRevealRange(id: String, range: Map<String,Any?>, revealType: Int): Any
-    
+    fun tryRevealRange(id: String, range: Map<String, Any?>, revealType: Int): Any
+
     /**
      * 지정된 ID의 에디터에서 선택 영역(커서 위치 포함)을 설정합니다.
      * @param id 에디터의 고유 ID
      * @param selections 적용할 선택 영역 정보의 목록
      */
     fun trySetSelections(id: String, selections: List<Any>): Any
-    
+
     /**
      * 지정된 ID의 에디터에 여러 텍스트 편집 작업을 일괄 적용합니다.
      * @param id 에디터의 고유 ID
@@ -99,7 +97,7 @@ interface MainThreadTextEditorsShape : Disposable {
      * @return 성공 여부
      */
     fun tryApplyEdits(id: String, modelVersionId: Int, edits: List<Any>, opts: Any?): Boolean
-    
+
     /**
      * 지정된 ID의 에디터에 코드 스니펫을 삽입합니다.
      * @param id 에디터의 고유 ID
@@ -110,7 +108,7 @@ interface MainThreadTextEditorsShape : Disposable {
      * @return 성공 여부
      */
     fun tryInsertSnippet(id: String, modelVersionId: Int, template: String, selections: List<Any>, opts: Any?): Boolean
-    
+
     /**
      * 지정된 ID의 에디터에 대한 diff 정보를 가져옵니다. (예: Git 변경사항)
      * @param id 에디터의 고유 ID
@@ -133,14 +131,14 @@ class MainThreadTextEditors(var project: Project) : MainThreadTextEditorsShape {
         // 가상 파일 시스템을 새로고침하여 최신 파일 상태를 반영합니다.
         val vfs = LocalFileSystem.getInstance()
         vfs.refreshIoFiles(listOf(File(path)))
-        
+
         val resourceURI = createURI(resource)
         // EditorAndDocManager 서비스를 통해 에디터를 엽니다.
         val editorHandle = project.getService(EditorAndDocManager::class.java).openEditor(resourceURI)
         logger.info("텍스트 문서 표시 시도 완료: resource=$resource")
         return editorHandle.id
     }
-    
+
     override fun registerTextEditorDecorationType(extensionId: Map<String, String>, key: String, options: Any) {
         logger.info("텍스트 에디터 데코레이션 타입 등록: extensionId=$extensionId, key=$key, options=$options")
     }
@@ -174,7 +172,7 @@ class MainThreadTextEditors(var project: Project) : MainThreadTextEditorsShape {
         return Unit
     }
 
-    override fun tryRevealRange(id: String, range: Map<String,Any?>, revealType: Int): Any {
+    override fun tryRevealRange(id: String, range: Map<String, Any?>, revealType: Int): Any {
         logger.info("범위 표시 시도: id=$id, range=$range, revealType=$revealType")
         val handle = project.getService(EditorAndDocManager::class.java).getEditorHandleById(id)
         handle?.let {
@@ -188,7 +186,7 @@ class MainThreadTextEditors(var project: Project) : MainThreadTextEditorsShape {
     /**
      * Map 형태의 데이터를 `Range` 데이터 클래스로 변환하는 헬퍼 함수입니다.
      */
-    private fun createRanges(range: Map<String,Any?>): Range {
+    private fun createRanges(range: Map<String, Any?>): Range {
         val startLineNumber = (range["startLineNumber"] as? Number)?.toInt() ?: 0
         val startColumn = (range["startColumn"] as? Number)?.toInt() ?: 0
         val endLineNumber = (range["endLineNumber"] as? Number)?.toInt() ?: startLineNumber

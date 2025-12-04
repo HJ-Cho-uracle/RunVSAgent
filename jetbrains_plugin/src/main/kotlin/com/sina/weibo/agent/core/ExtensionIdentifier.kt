@@ -26,7 +26,7 @@ class ExtensionIdentifier(val value: String) {
          */
         fun equals(
             a: ExtensionIdentifier?,
-            b: ExtensionIdentifier?
+            b: ExtensionIdentifier?,
         ): Boolean {
             if (a == null) return b == null
             if (b == null) return false
@@ -41,7 +41,7 @@ class ExtensionIdentifier(val value: String) {
          */
         fun equals(
             a: ExtensionIdentifier?,
-            b: String?
+            b: String?,
         ): Boolean {
             if (a == null) return b == null
             if (b == null) return false
@@ -56,7 +56,7 @@ class ExtensionIdentifier(val value: String) {
          */
         fun equals(
             a: String?,
-            b: ExtensionIdentifier?
+            b: ExtensionIdentifier?,
         ): Boolean {
             if (a == null) return b == null
             if (b == null) return false
@@ -99,7 +99,7 @@ class ExtensionIdentifier(val value: String) {
     override fun hashCode(): Int {
         return _lower.hashCode()
     }
-    
+
     /**
      * 객체를 문자열로 표현할 때 원본 `value`를 반환합니다.
      */

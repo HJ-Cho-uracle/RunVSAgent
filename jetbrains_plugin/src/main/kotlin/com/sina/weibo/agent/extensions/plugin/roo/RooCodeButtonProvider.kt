@@ -4,31 +4,31 @@
 
 package com.sina.weibo.agent.extensions.plugin.roo
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.icons.AllIcons
-import com.sina.weibo.agent.actions.*
-import com.sina.weibo.agent.extensions.ui.buttons.ExtensionButtonProvider
-import com.sina.weibo.agent.extensions.ui.buttons.ButtonType
+import com.sina.weibo.agent.actions.executeCommand
 import com.sina.weibo.agent.extensions.ui.buttons.ButtonConfiguration
+import com.sina.weibo.agent.extensions.ui.buttons.ButtonType
+import com.sina.weibo.agent.extensions.ui.buttons.ExtensionButtonProvider
 
 /**
  * Roo Code 확장 버튼 제공자입니다.
  * Roo Code 확장에 특화된 버튼 구성을 제공합니다.
  */
 class RooCodeButtonProvider : ExtensionButtonProvider {
-    
+
     // 확장의 고유 ID를 반환합니다.
     override fun getExtensionId(): String = "roo-code"
-    
+
     // 확장의 표시 이름을 반환합니다.
     override fun getDisplayName(): String = "Roo Code"
-    
+
     // 확장에 대한 설명을 반환합니다.
     override fun getDescription(): String = "모든 기능을 갖춘 AI 기반 코드 어시스턴트"
-    
+
     /**
      * Roo Code 확장이 사용 가능한지 여부를 확인합니다.
      * @param project 현재 IntelliJ 프로젝트
@@ -38,7 +38,7 @@ class RooCodeButtonProvider : ExtensionButtonProvider {
         // TODO: Roo Code 확장의 가용성 조건을 확인할 수 있습니다.
         return true
     }
-    
+
     /**
      * Roo Code 확장을 위한 버튼 목록을 생성하여 반환합니다.
      * @param project 현재 IntelliJ 프로젝트 (향후 확장성을 위해 유지)
@@ -51,17 +51,17 @@ class RooCodeButtonProvider : ExtensionButtonProvider {
             MCPButtonClickAction(),
             HistoryButtonClickAction(),
             MarketplaceButtonClickAction(),
-            SettingsButtonClickAction()
+            SettingsButtonClickAction(),
         )
     }
-    
+
     /**
      * Roo Code 확장을 위한 버튼 구성 정보를 반환합니다.
      */
     override fun getButtonConfiguration(): ButtonConfiguration {
         return RooCodeButtonConfiguration()
     }
-    
+
     /**
      * Roo Code 버튼 구성 클래스입니다.
      * 모든 버튼이 표시되도록 설정합니다. (모든 기능을 제공하는 확장)
@@ -74,7 +74,7 @@ class RooCodeButtonProvider : ExtensionButtonProvider {
         override fun isButtonVisible(buttonType: ButtonType): Boolean {
             return true // 모든 버튼이 Roo Code에서 표시됩니다.
         }
-        
+
         /**
          * 표시될 버튼 타입 목록을 반환합니다.
          * Roo Code의 경우 모든 버튼 타입을 반환합니다.

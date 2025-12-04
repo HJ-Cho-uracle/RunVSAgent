@@ -9,9 +9,9 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.sina.weibo.agent.extensions.ui.contextmenu.ExtensionContextMenuProvider
-import com.sina.weibo.agent.extensions.ui.contextmenu.ContextMenuConfiguration
 import com.sina.weibo.agent.extensions.ui.contextmenu.ContextMenuActionType
+import com.sina.weibo.agent.extensions.ui.contextmenu.ContextMenuConfiguration
+import com.sina.weibo.agent.extensions.ui.contextmenu.ExtensionContextMenuProvider
 import com.sina.weibo.agent.webview.WebViewManager
 
 /**
@@ -20,16 +20,16 @@ import com.sina.weibo.agent.webview.WebViewManager
  * 이는 기존 roo-cline의 모든 기능을 포함합니다.
  */
 class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
-    
+
     // 확장의 고유 ID를 반환합니다.
     override fun getExtensionId(): String = "roo-code"
-    
+
     // 확장의 표시 이름을 반환합니다.
     override fun getDisplayName(): String = "Roo Code"
-    
+
     // 확장에 대한 설명을 반환합니다.
     override fun getDescription(): String = "전체 컨텍스트 메뉴 기능을 갖춘 AI 기반 코드 어시스턴트"
-    
+
     /**
      * Roo Code 확장이 사용 가능한지 여부를 확인합니다.
      * @param project 현재 IntelliJ 프로젝트
@@ -39,7 +39,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
         // TODO: Roo Code 확장의 가용성 조건을 확인할 수 있습니다.
         return true
     }
-    
+
     /**
      * Roo Code 확장을 위한 컨텍스트 메뉴 액션 목록을 생성하여 반환합니다.
      * @param project 현재 IntelliJ 프로젝트
@@ -54,14 +54,14 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
             AddToContextAction(),
         )
     }
-    
+
     /**
      * Roo Code 확장을 위한 컨텍스트 메뉴 구성 정보를 반환합니다.
      */
     override fun getContextMenuConfiguration(): ContextMenuConfiguration {
         return RooCodeContextMenuConfiguration()
     }
-    
+
     /**
      * Roo Code 컨텍스트 메뉴 구성 클래스입니다.
      * 모든 액션이 표시되도록 설정합니다. (모든 기능을 제공하는 확장)
@@ -74,7 +74,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
         override fun isActionVisible(actionType: ContextMenuActionType): Boolean {
             return true // Roo Code의 경우 모든 액션이 표시됩니다.
         }
-        
+
         /**
          * 표시될 컨텍스트 메뉴 액션 타입 목록을 반환합니다.
          * Roo Code의 경우 모든 액션 타입을 반환합니다.
@@ -90,23 +90,23 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
      */
     class ExplainCodeAction : AnAction("코드 설명") {
         private val logger: Logger = Logger.getInstance(ExplainCodeAction::class.java)
-        
+
         override fun actionPerformed(e: AnActionEvent) {
             val project = e.project ?: return
             val editor = e.getData(CommonDataKeys.EDITOR) ?: return
             val file = e.dataContext.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-            
+
             // 에디터에서 선택된 유효한 범위와 텍스트를 가져옵니다.
             val effectiveRange = RooCodeContextMenuProvider.getEffectiveRange(editor)
             if (effectiveRange == null) return
-            
+
             // 명령 실행에 필요한 인자를 Map으로 구성합니다.
             val args = mutableMapOf<String, Any?>()
             args["filePath"] = file.path
             args["selectedText"] = effectiveRange.text
             args["startLine"] = effectiveRange.startLine + 1 // 1-based 라인 번호
-            args["endLine"] = effectiveRange.endLine + 1     // 1-based 라인 번호
-            
+            args["endLine"] = effectiveRange.endLine + 1 // 1-based 라인 번호
+
             // `handleCodeAction` 헬퍼 함수를 호출하여 명령을 처리합니다.
             RooCodeContextMenuProvider.handleCodeAction("roo-cline.explainCode.InCurrentTask", "EXPLAIN", args, project)
         }
@@ -118,21 +118,21 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
      */
     class FixCodeAction : AnAction("코드 수정") {
         private val logger: Logger = Logger.getInstance(FixCodeAction::class.java)
-        
+
         override fun actionPerformed(e: AnActionEvent) {
             val project = e.project ?: return
             val editor = e.getData(CommonDataKeys.EDITOR) ?: return
             val file = e.dataContext.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-            
+
             val effectiveRange = RooCodeContextMenuProvider.getEffectiveRange(editor)
             if (effectiveRange == null) return
-            
+
             val args = mutableMapOf<String, Any?>()
             args["filePath"] = file.path
             args["selectedText"] = effectiveRange.text
             args["startLine"] = effectiveRange.startLine + 1
             args["endLine"] = effectiveRange.endLine + 1
-            
+
             RooCodeContextMenuProvider.handleCodeAction("roo-cline.fixCode.InCurrentTask", "FIX", args, project)
         }
     }
@@ -143,21 +143,21 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
      */
     class FixLogicAction : AnAction("논리 수정") {
         private val logger: Logger = Logger.getInstance(FixLogicAction::class.java)
-        
+
         override fun actionPerformed(e: AnActionEvent) {
             val project = e.project ?: return
             val editor = e.getData(CommonDataKeys.EDITOR) ?: return
             val file = e.dataContext.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-            
+
             val effectiveRange = RooCodeContextMenuProvider.getEffectiveRange(editor)
             if (effectiveRange == null) return
-            
+
             val args = mutableMapOf<String, Any?>()
             args["filePath"] = file.path
             args["selectedText"] = effectiveRange.text
             args["startLine"] = effectiveRange.startLine + 1
             args["endLine"] = effectiveRange.endLine + 1
-            
+
             RooCodeContextMenuProvider.handleCodeAction("roo-cline.fixCode.InCurrentTask", "FIX", args, project)
         }
     }
@@ -168,21 +168,21 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
      */
     class ImproveCodeAction : AnAction("코드 개선") {
         private val logger: Logger = Logger.getInstance(ImproveCodeAction::class.java)
-        
+
         override fun actionPerformed(e: AnActionEvent) {
             val project = e.project ?: return
             val editor = e.getData(CommonDataKeys.EDITOR) ?: return
             val file = e.dataContext.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-            
+
             val effectiveRange = RooCodeContextMenuProvider.getEffectiveRange(editor)
             if (effectiveRange == null) return
-            
+
             val args = mutableMapOf<String, Any?>()
             args["filePath"] = file.path
             args["selectedText"] = effectiveRange.text
             args["startLine"] = effectiveRange.startLine + 1
             args["endLine"] = effectiveRange.endLine + 1
-            
+
             RooCodeContextMenuProvider.handleCodeAction("roo-cline.improveCode.InCurrentTask", "IMPROVE", args, project)
         }
     }
@@ -193,21 +193,21 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
      */
     class AddToContextAction : AnAction("컨텍스트에 추가") {
         private val logger: Logger = Logger.getInstance(AddToContextAction::class.java)
-        
+
         override fun actionPerformed(e: AnActionEvent) {
             val project = e.project ?: return
             val editor = e.getData(CommonDataKeys.EDITOR) ?: return
             val file = e.dataContext.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-            
+
             val effectiveRange = RooCodeContextMenuProvider.getEffectiveRange(editor)
             if (effectiveRange == null) return
-            
+
             val args = mutableMapOf<String, Any?>()
             args["filePath"] = file.path
             args["selectedText"] = effectiveRange.text
             args["startLine"] = effectiveRange.startLine + 1
             args["endLine"] = effectiveRange.endLine + 1
-            
+
             RooCodeContextMenuProvider.handleCodeAction("roo-cline.addToContext", "ADD_TO_CONTEXT", args, project)
         }
     }
@@ -218,21 +218,21 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
      */
     class NewTaskAction : AnAction("새 작업") {
         private val logger: Logger = Logger.getInstance(NewTaskAction::class.java)
-        
+
         override fun actionPerformed(e: AnActionEvent) {
             val project = e.project ?: return
             val editor = e.getData(CommonDataKeys.EDITOR) ?: return
             val file = e.dataContext.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-            
+
             val effectiveRange = RooCodeContextMenuProvider.getEffectiveRange(editor)
             if (effectiveRange == null) return
-            
+
             val args = mutableMapOf<String, Any?>()
             args["filePath"] = file.path
             args["selectedText"] = effectiveRange.text
             args["startLine"] = effectiveRange.startLine + 1
             args["endLine"] = effectiveRange.endLine + 1
-            
+
             RooCodeContextMenuProvider.handleCodeAction("roo-cline.newTask", "NEW_TASK", args, project)
         }
     }
@@ -246,7 +246,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
     data class EffectiveRange(
         val text: String,
         val startLine: Int,
-        val endLine: Int
+        val endLine: Int,
     )
 
     companion object {
@@ -293,7 +293,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
                     mapOf(
                         "type" to "invoke",
                         "invoke" to "setChatBoxMessage",
-                        "text" to RooCodeSupportPrompt.create("ADD_TO_CONTEXT", promptParams)
+                        "text" to RooCodeSupportPrompt.create("ADD_TO_CONTEXT", promptParams),
                     )
                 }
                 // 현재 작업에서 실행되는 명령
@@ -308,7 +308,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
                     mapOf(
                         "type" to "invoke",
                         "invoke" to "sendMessage",
-                        "text" to RooCodeSupportPrompt.create(basePromptType, promptParams)
+                        "text" to RooCodeSupportPrompt.create(basePromptType, promptParams),
                     )
                 }
                 // 새 작업에서 실행되는 명령
@@ -320,7 +320,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
                                 "filePath" to argsList[0],
                                 "selectedText" to argsList[1],
                                 "startLine" to argsList[2],
-                                "endLine" to argsList[3]
+                                "endLine" to argsList[3],
                             )
                         } else {
                             emptyMap()
@@ -341,7 +341,7 @@ class RooCodeContextMenuProvider : ExtensionContextMenuProvider {
                     mapOf(
                         "type" to "invoke",
                         "invoke" to "initClineWithTask", // TODO: initClineWithTask 대신 initRooCodeWithTask로 변경 필요
-                        "text" to RooCodeSupportPrompt.create(basePromptType, promptParams)
+                        "text" to RooCodeSupportPrompt.create(basePromptType, promptParams),
                     )
                 }
             }

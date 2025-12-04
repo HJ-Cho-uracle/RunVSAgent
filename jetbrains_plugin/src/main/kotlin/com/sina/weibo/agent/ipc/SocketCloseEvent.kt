@@ -15,7 +15,7 @@ sealed interface SocketCloseEvent {
      * @return 연결 종료 이벤트 타입
      */
     val type: SocketCloseEventType
-    
+
     /**
      * 소켓 연결 종료 이벤트의 종류를 정의하는 열거형입니다.
      */
@@ -24,13 +24,13 @@ sealed interface SocketCloseEvent {
          * Node.js 소켓(TCP 또는 UDS) 연결 종료 이벤트입니다.
          */
         NODE_SOCKET_CLOSE_EVENT,
-        
+
         /**
          * WebSocket 연결 종료 이벤트입니다.
          */
-        WEB_SOCKET_CLOSE_EVENT
+        WEB_SOCKET_CLOSE_EVENT,
     }
-    
+
     /**
      * Node.js 소켓 연결 종료 이벤트를 나타내는 데이터 클래스입니다.
      */
@@ -39,15 +39,15 @@ sealed interface SocketCloseEvent {
          * 소켓 통신 중 전송 오류가 있었는지 여부입니다.
          */
         val hadError: Boolean,
-        
+
         /**
          * 발생한 기본 오류 (예외 객체)입니다.
          */
-        val error: Throwable?
+        val error: Throwable?,
     ) : SocketCloseEvent {
         override val type: SocketCloseEventType = SocketCloseEventType.NODE_SOCKET_CLOSE_EVENT
     }
-    
+
     /**
      * WebSocket 연결 종료 이벤트를 나타내는 데이터 클래스입니다.
      */
@@ -56,21 +56,21 @@ sealed interface SocketCloseEvent {
          * WebSocket 종료 코드입니다.
          */
         val code: Int,
-        
+
         /**
          * WebSocket 종료 이유 메시지입니다.
          */
         val reason: String,
-        
+
         /**
          * 연결이 깨끗하게(오류 없이) 종료되었는지 여부입니다.
          */
         val wasClean: Boolean,
-        
+
         /**
          * 기본 이벤트 객체입니다.
          */
-        val event: Any?
+        val event: Any?,
     ) : SocketCloseEvent {
         override val type: SocketCloseEventType = SocketCloseEventType.WEB_SOCKET_CLOSE_EVENT
     }

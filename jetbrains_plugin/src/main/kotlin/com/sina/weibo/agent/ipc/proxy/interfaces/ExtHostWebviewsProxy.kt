@@ -21,7 +21,7 @@ interface ExtHostWebviewsProxy {
     fun onMessage(
         handle: WebviewHandle,
         jsonSerializedMessage: String,
-        buffers: SerializableObjectWithBuffers<List<ByteArray>>
+        buffers: SerializableObjectWithBuffers<List<ByteArray>>,
     )
 
     /**
@@ -31,6 +31,6 @@ interface ExtHostWebviewsProxy {
      */
     fun onMissingCsp(
         handle: WebviewHandle,
-        extensionId: String
+        extensionId: String,
     )
 }

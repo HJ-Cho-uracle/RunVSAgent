@@ -101,6 +101,9 @@ intellij {
 // --- 사용자 정의 태스크 정의 ---
 tasks {
 
+    var extensionHostPath = rootProject.projectDir.resolve("../extension_host").absolutePath
+    print("extensionHostPath : $extensionHostPath")
+
     // Git 서브모듈 초기화 및 업데이트 태스크
     val initSubmodules by registering(Exec::class) {
         group = "build setup" // 태스크 그룹
@@ -158,7 +161,7 @@ tasks {
         group = "build"
         description = "Extension Host의 npm 의존성을 설치합니다."
         dependsOn(initSubmodules) // 서브모듈 초기화 후 실행
-        workingDir = rootProject.projectDir.resolve("../extension_host") // Extension Host 디렉터리
+        workingDir = file(extensionHostPath) // Extension Host 디렉터리 (수정됨)
         commandLine("npm", "install") // npm install 명령어 실행
     }
 
@@ -167,7 +170,7 @@ tasks {
         group = "build"
         description = "디버깅을 위해 Extension Host를 빌드합니다."
         dependsOn(npmInstallExtensionHost) // npm install 후 실행
-        workingDir = rootProject.projectDir.resolve("../extension_host")
+        workingDir = file(extensionHostPath) // Extension Host 디렉터리 (수정됨)
         commandLine("npm", "run", "build") // npm run build 명령어 실행
     }
 
@@ -179,8 +182,6 @@ tasks {
             configDir.mkdirs() // 디렉터리 생성
             val configFile = configDir.resolve("plugin.properties")
             configFile.writeText("debug.mode=${ext.get("debugMode")}") // debugMode 작성
-            configFile.appendText("\n")
-            configFile.appendText("debug.resource=${project.projectDir.resolve("../debug-resources").absolutePath}") // debugResource 작성
             println("설정 파일 생성됨: ${configFile.absolutePath}")
         }
     }
@@ -199,82 +200,31 @@ tasks {
         // prepareAthenaPlugin 및 npmBuildExtensionHost 태스크 완료 후 실행
         dependsOn(prepareAthenaPlugin, npmBuildExtensionHost)
 
-        val debugMode = debugModeProp.get() // 현재 디버그 모드
         val vsCodePluginName = vscodePluginProp.get() // VSCode 플러그인 이름
-        val sandboxDir = intellij.pluginName.get() // IntelliJ 샌드박스 디렉터리 이름
 
         duplicatesStrategy = DuplicatesStrategy.INCLUDE // 중복 파일 처리 전략: 포함 (덮어쓰기)
 
         val themesDir = project.projectDir.resolve("src/main/resources/themes") // 테마 리소스 디렉터리
-        val vscodePluginDir = project.projectDir.resolve("plugins/${vsCodePluginName}") // VSCode 플러그인 설치 디렉터리
-        val extensionHostDir = project.projectDir.resolve("../extension_host") // Extension Host 디렉터리
+        val vscodePluginDir = project.projectDir.resolve("plugins/$vsCodePluginName") // VSCode 플러그인 설치 디렉터리
+        val extensionHostDir = file(extensionHostPath) // Extension Host 디렉터리 (루트 프로젝트 기준, 수정됨)
 
-        // 태스크 실행 직전, 필요한 디렉터리가 존재하는지 확인합니다.
-        doFirst {
-            if (!themesDir.exists()) {
-                throw IllegalStateException("실행 시 테마 디렉터리를 찾을 수 없습니다: ${themesDir.absolutePath}")
-            }
-            if (!vscodePluginDir.exists()) {
-                throw IllegalStateException("실행 시 VSCode 플러그인 디렉터리를 찾을 수 없습니다: ${vscodePluginDir.absolutePath}. 'prepareAthenaPlugin' 태스크가 실패했을 수 있습니다.")
-            }
-        }
-
-        // 디버그 모드에 따라 다른 복사 전략을 사용합니다.
-        if (debugMode == "idea") {
-            // "idea" 모드: 로컬 개발 및 디버깅을 위해 'debug-resources' 디렉터리로 복사합니다.
-            val debugDir = project.projectDir.resolve("../debug-resources")
-            doFirst {
-                // debugDir을 정리하고 다시 생성합니다.
-                if (debugDir.exists()) {
-                    project.delete(debugDir)
-                }
-                debugDir.mkdirs()
-            }
-            into(debugDir) // 기본 목적지를 debug-resources로 설정
-            from(vscodePluginDir) { into(vsCodePluginName) } // VSCode 플러그인 파일 복사
-            from(themesDir) { into("${vsCodePluginName}/integrations/theme/default-themes") } // 테마 파일 복사
-            from(themesDir) { into("themes") } // 테마 파일 복사
-            from(extensionHostDir.resolve("dist")) { into("runtime") } // Extension Host dist 복사
-            from(extensionHostDir.resolve("package.json")) { into("runtime") } // Extension Host package.json 복사
-            from(extensionHostDir.resolve("node_modules")) { into("node_modules") } // Extension Host node_modules 복사
-        } else {
-            // "release" 또는 "none" 모드: 실제 배포용 샌드박스 디렉터리로 복사합니다.
-            into(project.layout.buildDirectory.dir("idea-sandbox/plugins/${sandboxDir}")) // 기본 목적지를 샌드박스 플러그인 디렉터리로 설정
-            from(extensionHostDir.resolve("dist")) { into("runtime") } // Extension Host dist 복사
-            from(extensionHostDir.resolve("package.json")) { into("runtime") } // Extension Host package.json 복사
-            from(vscodePluginDir) { into(vsCodePluginName) } // VSCode 플러그인 파일 복사
-            from(themesDir) { into("${vsCodePluginName}/integrations/theme/default-themes") } // 테마 파일 복사
-            from(themesDir) { into("themes") } // 테마 파일 복사
-            from(extensionHostDir.resolve("node_modules")) { into("node_modules") } // Extension Host node_modules 복사
-
-            if (debugMode == "release") {
-                // "release" 모드: platform.zip 관련 로직
-                val platformZip = project.file("platform.zip")
-                if (!platformZip.exists() || platformZip.length() < 1024 * 1024) {
-                    logger.warn("platform.zip을 찾을 수 없거나 너무 작습니다. 'genPlatform'을 태스크 의존성에 추가합니다.")
-                    dependsOn("genPlatform") // platform.zip이 없으면 genPlatform 태스크 실행
-                }
-                // platform.zip에 대한 릴리스별 로직은 여전히 문제가 있으며, 동적 구성이 포함된 경우 별도의 태스크에서 처리해야 합니다.
-                // 현재는 릴리스가 아닌 빌드가 작동하도록 하는 데 중점을 둡니다.
-            }
-        }
-
-        // 태스크 완료 후 .env 파일 생성
-        doLast {
-            if (debugMode != "idea") {
-                destinationDir.resolve("${vsCodePluginName}/.env").createNewFile()
-            }
-        }
+        // 항상 표준 샌드박스 경로로 복사하도록 로직을 단순화합니다.
+        from(extensionHostDir.resolve("dist")) { into("runtime") }
+        from(extensionHostDir.resolve("package.json")) { into("runtime") }
+        from(vscodePluginDir) { into(vsCodePluginName) }
+        from(themesDir) { into("$vsCodePluginName/integrations/theme/default-themes") }
+        from(themesDir) { into("themes") }
+        from(extensionHostDir.resolve("node_modules")) { into("node_modules") }
     }
 
     // Java 컴파일 태스크 설정
     withType<JavaCompile> {
-        dependsOn("generateConfigProperties") // generateConfigProperties 태스크 완료 후 실행
+        dependsOn("generateConfigProperties")
     }
 
     // Kotlin 컴파일 태스크 설정
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        dependsOn("generateConfigProperties") // generateConfigProperties 태스크 완료 후 실행
+        dependsOn("generateConfigProperties")
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) // JVM 타겟 버전 설정
         }
@@ -308,7 +258,7 @@ ktlint {
     android.set(false)
     outputToConsole.set(true)
     outputColorName.set("RED")
-    ignoreFailures.set(false)
+    ignoreFailures.set(false) // 다시 false로 설정하여 코드 스타일을 강제합니다.
     enableExperimentalRules.set(false)
     filter {
         exclude("**/generated/**") // 생성된 파일 제외

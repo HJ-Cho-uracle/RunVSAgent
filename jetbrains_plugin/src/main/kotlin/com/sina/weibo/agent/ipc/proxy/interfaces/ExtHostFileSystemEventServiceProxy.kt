@@ -13,7 +13,7 @@ data class FileSystemEvents(
     val session: String? = null,
     val created: List<Map<String, Any?>>, // 생성된 파일들의 URI 구성 요소
     val changed: List<Map<String, Any?>>, // 변경된 파일들의 URI 구성 요소
-    val deleted: List<Map<String, Any?>>  // 삭제된 파일들의 URI 구성 요소
+    val deleted: List<Map<String, Any?>>, // 삭제된 파일들의 URI 구성 요소
 )
 
 /**
@@ -21,7 +21,7 @@ data class FileSystemEvents(
  */
 data class SourceTargetPair(
     val source: Map<String, Any?>? = null, // 원본 파일의 URI 구성 요소
-    val target: Map<String, Any?>          // 대상 파일의 URI 구성 요소
+    val target: Map<String, Any?>, // 대상 파일의 URI 구성 요소
 )
 
 /**
@@ -29,7 +29,7 @@ data class SourceTargetPair(
  */
 data class FileOperationParticipation(
     val edit: Map<String, Any?>, // 워크스페이스 편집 DTO
-    val extensionNames: List<String>
+    val extensionNames: List<String>,
 )
 
 /**
@@ -39,8 +39,8 @@ enum class FileOperation {
     CREATE, // 생성
     DELETE, // 삭제
     RENAME, // 이름 변경
-    COPY,   // 복사
-    MOVE    // 이동
+    COPY, // 복사
+    MOVE, // 이동
 }
 
 /**
@@ -67,7 +67,7 @@ interface ExtHostFileSystemEventServiceProxy {
         operation: FileOperation,
         files: List<SourceTargetPair>,
         timeout: Int,
-        token: Any?
+        token: Any?,
     ): CompletableFuture<FileOperationParticipation?>
 
     /**
@@ -77,6 +77,6 @@ interface ExtHostFileSystemEventServiceProxy {
      */
     fun onDidRunFileOperation(
         operation: FileOperation,
-        files: List<SourceTargetPair>
+        files: List<SourceTargetPair>,
     )
 }

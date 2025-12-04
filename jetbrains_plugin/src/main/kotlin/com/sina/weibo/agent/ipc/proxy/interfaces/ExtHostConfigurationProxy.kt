@@ -16,13 +16,13 @@ interface ExtHostConfigurationProxy {
      * @param configModel 설정 정보를 담은 Map 형태의 설정 모델
      */
     fun initializeConfiguration(configModel: Map<String, Any?>)
-    
+
     /**
      * 설정 값을 업데이트합니다.
      * @param configModel 업데이트할 설정 정보를 담은 Map 형태의 설정 모델
      */
     fun updateConfiguration(configModel: Map<String, Any?>)
-    
+
     /**
      * 특정 설정 키에 해당하는 값을 가져옵니다.
      * @param key 조회할 설정 키 (예: "editor.fontSize")

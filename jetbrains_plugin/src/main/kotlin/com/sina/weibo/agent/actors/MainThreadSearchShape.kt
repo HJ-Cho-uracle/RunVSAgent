@@ -20,27 +20,27 @@ interface MainThreadSearchShape : Disposable {
      * @param scheme 이 제공자가 처리할 URI 스키마
      */
     fun registerFileSearchProvider(handle: Int, scheme: String)
-    
+
     /**
      * AI 기반 텍스트 검색 제공자를 등록합니다.
      * @param handle 제공자의 고유 식별자
      * @param scheme 이 제공자가 처리할 URI 스키마
      */
     fun registerAITextSearchProvider(handle: Int, scheme: String)
-    
+
     /**
      * 일반 텍스트 검색 제공자를 등록합니다.
      * @param handle 제공자의 고유 식별자
      * @param scheme 이 제공자가 처리할 URI 스키마
      */
     fun registerTextSearchProvider(handle: Int, scheme: String)
-    
+
     /**
      * 등록된 제공자를 해제합니다.
      * @param handle 해제할 제공자의 고유 식별자
      */
     fun unregisterProvider(handle: Int)
-    
+
     /**
      * 파일 검색 결과를 처리합니다.
      * @param handle 결과를 보낸 제공자의 핸들
@@ -48,7 +48,7 @@ interface MainThreadSearchShape : Disposable {
      * @param data 검색된 파일들의 URI 정보를 담은 리스트
      */
     fun handleFileMatch(handle: Int, session: Int, data: List<Map<String, Any?>>)
-    
+
     /**
      * 텍스트 검색 결과를 처리합니다.
      * @param handle 결과를 보낸 제공자의 핸들
@@ -56,7 +56,7 @@ interface MainThreadSearchShape : Disposable {
      * @param data 검색된 텍스트와 관련 정보를 담은 리스트
      */
     fun handleTextMatch(handle: Int, session: Int, data: List<Map<String, Any?>>)
-    
+
     /**
      * 검색 관련 원격 측정(Telemetry) 데이터를 처리합니다.
      * @param eventName 이벤트 이름
@@ -71,10 +71,13 @@ interface MainThreadSearchShape : Disposable {
  */
 class MainThreadSearch : MainThreadSearchShape {
     private val logger = Logger.getInstance(MainThreadSearch::class.java)
+
     // 등록된 검색 제공자들을 저장하는 맵 (핸들 -> "타입:스키마")
     private val searchProviders = mutableMapOf<Int, String>()
+
     // 파일 검색 결과를 세션별로 저장하는 맵 (세션 ID -> URI 리스트)
     private val fileSessions = mutableMapOf<Int, MutableList<URI>>()
+
     // 텍스트 검색 결과를 세션별로 저장하는 맵 (세션 ID -> 결과 데이터 리스트)
     private val textSessions = mutableMapOf<Int, MutableList<Map<String, Any?>>>()
 
@@ -117,7 +120,7 @@ class MainThreadSearch : MainThreadSearchShape {
     override fun handleFileMatch(handle: Int, session: Int, data: List<Map<String, Any?>>) {
         try {
             logger.info("파일 검색 결과 처리: handle=$handle, session=$session, 찾은 개수=${data.size}")
-            
+
             // Map 형태의 URI 구성요소를 실제 URI 객체로 변환합니다.
             val uris = data.mapNotNull { uriComponents ->
                 try {
@@ -126,17 +129,17 @@ class MainThreadSearch : MainThreadSearchShape {
                     val path = uriComponents["path"] as? String ?: return@mapNotNull null
                     val query = uriComponents["query"] as? String ?: ""
                     val fragment = uriComponents["fragment"] as? String ?: ""
-                    
+
                     URI(scheme, authority, path, query, fragment)
                 } catch (e: Exception) {
                     logger.warn("URI 구성요소 변환 실패: $uriComponents", e)
                     null
                 }
             }
-            
+
             // 검색 결과를 세션 ID에 따라 저장합니다.
             fileSessions.getOrPut(session) { mutableListOf() }.addAll(uris)
-            
+
             // TODO: 실제 구현에서는 이 결과를 IntelliJ의 검색 결과 패널에 표시해야 합니다.
         } catch (e: Exception) {
             logger.error("파일 검색 결과 처리 실패", e)
@@ -146,10 +149,10 @@ class MainThreadSearch : MainThreadSearchShape {
     override fun handleTextMatch(handle: Int, session: Int, data: List<Map<String, Any?>>) {
         try {
             logger.info("텍스트 검색 결과 처리: handle=$handle, session=$session, 찾은 개수=${data.size}")
-            
+
             // 검색 결과를 세션 ID에 따라 저장합니다.
             textSessions.getOrPut(session) { mutableListOf() }.addAll(data)
-            
+
             // TODO: 실제 구현에서는 이 결과를 IntelliJ의 검색 결과 패널에 표시하고, 일치하는 텍스트를 하이라이트해야 합니다.
         } catch (e: Exception) {
             logger.error("텍스트 검색 결과 처리 실패", e)

@@ -41,7 +41,7 @@ interface MainThreadBulkEditsShape {
  */
 class MainThreadBulkEdits(val project: Project) : MainThreadBulkEditsShape {
     private val logger = Logger.getInstance(MainThreadBulkEditsShape::class.java)
-    
+
     /**
      * 전달받은 `workspaceEditDto`를 파싱하여 파일 작업과 텍스트 편집을 순차적으로 처리합니다.
      */
@@ -70,7 +70,7 @@ class MainThreadBulkEdits(val project: Project) : MainThreadBulkEditsShape {
                     logger.error("[Bulk Edit] 파일 이름 변경 실패: ${oldResource.path} -> ${newResource.path}", e)
                     allSuccess = false
                 }
-            } 
+            }
             // 파일 삭제
             else if (fileEdit.oldResource != null) {
                 val oldResource = File(fileEdit.oldResource.path)
@@ -84,7 +84,7 @@ class MainThreadBulkEdits(val project: Project) : MainThreadBulkEditsShape {
                     logger.error("[Bulk Edit] 파일 삭제 실패: ${oldResource.path}", e)
                     allSuccess = false
                 }
-            } 
+            }
             // 파일 생성
             else if (fileEdit.newResource != null) {
                 val newResource = File(fileEdit.newResource.path)
@@ -119,7 +119,7 @@ class MainThreadBulkEdits(val project: Project) : MainThreadBulkEditsShape {
                 allSuccess = false
                 return@forEach
             }
-            
+
             var handle: EditorHolder? = null
             try {
                 // URI에 해당하는 에디터 핸들(EditorHolder)을 가져옵니다.
@@ -152,7 +152,7 @@ class MainThreadBulkEdits(val project: Project) : MainThreadBulkEditsShape {
                 allSuccess = false
             }
         }
-        
+
         return allSuccess
     }
 }

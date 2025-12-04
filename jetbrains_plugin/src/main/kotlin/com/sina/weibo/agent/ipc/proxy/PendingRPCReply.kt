@@ -13,7 +13,7 @@ import com.intellij.openapi.Disposable
  */
 class PendingRPCReply(
     private val promise: LazyPromise, // RPC 호출의 결과를 담을 `LazyPromise`
-    private val disposable: Disposable // 응답 처리 완료 후 해제될 `Disposable`
+    private val disposable: Disposable, // 응답 처리 완료 후 해제될 `Disposable`
 ) {
     /**
      * RPC 응답을 성공적으로 해결(resolve)합니다.

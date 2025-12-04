@@ -63,7 +63,6 @@ fun executeCommand(commandId: String, project: Project?, vararg args: Any?, hasA
         }
 
         logger.info("✅ Extension Host로 명령 전송 완료: $commandId")
-
     } catch (e: Exception) {
         // 명령 실행 중 발생할 수 있는 모든 예외를 처리하고 에러 로그를 남깁니다.
         logger.error("❌ 명령 실행 중 오류 발생: $commandId", e)

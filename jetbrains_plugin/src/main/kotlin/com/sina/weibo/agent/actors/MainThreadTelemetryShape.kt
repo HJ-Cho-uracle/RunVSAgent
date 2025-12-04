@@ -18,7 +18,7 @@ interface MainThreadTelemetryShape : Disposable {
      * @param data 이벤트와 관련된 데이터
      */
     fun publicLog(eventName: String, data: Any?)
-    
+
     /**
      * 공개적인 원격 측정 이벤트를 기록합니다. (분류된 이벤트를 지원할 수 있는 추가 메소드)
      * @param eventName 이벤트의 이름
@@ -40,7 +40,7 @@ class MainThreadTelemetry : MainThreadTelemetryShape {
     override fun publicLog(eventName: String, data: Any?) {
         logger.info("[Telemetry] $eventName: $data")
     }
-    
+
     /**
      * 전달받은 이벤트 이름과 데이터를 로그에 기록합니다.
      */

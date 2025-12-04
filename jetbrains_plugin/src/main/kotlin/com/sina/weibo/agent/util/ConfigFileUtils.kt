@@ -5,8 +5,8 @@
 package com.sina.weibo.agent.util
 
 import java.io.File
-import java.util.Properties
 import java.io.IOException
+import java.util.Properties
 
 /**
  * 설정 파일 유틸리티 클래스입니다.
@@ -23,7 +23,7 @@ object ConfigFileUtils {
         val currentExtensionId = properties.getProperty(PluginConstants.ConfigFiles.EXTENSION_TYPE_KEY)
         return currentExtensionId
     }
-    
+
     /**
      * 설정 디렉터리가 존재하는지 확인하고, 없으면 생성합니다.
      * @throws IOException 설정 디렉터리 생성에 실패할 경우
@@ -39,7 +39,7 @@ object ConfigFileUtils {
             throw IOException("설정 디렉터리 생성 실패", e)
         }
     }
-    
+
     /**
      * 메인 설정 파일에서 속성(Properties)을 로드합니다.
      * @return 로드된 `Properties` 객체
@@ -57,7 +57,7 @@ object ConfigFileUtils {
         }
         return properties
     }
-    
+
     /**
      * 메인 설정 파일에 속성(Properties)을 저장합니다.
      * @param properties 저장할 `Properties` 객체
@@ -67,14 +67,14 @@ object ConfigFileUtils {
     fun saveMainConfig(properties: Properties, comment: String = "RunVSAgent Configuration") {
         try {
             ensureConfigDirExists() // 설정 디렉터리가 있는지 확인하고 없으면 생성
-            
+
             val configFile = File(PluginConstants.ConfigFiles.getMainConfigPath())
             properties.store(configFile.outputStream(), comment)
         } catch (e: IOException) {
             throw IOException("메인 설정 파일 저장 실패", e)
         }
     }
-    
+
     /**
      * 확장별 설정 파일에서 속성(Properties)을 로드합니다.
      * @param extensionId 설정을 로드할 확장의 ID
@@ -93,7 +93,7 @@ object ConfigFileUtils {
         }
         return properties
     }
-    
+
     /**
      * 확장별 설정 파일에 속성(Properties)을 저장합니다.
      * @param extensionId 설정을 저장할 확장의 ID
@@ -104,14 +104,14 @@ object ConfigFileUtils {
     fun saveExtensionConfig(extensionId: String, properties: Properties, comment: String = "Extension Configuration for $extensionId") {
         try {
             ensureConfigDirExists() // 설정 디렉터리가 있는지 확인하고 없으면 생성
-            
+
             val configFile = File(PluginConstants.ConfigFiles.getExtensionConfigPath(extensionId))
             properties.store(configFile.outputStream(), comment)
         } catch (e: IOException) {
             throw IOException("확장 설정 파일 저장 실패: $extensionId", e)
         }
     }
-    
+
     /**
      * 메인 설정 파일의 경로를 가져옵니다.
      * @return 메인 설정 파일의 절대 경로 문자열
@@ -119,7 +119,7 @@ object ConfigFileUtils {
     fun getMainConfigPath(): String {
         return PluginConstants.ConfigFiles.getMainConfigPath()
     }
-    
+
     /**
      * 확장별 설정 파일의 경로를 가져옵니다.
      * @param extensionId 확장의 ID
@@ -128,7 +128,7 @@ object ConfigFileUtils {
     fun getExtensionConfigPath(extensionId: String): String {
         return PluginConstants.ConfigFiles.getExtensionConfigPath(extensionId)
     }
-    
+
     /**
      * 메인 설정 파일이 존재하는지 확인합니다.
      * @return 메인 설정 파일이 존재하면 true
@@ -137,7 +137,7 @@ object ConfigFileUtils {
         val configFile = File(PluginConstants.ConfigFiles.getMainConfigPath())
         return configFile.exists()
     }
-    
+
     /**
      * 확장별 설정 파일이 존재하는지 확인합니다.
      * @param extensionId 확장의 ID
@@ -147,7 +147,7 @@ object ConfigFileUtils {
         val configFile = File(PluginConstants.ConfigFiles.getExtensionConfigPath(extensionId))
         return configFile.exists()
     }
-    
+
     /**
      * 메인 설정 파일에서 특정 키의 값을 가져옵니다.
      * @param key 가져올 값의 키
@@ -162,7 +162,7 @@ object ConfigFileUtils {
             defaultValue
         }
     }
-    
+
     /**
      * 메인 설정 파일에 특정 키의 값을 설정합니다.
      * @param key 설정할 값의 키
@@ -178,7 +178,7 @@ object ConfigFileUtils {
             throw IOException("설정 값 설정 실패: $key", e)
         }
     }
-    
+
     /**
      * 기본 메인 설정 파일을 생성합니다.
      * `EXTENSION_TYPE_KEY`를 "roo-code"로 설정하고 주석을 추가합니다.
@@ -190,10 +190,10 @@ object ConfigFileUtils {
         properties.setProperty("# - roo-code: Roo Code extension", "")
         properties.setProperty("# - cline: Cline AI extension", "")
         properties.setProperty("# - custom: Custom extension", "")
-        
+
         saveMainConfig(properties, "RunVSAgent 확장 설정 - 기본 템플릿")
     }
-    
+
     /**
      * 모든 확장 설정 파일의 ID 목록을 가져옵니다.
      * @return 확장 ID 문자열 리스트

@@ -19,7 +19,7 @@ import kotlin.coroutines.resumeWithException
  */
 fun <T> LazyPromise.toCompletableFuture(): CompletableFuture<T> {
     val future = CompletableFuture<T>()
-    
+
     // `LazyPromise`가 완료될 때 호출될 콜백을 등록합니다.
     this.invokeOnCompletion { throwable ->
         if (throwable != null) {
@@ -34,7 +34,7 @@ fun <T> LazyPromise.toCompletableFuture(): CompletableFuture<T> {
             }
         }
     }
-    
+
     return future
 }
 
@@ -66,7 +66,7 @@ suspend fun <T> LazyPromise.await(): T {
                 }
             }
         }
-        
+
         // 코루틴이 취소될 때 호출될 콜백을 등록합니다.
         continuation.invokeOnCancellation {
             // `LazyPromise`가 취소를 지원하는 경우 여기에 취소 로직을 추가할 수 있습니다.
@@ -91,7 +91,7 @@ suspend fun <T> LazyPromise.await(): T {
  */
 fun <T> LazyPromise.handle(
     onSuccess: (T) -> Unit,
-    onError: (Throwable) -> Unit = { throw it }
+    onError: (Throwable) -> Unit = { throw it },
 ) {
     this.invokeOnCompletion { throwable ->
         if (throwable != null) {
@@ -126,7 +126,7 @@ fun <T> LazyPromise.handle(
  */
 fun <T, R> LazyPromise.thenMap(mapper: (T) -> R): LazyPromise {
     val result = LazyPromise() // 변환된 결과를 담을 새로운 `LazyPromise`
-    
+
     this.invokeOnCompletion { throwable ->
         if (throwable != null) {
             result.resolveErr(throwable) // 예외 발생 시 새로운 Promise를 예외로 완료
@@ -141,6 +141,6 @@ fun <T, R> LazyPromise.thenMap(mapper: (T) -> R): LazyPromise {
             }
         }
     }
-    
+
     return result
 }
