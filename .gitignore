@@ -2,7 +2,7 @@
 *.log
 debug-resources
 
-.pnpm-store
+#.pnpm-store
 dist
 out
 out-*
@@ -23,7 +23,7 @@ roo-cline-*.vsix
 .vscode-test/
 
 # Docs
-docs/_site/
+#docs/_site/
 
 # Dotenv
 .env
@@ -32,11 +32,11 @@ docs/_site/
 
 
 #Local lint config
-.eslintrc.local.json
+#.eslintrc.local.json
 
 #Logging
 logs
-.idea/
+#.idea/
 *.vsix
 # Vite development
 .vite-port
@@ -49,7 +49,7 @@ logs
 extension_host/vscode/*
 deps/roo-code/*
 deps/vscode/*
-deps/athena/*
+#deps/athena/*
 !deps/roo-code/.git
 !deps/vscode/.git
 !deps/athena/.git
